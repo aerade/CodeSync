@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import Editor, { OnMount } from "@monaco-editor/react";
 import type * as MonacoType from "monaco-editor";
 import * as Y from "yjs";
+import { PreviewPanel } from "@/components/PreviewPanel";
 import {
   useGetRoom,
   useGetRoomFiles,
@@ -92,6 +93,7 @@ export default function RoomPage() {
   const [isLeftOpen, setIsLeftOpen] = useState(true);
   const [isRightOpen, setIsRightOpen] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
   // Resizable panel sizes
   const [terminalHeight, setTerminalHeight] = useState(200);
@@ -482,6 +484,25 @@ export default function RoomPage() {
           Запустить
         </Button>
 
+        {/* Preview */}
+        {files.some((f) => !f.isFolder && f.language === "html") && (
+          <Button
+            size="sm"
+            onClick={() => setIsPreviewOpen(!isPreviewOpen)}
+            style={{
+              background: isPreviewOpen ? "#58A6FF" : "transparent",
+              color: isPreviewOpen ? "#0D1117" : "#58A6FF",
+              fontWeight: 600,
+              fontSize: 11,
+              height: 26,
+              border: "1px solid #58A6FF",
+            }}
+            data-testid="btn-toggle-preview"
+          >
+            Превью
+          </Button>
+        )}
+
         {/* Members */}
         <div className="flex items-center gap-1 ml-2">
           {members.slice(0, 5).map((m, i) => (
@@ -754,6 +775,19 @@ export default function RoomPage() {
                 }}
               />
             </div>
+          </div>
+        )}
+
+        {/* Preview Panel */}
+        {isPreviewOpen && (
+          <div
+            className="flex-shrink-0"
+            style={{ width: 480, borderLeft: "1px solid #30363D" }}
+          >
+            <PreviewPanel
+              files={files.filter((f) => !f.isFolder)}
+              onClose={() => setIsPreviewOpen(false)}
+            />
           </div>
         )}
 
