@@ -230,3 +230,19 @@
 .resize-handle-horizontal.dragging {
   background: #58A6FF;
 }
+
+/* Fix Clerk password toggle eye button — browser outline/ring can appear and stick */
+.cl-formFieldInputShowPasswordButton,
+.cl-formFieldInputShowPasswordButton:focus,
+.cl-formFieldInputShowPasswordButton:focus-visible,
+.cl-formFieldInputShowPasswordButton:active {
+  outline: none !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+
+/* Also suppress any lingering focus ring on the Clerk input wrapper */
+.cl-formFieldInput:focus,
+.cl-formFieldInput:focus-visible {
+  outline: none !important;
+}
