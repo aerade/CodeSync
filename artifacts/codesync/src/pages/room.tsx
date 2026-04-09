@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useLocation } from "wouter";
 import { motion } from "framer-motion";
 import Editor, { OnMount } from "@monaco-editor/react";
@@ -17,7 +17,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { FileTree } from "@/components/FileTree";
 import { AIPanel } from "@/components/AIPanel";
-import { Terminal } from "@/components/Terminal";
+import { Terminal, TerminalHandle } from "@/components/Terminal";
 import { SessionSidebar } from "@/components/SessionSidebar";
 import { Button } from "@/components/ui/button";
 import { useUser } from "@clerk/react";
@@ -88,6 +88,7 @@ export default function RoomPage() {
   const [activeFileId, setActiveFileId] = useState<string | null>(null);
   const [fileContent, setFileContent] = useState("");
   const [isBottomOpen, setIsBottomOpen] = useState(true);
+  const terminalRef = useRef<TerminalHandle>(null);
   const [isLeftOpen, setIsLeftOpen] = useState(true);
   const [isRightOpen, setIsRightOpen] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -380,7 +381,10 @@ export default function RoomPage() {
         {/* Run code */}
         <Button
           size="sm"
-          onClick={() => setIsBottomOpen(true)}
+          onClick={() => {
+            setIsBottomOpen(true);
+            setTimeout(() => terminalRef.current?.run(), 100);
+          }}
           style={{ background: "#3FB950", color: "#0D1117", fontWeight: 600, fontSize: 11, height: 26 }}
           data-testid="btn-run-code-topbar"
         >
@@ -556,6 +560,7 @@ export default function RoomPage() {
               />
               <div style={{ height: 196 }}>
                 <Terminal
+                  ref={terminalRef}
                   code={fileContent}
                   language={activeFile?.language ?? "javascript"}
                 />

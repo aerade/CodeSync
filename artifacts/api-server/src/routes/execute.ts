@@ -3,14 +3,19 @@ import { getAuth } from "@clerk/express";
 import { db } from "@workspace/db";
 import { usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
+import { execFile } from "child_process";
+import { writeFile, unlink, mkdir } from "fs/promises";
+import { join } from "path";
+import { randomUUID } from "crypto";
+import { tmpdir } from "os";
 
 const executeRouter = Router();
-
-const PISTON_API = "https://emkc.org/api/v2/piston";
 
 const execRateLimits = new Map<string, { count: number; resetAt: number }>();
 const EXEC_RATE_LIMIT = 15;
 const EXEC_RATE_WINDOW = 60 * 1000;
+const EXEC_TIMEOUT = 10_000;
+const MAX_OUTPUT = 50_000;
 
 function checkExecRateLimit(userId: string): boolean {
   const now = Date.now();
@@ -42,41 +47,82 @@ async function resolveExecUserId(req: Request): Promise<string | null> {
   return null;
 }
 
-const LANGUAGE_MAP: Record<string, { language: string; version: string }> = {
-  javascript: { language: "javascript", version: "18.15.0" },
-  typescript: { language: "typescript", version: "5.0.3" },
-  python: { language: "python", version: "3.10.0" },
-  go: { language: "go", version: "1.16.2" },
-  rust: { language: "rust", version: "1.50.0" },
-  java: { language: "java", version: "15.0.2" },
-  cpp: { language: "c++", version: "10.2.0" },
-  c: { language: "c", version: "10.2.0" },
-  ruby: { language: "ruby", version: "3.0.1" },
-  php: { language: "php", version: "8.0.2" },
-  csharp: { language: "csharp", version: "6.12.0" },
-  kotlin: { language: "kotlin", version: "1.8.20" },
-  swift: { language: "swift", version: "5.3.3" },
-  bash: { language: "bash", version: "5.2.0" },
-  shell: { language: "bash", version: "5.2.0" },
+interface ExecConfig {
+  compile?: { cmd: string; args: (tmpDir: string, srcFile: string) => string[] };
+  run: { cmd: string; args: (tmpDir: string, srcFile: string) => string[] };
+  ext: string;
+}
+
+const LANGUAGE_CONFIG: Record<string, ExecConfig> = {
+  javascript: {
+    run: { cmd: "node", args: (_d, f) => [f] },
+    ext: "js",
+  },
+  typescript: {
+    run: { cmd: "npx", args: (_d, f) => ["--yes", "tsx", f] },
+    ext: "ts",
+  },
+  python: {
+    run: { cmd: "python3", args: (_d, f) => [f] },
+    ext: "py",
+  },
+  c: {
+    compile: { cmd: "gcc", args: (d, f) => [f, "-o", join(d, "a.out"), "-lm"] },
+    run: { cmd: join(".", "a.out"), args: (d) => [join(d, "a.out")] },
+    ext: "c",
+  },
+  cpp: {
+    compile: { cmd: "g++", args: (d, f) => [f, "-o", join(d, "a.out"), "-lm"] },
+    run: { cmd: join(".", "a.out"), args: (d) => [join(d, "a.out")] },
+    ext: "cpp",
+  },
+  bash: {
+    run: { cmd: "bash", args: (_d, f) => [f] },
+    ext: "sh",
+  },
+  shell: {
+    run: { cmd: "bash", args: (_d, f) => [f] },
+    ext: "sh",
+  },
+  html: {
+    run: { cmd: "node", args: (_d, f) => ["-e", ""] },
+    ext: "html",
+  },
 };
 
-const FILE_EXTENSIONS: Record<string, string> = {
-  javascript: "js",
-  typescript: "ts",
-  python: "py",
-  go: "go",
-  rust: "rs",
-  java: "Main.java",
-  cpp: "cpp",
-  c: "c",
-  ruby: "rb",
-  php: "php",
-  csharp: "cs",
-  kotlin: "kt",
-  swift: "swift",
-  bash: "sh",
-  shell: "sh",
-};
+function truncateOutput(str: string): string {
+  if (str.length > MAX_OUTPUT) return str.slice(0, MAX_OUTPUT) + "\n... (вывод обрезан)";
+  return str;
+}
+
+function runProcess(
+  cmd: string,
+  args: string[],
+  options: { timeout: number; stdin?: string; cwd?: string }
+): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+  return new Promise((resolve) => {
+    const proc = execFile(cmd, args, {
+      timeout: options.timeout,
+      maxBuffer: MAX_OUTPUT * 2,
+      cwd: options.cwd,
+      env: { ...process.env, PATH: process.env.PATH },
+    }, (error, stdout, stderr) => {
+      const exitCode = error ? (error as NodeJS.ErrnoException & { code?: number | string }).code === "ERR_CHILD_PROCESS_STDIO_MAXBUFFER"
+        ? 1
+        : (proc.exitCode ?? 1)
+        : 0;
+      resolve({
+        stdout: truncateOutput(String(stdout)),
+        stderr: truncateOutput(String(stderr)),
+        exitCode: typeof exitCode === "number" ? exitCode : 1,
+      });
+    });
+    if (options.stdin && proc.stdin) {
+      proc.stdin.write(options.stdin);
+      proc.stdin.end();
+    }
+  });
+}
 
 executeRouter.post("/execute", async (req, res) => {
   const userId = await resolveExecUserId(req);
@@ -97,45 +143,73 @@ executeRouter.post("/execute", async (req, res) => {
     return res.status(400).json({ error: "Code and language are required" });
   }
 
-  const pistonLang = LANGUAGE_MAP[language.toLowerCase()];
-  if (!pistonLang) {
-    return res.status(400).json({ error: `Unsupported language: ${language}` });
+  const langKey = language.toLowerCase();
+  const config = LANGUAGE_CONFIG[langKey];
+  if (!config) {
+    return res.status(400).json({
+      error: `Язык "${language}" не поддерживается для выполнения. Доступны: ${Object.keys(LANGUAGE_CONFIG).join(", ")}`,
+    });
   }
 
-  const ext = FILE_EXTENSIONS[language.toLowerCase()] ?? "txt";
-  const filename = ext.includes(".") ? ext : `code.${ext}`;
+  if (langKey === "html") {
+    return res.json({
+      stdout: code,
+      stderr: "",
+      exitCode: 0,
+      isHtml: true,
+    });
+  }
+
+  const tmpDir = join(tmpdir(), `codesync-exec-${randomUUID()}`);
+  const srcFile = join(tmpDir, `code.${config.ext}`);
 
   try {
-    const response = await fetch(`${PISTON_API}/execute`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        language: pistonLang.language,
-        version: pistonLang.version,
-        files: [{ name: filename, content: code }],
-        stdin: stdin ?? "",
-      }),
-    });
+    await mkdir(tmpDir, { recursive: true });
+    await writeFile(srcFile, code, "utf-8");
 
-    if (!response.ok) {
-      const text = await response.text();
-      return res.status(500).json({ error: `Piston API error: ${text}` });
+    let compileOutput: string | undefined;
+
+    if (config.compile) {
+      const compileResult = await runProcess(
+        config.compile.cmd,
+        config.compile.args(tmpDir, srcFile),
+        { timeout: EXEC_TIMEOUT, cwd: tmpDir }
+      );
+      if (compileResult.exitCode !== 0) {
+        return res.json({
+          stdout: "",
+          stderr: compileResult.stderr || compileResult.stdout,
+          exitCode: compileResult.exitCode,
+          compileOutput: `${compileResult.stdout}\n${compileResult.stderr}`.trim(),
+        });
+      }
+      compileOutput = `${compileResult.stdout}\n${compileResult.stderr}`.trim() || undefined;
     }
 
-    const result = await response.json() as {
-      run: { stdout: string; stderr: string; code: number; signal: string | null };
-      compile?: { stdout: string; stderr: string; code: number };
-    };
+    const runArgs = config.run.args(tmpDir, srcFile);
+    const runCmd = config.compile ? runArgs[0] : config.run.cmd;
+    const runCmdArgs = config.compile ? runArgs.slice(1) : runArgs;
+
+    const result = await runProcess(
+      runCmd,
+      runCmdArgs,
+      { timeout: EXEC_TIMEOUT, stdin: stdin || undefined, cwd: tmpDir }
+    );
 
     return res.json({
-      stdout: result.run.stdout,
-      stderr: result.run.stderr,
-      exitCode: result.run.code,
-      compileOutput: result.compile ? `${result.compile.stdout}\n${result.compile.stderr}`.trim() : undefined,
+      stdout: result.stdout,
+      stderr: result.stderr,
+      exitCode: result.exitCode,
+      compileOutput,
     });
   } catch (err) {
-    console.error("Piston API error:", err);
-    return res.status(500).json({ error: "Failed to execute code" });
+    console.error("Execution error:", err);
+    return res.status(500).json({ error: "Ошибка при выполнении кода" });
+  } finally {
+    unlink(srcFile).catch(() => {});
+    const outFile = join(tmpDir, "a.out");
+    unlink(outFile).catch(() => {});
+    import("fs/promises").then(fs => fs.rmdir(tmpDir).catch(() => {}));
   }
 });
 

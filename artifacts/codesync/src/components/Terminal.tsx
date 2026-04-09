@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback, useImperativeHandle, forwardRef } from "react";
 import { useExecuteCode } from "@workspace/api-client-react";
 
 interface Props {
@@ -11,10 +11,16 @@ interface ExecuteResult {
   stderr?: string;
   compileOutput?: string;
   exitCode?: number;
+  isHtml?: boolean;
 }
 
-export function Terminal({ code, language }: Props) {
+export interface TerminalHandle {
+  run: () => void;
+}
+
+export const Terminal = forwardRef<TerminalHandle, Props>(function Terminal({ code, language }, ref) {
   const [output, setOutput] = useState<string[]>([]);
+  const [htmlPreview, setHtmlPreview] = useState<string | null>(null);
   const [stdin, setStdin] = useState("");
   const executeCode = useExecuteCode();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -23,8 +29,16 @@ export function Terminal({ code, language }: Props) {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [output]);
 
-  function handleRun() {
+  const handleRun = useCallback(() => {
     if (!code) return;
+    setHtmlPreview(null);
+
+    if (language === "html") {
+      setHtmlPreview(code);
+      setOutput((prev) => [...prev, "> HTML-превью обновлено"]);
+      return;
+    }
+
     setOutput((prev) => [...prev, `> Запуск ${language}...`]);
 
     executeCode.mutate(
@@ -47,6 +61,9 @@ export function Terminal({ code, language }: Props) {
           if (typeof typed.exitCode === "number" && typed.exitCode !== 0) {
             lines.push(`Процесс завершён с кодом ${typed.exitCode}`);
           }
+          if (lines.length === 0) {
+            lines.push("(нет вывода)");
+          }
           setOutput((prev) => [...prev, ...lines]);
         },
         onError: (err) => {
@@ -55,15 +72,20 @@ export function Terminal({ code, language }: Props) {
         },
       }
     );
-  }
+  }, [code, language, stdin, executeCode]);
+
+  useImperativeHandle(ref, () => ({ run: handleRun }), [handleRun]);
 
   function handleClear() {
     setOutput([]);
+    setHtmlPreview(null);
   }
+
+  const SUPPORTED_EXEC_LANGS = ["javascript", "typescript", "python", "c", "cpp", "bash", "shell", "html"];
+  const canExecute = SUPPORTED_EXEC_LANGS.includes(language);
 
   return (
     <div className="flex flex-col h-full" style={{ background: "#0D1117" }}>
-      {/* Toolbar */}
       <div
         className="flex items-center justify-between px-3"
         style={{
@@ -81,21 +103,23 @@ export function Terminal({ code, language }: Props) {
           </span>
         </div>
         <div className="flex items-center gap-2">
-          <input
-            type="text"
-            value={stdin}
-            onChange={(e) => setStdin(e.target.value)}
-            placeholder="stdin..."
-            className="text-xs outline-none px-2 py-0.5 rounded"
-            style={{
-              background: "#1C2128",
-              border: "1px solid #30363D",
-              color: "#8B949E",
-              width: 120,
-              fontFamily: "JetBrains Mono, monospace",
-            }}
-            data-testid="input-stdin"
-          />
+          {language !== "html" && (
+            <input
+              type="text"
+              value={stdin}
+              onChange={(e) => setStdin(e.target.value)}
+              placeholder="stdin..."
+              className="text-xs outline-none px-2 py-0.5 rounded"
+              style={{
+                background: "#1C2128",
+                border: "1px solid #30363D",
+                color: "#8B949E",
+                width: 120,
+                fontFamily: "JetBrains Mono, monospace",
+              }}
+              data-testid="input-stdin"
+            />
+          )}
           <button
             onClick={handleClear}
             className="text-xs px-2 py-0.5 rounded transition-colors hover:bg-white/5"
@@ -106,23 +130,22 @@ export function Terminal({ code, language }: Props) {
           </button>
           <button
             onClick={handleRun}
-            disabled={!code || executeCode.isPending}
+            disabled={!code || executeCode.isPending || !canExecute}
             className="text-xs px-3 py-0.5 rounded font-medium transition-colors"
             style={{
-              background: code ? "#3FB950" : "#30363D",
-              color: code ? "#0D1117" : "#8B949E",
+              background: code && canExecute ? "#3FB950" : "#30363D",
+              color: code && canExecute ? "#0D1117" : "#8B949E",
               border: "none",
-              cursor: code ? "pointer" : "not-allowed",
+              cursor: code && canExecute ? "pointer" : "not-allowed",
               fontWeight: 600,
             }}
             data-testid="btn-run-code"
           >
-            {executeCode.isPending ? "Выполнение..." : "Выполнить"}
+            {executeCode.isPending ? "Выполнение..." : language === "html" ? "Превью" : "Выполнить"}
           </button>
         </div>
       </div>
 
-      {/* Output */}
       <div
         ref={scrollRef}
         className="flex-1 overflow-y-auto p-3"
@@ -133,8 +156,26 @@ export function Terminal({ code, language }: Props) {
           color: "#3FB950",
         }}
       >
-        {output.length === 0 ? (
-          <span style={{ color: "#30363D" }}>// Нажмите «Выполнить» для запуска кода</span>
+        {htmlPreview ? (
+          <iframe
+            srcDoc={htmlPreview}
+            sandbox="allow-scripts"
+            style={{
+              width: "100%",
+              height: "100%",
+              minHeight: 200,
+              background: "#fff",
+              borderRadius: 4,
+              border: "1px solid #30363D",
+            }}
+            title="HTML Preview"
+          />
+        ) : output.length === 0 ? (
+          <span style={{ color: "#30363D" }}>
+            {canExecute
+              ? "// Нажмите «Выполнить» для запуска кода"
+              : `// Выполнение для "${language}" недоступно`}
+          </span>
         ) : (
           output.map((line, i) => (
             <div
@@ -157,4 +198,4 @@ export function Terminal({ code, language }: Props) {
       </div>
     </div>
   );
-}
+});
