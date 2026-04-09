@@ -6,40 +6,51 @@ import { eq, and } from "drizzle-orm";
 
 const filesRouter = Router();
 
-async function resolveUserId(req: Request): Promise<string | null> {
+interface ResolvedUser {
+  userId: string;
+  username: string;
+  isGuest: boolean;
+}
+
+async function resolveUser(req: Request): Promise<ResolvedUser | null> {
   const guestToken = req.headers["x-guest-token"];
   if (typeof guestToken === "string" && guestToken) {
     const user = await db.query.usersTable.findFirst({
       where: eq(usersTable.guestToken, guestToken),
     });
-    if (user) return user.id;
+    if (user) return { userId: user.id, username: user.username, isGuest: true };
   }
   const auth = getAuth(req);
   if (auth?.userId) {
     const user = await db.query.usersTable.findFirst({
       where: eq(usersTable.clerkId, auth.userId),
     });
-    return user?.id ?? null;
+    if (user) return { userId: user.id, username: user.username, isGuest: false };
   }
   return null;
 }
 
-async function resolveUsername(userId: string): Promise<string> {
-  const user = await db.query.usersTable.findFirst({ where: eq(usersTable.id, userId) });
-  return user?.username ?? "Аноним";
-}
-
-/** Check if user can access room (public rooms are always accessible) */
-async function canAccessRoom(roomId: string, userId: string | null): Promise<boolean> {
+/** Check if user can READ from room (public rooms are always readable by authenticated users) */
+async function canReadRoom(roomId: string, userId: string | null): Promise<boolean> {
   const room = await db.query.roomsTable.findFirst({ where: eq(roomsTable.id, roomId) });
   if (!room) return false;
   if (!room.isPrivate) return true;
   if (!userId) return false;
   const member = await db.query.roomMembersTable.findFirst({
-    where: and(
-      eq(roomMembersTable.roomId, roomId),
-      eq(roomMembersTable.userId, userId)
-    ),
+    where: and(eq(roomMembersTable.roomId, roomId), eq(roomMembersTable.userId, userId)),
+  });
+  return !!member;
+}
+
+/** Check if user can WRITE to room — must be authenticated (member or room is public) */
+async function canWriteRoom(roomId: string, userId: string | null): Promise<boolean> {
+  if (!userId) return false; // Must be authenticated to write
+  const room = await db.query.roomsTable.findFirst({ where: eq(roomsTable.id, roomId) });
+  if (!room) return false;
+  if (!room.isPrivate) return true; // Public rooms: any authenticated user can write
+  // Private rooms: must be a member
+  const member = await db.query.roomMembersTable.findFirst({
+    where: and(eq(roomMembersTable.roomId, roomId), eq(roomMembersTable.userId, userId)),
   });
   return !!member;
 }
@@ -58,9 +69,9 @@ function detectLanguage(filename: string): string {
 
 filesRouter.get("/rooms/:roomId/files", async (req, res) => {
   const { roomId } = req.params;
-  const userId = await resolveUserId(req);
+  const user = await resolveUser(req);
 
-  if (!(await canAccessRoom(roomId, userId))) {
+  if (!(await canReadRoom(roomId, user?.userId ?? null))) {
     return res.status(403).json({ error: "Forbidden" });
   }
 
@@ -86,10 +97,10 @@ filesRouter.get("/rooms/:roomId/files", async (req, res) => {
 
 filesRouter.post("/rooms/:roomId/files", async (req, res) => {
   const { roomId } = req.params;
-  const userId = await resolveUserId(req);
+  const user = await resolveUser(req);
 
-  if (!(await canAccessRoom(roomId, userId))) {
-    return res.status(403).json({ error: "Forbidden" });
+  if (!(await canWriteRoom(roomId, user?.userId ?? null))) {
+    return res.status(user ? 403 : 401).json({ error: user ? "Forbidden" : "Authentication required" });
   }
 
   const body = req.body as {
@@ -121,15 +132,14 @@ filesRouter.post("/rooms/:roomId/files", async (req, res) => {
     content,
     parentId,
     isFolder,
-    createdBy: userId ?? undefined,
+    createdBy: user?.userId ?? undefined,
   }).returning();
 
-  if (userId) {
-    const username = await resolveUsername(userId);
+  if (user) {
     await db.insert(eventsTable).values({
       roomId,
-      userId,
-      username,
+      userId: user.userId,
+      username: user.username,
       type: "file_created",
       description: `Создал ${isFolder ? "папку" : "файл"} ${name}`,
     }).catch(() => {});
@@ -152,9 +162,9 @@ filesRouter.post("/rooms/:roomId/files", async (req, res) => {
 
 filesRouter.get("/rooms/:roomId/files/:fileId", async (req, res) => {
   const { roomId, fileId } = req.params;
-  const userId = await resolveUserId(req);
+  const user = await resolveUser(req);
 
-  if (!(await canAccessRoom(roomId, userId))) {
+  if (!(await canReadRoom(roomId, user?.userId ?? null))) {
     return res.status(403).json({ error: "Forbidden" });
   }
 
@@ -181,10 +191,10 @@ filesRouter.get("/rooms/:roomId/files/:fileId", async (req, res) => {
 
 filesRouter.patch("/rooms/:roomId/files/:fileId", async (req, res) => {
   const { roomId, fileId } = req.params;
-  const userId = await resolveUserId(req);
+  const user = await resolveUser(req);
 
-  if (!(await canAccessRoom(roomId, userId))) {
-    return res.status(403).json({ error: "Forbidden" });
+  if (!(await canWriteRoom(roomId, user?.userId ?? null))) {
+    return res.status(user ? 403 : 401).json({ error: user ? "Forbidden" : "Authentication required" });
   }
 
   const body = req.body as {
@@ -236,10 +246,10 @@ filesRouter.patch("/rooms/:roomId/files/:fileId", async (req, res) => {
 
 filesRouter.delete("/rooms/:roomId/files/:fileId", async (req, res) => {
   const { roomId, fileId } = req.params;
-  const userId = await resolveUserId(req);
+  const user = await resolveUser(req);
 
-  if (!(await canAccessRoom(roomId, userId))) {
-    return res.status(403).json({ error: "Forbidden" });
+  if (!(await canWriteRoom(roomId, user?.userId ?? null))) {
+    return res.status(user ? 403 : 401).json({ error: user ? "Forbidden" : "Authentication required" });
   }
 
   const file = await db.query.filesTable.findFirst({
@@ -250,12 +260,11 @@ filesRouter.delete("/rooms/:roomId/files/:fileId", async (req, res) => {
 
   await db.delete(filesTable).where(and(eq(filesTable.id, fileId), eq(filesTable.roomId, roomId)));
 
-  if (userId) {
-    const username = await resolveUsername(userId);
+  if (user) {
     await db.insert(eventsTable).values({
       roomId,
-      userId,
-      username,
+      userId: user.userId,
+      username: user.username,
       type: "file_deleted",
       description: `Удалил ${file.isFolder ? "папку" : "файл"} ${file.name}`,
     }).catch(() => {});

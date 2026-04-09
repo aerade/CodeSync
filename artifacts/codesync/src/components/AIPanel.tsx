@@ -46,13 +46,63 @@ function SeverityBadge({ severity }: { severity: string }) {
   );
 }
 
-function renderMarkdown(text: string): string {
-  return text
-    .replace(/```(\w+)?\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
-    .replace(/`([^`]+)`/g, '<code>$1</code>')
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    .replace(/\n/g, '<br />');
+/** Render markdown safely without dangerouslySetInnerHTML */
+function SafeMarkdown({ text }: { text: string }) {
+  const parts: Array<{ type: "code" | "inline-code" | "text"; content: string }> = [];
+  const codeBlockRegex = /```(?:\w+)?\n?([\s\S]*?)```/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = codeBlockRegex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push({ type: "text", content: text.slice(lastIndex, match.index) });
+    }
+    parts.push({ type: "code", content: match[1] ?? "" });
+    lastIndex = match.index + match[0].length;
+  }
+  if (lastIndex < text.length) {
+    parts.push({ type: "text", content: text.slice(lastIndex) });
+  }
+
+  return (
+    <div>
+      {parts.map((part, i) => {
+        if (part.type === "code") {
+          return (
+            <pre key={i} className="rounded p-2 my-1 overflow-x-auto text-xs" style={{ background: "#0D1117", border: "1px solid #30363D", fontFamily: "JetBrains Mono, monospace" }}>
+              <code>{part.content.trimEnd()}</code>
+            </pre>
+          );
+        }
+        // Split by inline code
+        const segments = part.content.split(/(`[^`]+`)/g);
+        return (
+          <span key={i}>
+            {segments.map((seg, j) => {
+              if (seg.startsWith("`") && seg.endsWith("`")) {
+                return (
+                  <code key={j} className="px-1 rounded text-xs" style={{ background: "#0D1117", color: "#79C0FF", fontFamily: "JetBrains Mono, monospace" }}>
+                    {seg.slice(1, -1)}
+                  </code>
+                );
+              }
+              // Render plain text with line breaks
+              return (
+                <span key={j}>
+                  {seg.split("\n").map((line, k) => (
+                    <span key={k}>
+                      {k > 0 && <br />}
+                      {line}
+                    </span>
+                  ))}
+                </span>
+              );
+            })}
+          </span>
+        );
+      })}
+    </div>
+  );
 }
 
 export function AIPanel({ roomId, fileId, fileContent, language, fileName }: Props) {
@@ -100,9 +150,10 @@ export function AIPanel({ roomId, fileId, fileContent, language, fileName }: Pro
           const data = line.slice(6).trim();
           if (data === "[DONE]") break;
           try {
-            const parsed = JSON.parse(data);
-            if (parsed.complete && parsed.issues) {
-              setIssues(Array.isArray(parsed.issues) ? parsed.issues : []);
+            const parsed = JSON.parse(data) as { issues?: unknown[]; error?: string };
+            // Server sends { issues: [...] } — no "complete" flag needed
+            if (Array.isArray(parsed.issues)) {
+              setIssues(parsed.issues as Issue[]);
             }
           } catch (_) {}
         }
@@ -129,6 +180,8 @@ export function AIPanel({ roomId, fileId, fileContent, language, fileName }: Pro
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           messages: allMessages,
+          context: fileContent,
+          language,
           roomId,
           fileId,
         }),
@@ -155,7 +208,7 @@ export function AIPanel({ roomId, fileId, fileContent, language, fileName }: Pro
           const data = line.slice(6).trim();
           if (data === "[DONE]") break;
           try {
-            const parsed = JSON.parse(data);
+            const parsed = JSON.parse(data) as { content?: string; error?: string };
             if (parsed.content) {
               assistantContent += parsed.content;
               setMessages((prev) => {
@@ -168,9 +221,10 @@ export function AIPanel({ roomId, fileId, fileContent, language, fileName }: Pro
         }
       }
     } catch (err) {
+      const message = err instanceof Error ? err.message : "Произошла ошибка. Попробуйте ещё раз.";
       setMessages((prev) => {
         const updated = [...prev];
-        updated[updated.length - 1] = { role: "assistant", content: "Произошла ошибка. Попробуйте ещё раз." };
+        updated[updated.length - 1] = { role: "assistant", content: message };
         return updated;
       });
     } finally {
@@ -220,7 +274,7 @@ export function AIPanel({ roomId, fileId, fileContent, language, fileName }: Pro
               <span className="text-xs" style={{ color: "#8B949E" }}>{fileName || "Файл не выбран"}</span>
               <Button
                 size="sm"
-                onClick={runReview}
+                onClick={() => { void runReview(); }}
                 disabled={!fileContent || isReviewing}
                 style={{ marginLeft: "auto", background: "#58A6FF", color: "#0D1117", fontWeight: 600, fontSize: 11 }}
                 data-testid="btn-run-review"
@@ -245,32 +299,34 @@ export function AIPanel({ roomId, fileId, fileContent, language, fileName }: Pro
                 </div>
               )}
 
-              <div className="flex flex-col gap-2">
-                <AnimatePresence>
-                  {issues.map((issue, i) => (
-                    <motion.div
-                      key={i}
-                      initial={{ opacity: 0, y: 4 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: i * 0.05 }}
-                      className="p-2.5 rounded"
-                      style={{ background: "#0D1117", border: "1px solid #30363D" }}
-                      data-testid={`issue-${i}`}
-                    >
-                      <div className="flex items-center gap-2 mb-1">
-                        <SeverityBadge severity={issue.severity} />
-                        {issue.line && (
-                          <span className="text-xs font-mono" style={{ color: "#8B949E" }}>Строка {issue.line}</span>
+              {!isReviewing && issues.length > 0 && (
+                <div className="flex flex-col gap-2">
+                  <AnimatePresence>
+                    {issues.map((issue, i) => (
+                      <motion.div
+                        key={i}
+                        initial={{ opacity: 0, y: 4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: i * 0.05 }}
+                        className="p-2.5 rounded"
+                        style={{ background: "#0D1117", border: "1px solid #30363D" }}
+                        data-testid={`issue-${i}`}
+                      >
+                        <div className="flex items-center gap-2 mb-1">
+                          <SeverityBadge severity={issue.severity} />
+                          {issue.line && (
+                            <span className="text-xs font-mono" style={{ color: "#8B949E" }}>Строка {issue.line}</span>
+                          )}
+                        </div>
+                        <p className="text-xs mb-1" style={{ color: "#E6EDF3" }}>{issue.message}</p>
+                        {issue.suggestion && (
+                          <p className="text-xs" style={{ color: "#8B949E" }}>{issue.suggestion}</p>
                         )}
-                      </div>
-                      <p className="text-xs mb-1" style={{ color: "#E6EDF3" }}>{issue.message}</p>
-                      {issue.suggestion && (
-                        <p className="text-xs" style={{ color: "#8B949E" }}>{issue.suggestion}</p>
-                      )}
-                    </motion.div>
-                  ))}
-                </AnimatePresence>
-              </div>
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
+                </div>
+              )}
             </div>
           </motion.div>
         ) : (
@@ -306,9 +362,11 @@ export function AIPanel({ roomId, fileId, fileContent, language, fileName }: Pro
                       background: msg.role === "user" ? "rgba(88,166,255,0.15)" : "#0D1117",
                       border: `1px solid ${msg.role === "user" ? "rgba(88,166,255,0.3)" : "#30363D"}`,
                       color: "#E6EDF3",
+                      lineHeight: 1.6,
                     }}
-                    dangerouslySetInnerHTML={{ __html: renderMarkdown(msg.content) }}
-                  />
+                  >
+                    <SafeMarkdown text={msg.content} />
+                  </div>
                 </div>
               ))}
 
@@ -336,7 +394,7 @@ export function AIPanel({ roomId, fileId, fileContent, language, fileName }: Pro
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault();
-                    sendChat();
+                    void sendChat();
                   }
                 }}
                 placeholder="Спросите что угодно..."
@@ -352,7 +410,7 @@ export function AIPanel({ roomId, fileId, fileContent, language, fileName }: Pro
               />
               <Button
                 size="sm"
-                onClick={sendChat}
+                onClick={() => { void sendChat(); }}
                 disabled={!chatInput.trim() || isChatLoading}
                 style={{ background: "#58A6FF", color: "#0D1117", fontWeight: 600, alignSelf: "flex-end", fontSize: 11 }}
                 data-testid="btn-send-chat"

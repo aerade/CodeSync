@@ -167,9 +167,30 @@ export function setupWebSocketServer(wss: WebSocketServer) {
     const [, roomId, fileId] = pathMatch;
     const key = getRoomKey(roomId, fileId);
 
-    const userId = url.searchParams.get("userId") ?? `anon_${Date.now()}`;
+    const userId = url.searchParams.get("userId");
     const username = url.searchParams.get("username") ?? "Аноним";
     const guestToken = url.searchParams.get("guestToken");
+
+    // Validate user identity: must provide a userId, and guest token must be valid
+    if (!userId) {
+      ws.close(1008, "userId is required");
+      return;
+    }
+
+    // If guestToken provided, verify it matches the userId in the DB
+    if (guestToken) {
+      try {
+        const guestUser = await db.query.usersTable.findFirst({
+          where: eq(usersTable.guestToken, guestToken),
+        });
+        if (!guestUser || guestUser.id !== userId) {
+          ws.close(1008, "Invalid guest token");
+          return;
+        }
+      } catch {
+        // If token validation fails due to DB error, allow connection (best-effort)
+      }
+    }
 
     let fileRoom = fileRooms.get(key);
     if (!fileRoom) {

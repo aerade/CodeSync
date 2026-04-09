@@ -175,6 +175,24 @@ roomsRouter.get("/rooms/join/:inviteCode", async (req, res) => {
     return res.status(404).json({ error: "Room not found" });
   }
 
+  // Add the requesting user to room_members if authenticated
+  const user = await resolveUser(req);
+  if (user) {
+    const existingCount = await db
+      .select({ count: count() })
+      .from(roomMembersTable)
+      .where(eq(roomMembersTable.roomId, room.id));
+
+    const memberIndex = Number(existingCount[0]?.count ?? 0);
+    await db.insert(roomMembersTable).values({
+      roomId: room.id,
+      userId: user.userId,
+      username: user.username,
+      isGuest: user.isGuest,
+      color: getCollaboratorColor(memberIndex),
+    }).onConflictDoNothing();
+  }
+
   const [memberCountResult] = await db
     .select({ count: count() })
     .from(roomMembersTable)
