@@ -55,44 +55,75 @@ interface ExecConfig {
 
 const LANGUAGE_CONFIG: Record<string, ExecConfig> = {
   javascript: {
-    run: { cmd: "node", args: (_d, f) => [f] },
+    run: { cmd: "node", args: (_d, f) => ["--no-addons", f] },
     ext: "js",
   },
   typescript: {
     run: { cmd: "npx", args: (_d, f) => ["--yes", "tsx", f] },
     ext: "ts",
   },
-  python: {
-    run: { cmd: "python3", args: (_d, f) => [f] },
-    ext: "py",
-  },
   c: {
     compile: { cmd: "gcc", args: (d, f) => [f, "-o", join(d, "a.out"), "-lm"] },
-    run: { cmd: join(".", "a.out"), args: (d) => [join(d, "a.out")] },
+    run: { cmd: "", args: (d) => [join(d, "a.out")] },
     ext: "c",
   },
   cpp: {
     compile: { cmd: "g++", args: (d, f) => [f, "-o", join(d, "a.out"), "-lm"] },
-    run: { cmd: join(".", "a.out"), args: (d) => [join(d, "a.out")] },
+    run: { cmd: "", args: (d) => [join(d, "a.out")] },
     ext: "cpp",
   },
   bash: {
-    run: { cmd: "bash", args: (_d, f) => [f] },
+    run: { cmd: "bash", args: (_d, f) => ["--restricted", f] },
     ext: "sh",
   },
   shell: {
-    run: { cmd: "bash", args: (_d, f) => [f] },
+    run: { cmd: "bash", args: (_d, f) => ["--restricted", f] },
     ext: "sh",
   },
   html: {
-    run: { cmd: "node", args: (_d, f) => ["-e", ""] },
+    run: { cmd: "", args: () => [] },
     ext: "html",
   },
 };
 
+const DANGEROUS_PATTERNS = [
+  /require\s*\(\s*['"]child_process['"]\s*\)/,
+  /require\s*\(\s*['"]fs['"]\s*\)/,
+  /import\s+.*from\s+['"]child_process['"]/,
+  /process\.env/,
+  /execSync|spawnSync|exec\s*\(/,
+  /rm\s+-rf\s+\//,
+  /:(){ :|:& };:/,
+  /fork\s*bomb/i,
+  /\/etc\/passwd/,
+  /\/proc\//,
+  /DATABASE_URL/,
+  /CLERK_SECRET/,
+];
+
+function containsDangerousCode(code: string, language: string): string | null {
+  if (language === "html") return null;
+  for (const pattern of DANGEROUS_PATTERNS) {
+    if (pattern.test(code)) {
+      return "Обнаружен потенциально опасный код. Файловые операции и системные команды ограничены.";
+    }
+  }
+  return null;
+}
+
 function truncateOutput(str: string): string {
   if (str.length > MAX_OUTPUT) return str.slice(0, MAX_OUTPUT) + "\n... (вывод обрезан)";
   return str;
+}
+
+function getSafeEnv(): Record<string, string> {
+  return {
+    PATH: process.env.PATH ?? "/usr/bin:/bin",
+    HOME: tmpdir(),
+    LANG: "en_US.UTF-8",
+    NODE_ENV: "sandbox",
+    TERM: "dumb",
+  };
 }
 
 function runProcess(
@@ -105,11 +136,10 @@ function runProcess(
       timeout: options.timeout,
       maxBuffer: MAX_OUTPUT * 2,
       cwd: options.cwd,
-      env: { ...process.env, PATH: process.env.PATH },
+      env: getSafeEnv(),
     }, (error, stdout, stderr) => {
-      const exitCode = error ? (error as NodeJS.ErrnoException & { code?: number | string }).code === "ERR_CHILD_PROCESS_STDIO_MAXBUFFER"
-        ? 1
-        : (proc.exitCode ?? 1)
+      const exitCode = error
+        ? (proc.exitCode ?? 1)
         : 0;
       resolve({
         stdout: truncateOutput(String(stdout)),
@@ -151,6 +181,11 @@ executeRouter.post("/execute", async (req, res) => {
     });
   }
 
+  const dangerCheck = containsDangerousCode(code, langKey);
+  if (dangerCheck) {
+    return res.status(400).json({ error: dangerCheck });
+  }
+
   if (langKey === "html") {
     return res.json({
       stdout: code,
@@ -186,13 +221,21 @@ executeRouter.post("/execute", async (req, res) => {
       compileOutput = `${compileResult.stdout}\n${compileResult.stderr}`.trim() || undefined;
     }
 
-    const runArgs = config.run.args(tmpDir, srcFile);
-    const runCmd = config.compile ? runArgs[0] : config.run.cmd;
-    const runCmdArgs = config.compile ? runArgs.slice(1) : runArgs;
+    let runCmd: string;
+    let runArgs: string[];
+
+    if (config.compile) {
+      const allArgs = config.run.args(tmpDir, srcFile);
+      runCmd = allArgs[0];
+      runArgs = allArgs.slice(1);
+    } else {
+      runCmd = config.run.cmd;
+      runArgs = config.run.args(tmpDir, srcFile);
+    }
 
     const result = await runProcess(
       runCmd,
-      runCmdArgs,
+      runArgs,
       { timeout: EXEC_TIMEOUT, stdin: stdin || undefined, cwd: tmpDir }
     );
 
