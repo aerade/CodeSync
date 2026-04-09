@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, Request } from "express";
 import { getAuth } from "@clerk/express";
 import { db } from "@workspace/db";
 import { roomsTable, roomMembersTable, usersTable, filesTable } from "@workspace/db";
@@ -8,17 +8,37 @@ import { nanoid } from "nanoid";
 
 const roomsRouter = Router();
 
-async function resolveUser(req: any): Promise<{ userId: string; username: string; isGuest: boolean } | null> {
-  const guestToken = req.headers["x-guest-token"] as string | undefined;
-  if (guestToken) {
+const COLLAB_COLORS = [
+  "#58A6FF", "#3FB950", "#D2A8FF", "#FFA657",
+  "#F2CC60", "#79C0FF", "#56D364", "#FF7B72",
+];
+
+function getCollaboratorColor(index: number): string {
+  return COLLAB_COLORS[index % COLLAB_COLORS.length];
+}
+
+interface ResolvedUser {
+  userId: string;
+  username: string;
+  email: string | null | undefined;
+  isGuest: boolean;
+}
+
+async function resolveUser(req: Request): Promise<ResolvedUser | null> {
+  const guestToken = req.headers["x-guest-token"];
+  if (typeof guestToken === "string" && guestToken) {
     const user = await db.query.usersTable.findFirst({
       where: eq(usersTable.guestToken, guestToken),
     });
-    if (user) return { userId: user.id, username: user.username, isGuest: true };
+    if (user) {
+      return { userId: user.id, username: user.username, email: user.email, isGuest: true };
+    }
   }
 
   const auth = getAuth(req);
   if (!auth?.userId) return null;
+
+  const sessionClaims = auth.sessionClaims as Record<string, string> | undefined;
 
   let user = await db.query.usersTable.findFirst({
     where: eq(usersTable.clerkId, auth.userId),
@@ -26,20 +46,42 @@ async function resolveUser(req: any): Promise<{ userId: string; username: string
 
   if (!user) {
     const newId = uuidv4();
-    const username = (auth as any)?.sessionClaims?.username ||
-      (auth as any)?.sessionClaims?.email?.split("@")[0] ||
+    const username =
+      sessionClaims?.["username"] ??
+      sessionClaims?.["email"]?.split("@")[0] ??
       `user_${newId.slice(0, 8)}`;
     const [created] = await db.insert(usersTable).values({
       id: newId,
       clerkId: auth.userId,
-      username: username as string,
+      username,
+      email: sessionClaims?.["email"],
       isGuest: false,
     }).returning();
     user = created;
   }
 
   if (!user) return null;
-  return { userId: user.id, username: user.username, isGuest: false };
+  return { userId: user.id, username: user.username, email: user.email, isGuest: false };
+}
+
+async function isRoomMember(roomId: string, userId: string): Promise<boolean> {
+  const member = await db.query.roomMembersTable.findFirst({
+    where: and(
+      eq(roomMembersTable.roomId, roomId),
+      eq(roomMembersTable.userId, userId)
+    ),
+  });
+  return !!member;
+}
+
+async function ensureRoomAccess(
+  roomId: string,
+  userId: string | null,
+  isPrivate: boolean
+): Promise<boolean> {
+  if (!isPrivate) return true;
+  if (!userId) return false;
+  return isRoomMember(roomId, userId);
 }
 
 roomsRouter.get("/rooms", async (req, res) => {
@@ -78,22 +120,26 @@ roomsRouter.post("/rooms", async (req, res) => {
     return res.status(401).json({ error: "Authentication required to create rooms" });
   }
 
-  const { title, description, isPrivate } = req.body as { title: string; description?: string; isPrivate?: boolean };
-  if (!title || typeof title !== "string" || title.trim().length < 1) {
+  const body = req.body as { title?: unknown; description?: unknown; isPrivate?: unknown };
+  const title = typeof body.title === "string" ? body.title.trim() : "";
+  const description = typeof body.description === "string" ? body.description.trim() : undefined;
+  const isPrivate = body.isPrivate === true || body.isPrivate === "true";
+
+  if (!title) {
     return res.status(400).json({ error: "Title is required" });
   }
 
   const inviteCode = nanoid(8).toUpperCase();
 
   const [room] = await db.insert(roomsTable).values({
-    title: title.trim(),
-    description: description?.trim(),
-    isPrivate: isPrivate ?? false,
+    title,
+    description: description || undefined,
+    isPrivate,
     inviteCode,
     ownerId: user.userId,
   }).returning();
 
-  const defaultFile = await db.insert(filesTable).values({
+  await db.insert(filesTable).values({
     roomId: room.id,
     name: "main.js",
     path: "/main.js",
@@ -101,7 +147,7 @@ roomsRouter.post("/rooms", async (req, res) => {
     content: "// Добро пожаловать в CodeSync!\n// Начните писать код здесь\n\nconsole.log('Hello, World!');\n",
     isFolder: false,
     createdBy: user.userId,
-  }).returning();
+  });
 
   await db.insert(roomMembersTable).values({
     roomId: room.id,
@@ -152,6 +198,14 @@ roomsRouter.get("/rooms/:roomId", async (req, res) => {
     return res.status(404).json({ error: "Room not found" });
   }
 
+  if (room.isPrivate) {
+    const user = await resolveUser(req);
+    const hasAccess = await ensureRoomAccess(roomId, user?.userId ?? null, room.isPrivate);
+    if (!hasAccess) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+  }
+
   const [memberCountResult] = await db
     .select({ count: count() })
     .from(roomMembersTable)
@@ -186,23 +240,34 @@ roomsRouter.delete("/rooms/:roomId", async (req, res) => {
 
 roomsRouter.get("/rooms/:roomId/members", async (req, res) => {
   const { roomId } = req.params;
+
+  const room = await db.query.roomsTable.findFirst({
+    where: eq(roomsTable.id, roomId),
+  });
+
+  if (!room) return res.status(404).json({ error: "Room not found" });
+
+  if (room.isPrivate) {
+    const user = await resolveUser(req);
+    const hasAccess = await ensureRoomAccess(roomId, user?.userId ?? null, room.isPrivate);
+    if (!hasAccess) return res.status(403).json({ error: "Forbidden" });
+  }
+
   const members = await db.query.roomMembersTable.findMany({
     where: eq(roomMembersTable.roomId, roomId),
     orderBy: [desc(roomMembersTable.joinedAt)],
   });
 
   return res.json(members.map((m) => ({
-    ...m,
+    id: m.id,
+    roomId: m.roomId,
+    userId: m.userId,
+    username: m.username,
+    avatarUrl: m.avatarUrl,
+    isGuest: m.isGuest,
+    color: m.color,
     joinedAt: m.joinedAt.toISOString(),
   })));
 });
-
-function getCollaboratorColor(index: number): string {
-  const colors = [
-    "#58A6FF", "#3FB950", "#D2A8FF", "#FFA657",
-    "#F2CC60", "#79C0FF", "#56D364", "#FF7B72",
-  ];
-  return colors[index % colors.length];
-}
 
 export default roomsRouter;

@@ -241,7 +241,7 @@ export default function Dashboard() {
           >
             + Создать комнату
           </Button>
-          <UserButton afterSignOutUrl="/" />
+          <UserButton />
         </div>
       </header>
 
@@ -297,7 +297,7 @@ export default function Dashboard() {
                   room={{
                     ...room,
                     description: room.description ?? null,
-                    memberCount: (room as any).memberCount ?? 0,
+                    memberCount: (room as { memberCount?: number }).memberCount ?? 0,
                   }}
                   onOpen={() => setLocation(`/room/${room.id}`)}
                   onDelete={() => handleDelete(room.id)}

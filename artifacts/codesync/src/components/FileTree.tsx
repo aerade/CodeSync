@@ -40,13 +40,18 @@ function detectLanguage(filename: string): string {
   return map[ext] ?? "plaintext";
 }
 
-interface FileItem {
+export interface FileItem {
   id: string;
   name: string;
   path: string;
   language: string;
+  content: string;
   isFolder: boolean;
   parentId?: string | null;
+  roomId: string;
+  createdBy?: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface Props {
@@ -83,7 +88,7 @@ export function FileTree({ roomId, files, activeFileId, onFileSelect, onFilesCha
       { roomId, fileId },
       {
         onSuccess: () => {
-          qc.invalidateQueries({ queryKey: getGetRoomFilesQueryKey(roomId) });
+          void qc.invalidateQueries({ queryKey: getGetRoomFilesQueryKey(roomId) });
           onFilesChange();
         },
       }
@@ -103,8 +108,22 @@ export function FileTree({ roomId, files, activeFileId, onFileSelect, onFilesCha
       { roomId, data: { name, path: `/${name}`, language: lang } },
       {
         onSuccess: (file) => {
-          qc.invalidateQueries({ queryKey: getGetRoomFilesQueryKey(roomId) });
-          onFileSelect(file as any);
+          void qc.invalidateQueries({ queryKey: getGetRoomFilesQueryKey(roomId) });
+          // Convert API response to FileItem
+          const fileItem: FileItem = {
+            id: (file as { id: string }).id,
+            name: (file as { name: string }).name,
+            path: (file as { path: string }).path,
+            language: (file as { language: string }).language,
+            content: (file as { content?: string }).content ?? "",
+            isFolder: (file as { isFolder: boolean }).isFolder,
+            parentId: (file as { parentId?: string | null }).parentId,
+            roomId: (file as { roomId: string }).roomId,
+            createdBy: (file as { createdBy?: string | null }).createdBy,
+            createdAt: (file as { createdAt: string }).createdAt,
+            updatedAt: (file as { updatedAt: string }).updatedAt,
+          };
+          onFileSelect(fileItem);
           onFilesChange();
         },
       }

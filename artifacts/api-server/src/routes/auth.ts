@@ -8,9 +8,9 @@ import { v4 as uuidv4 } from "uuid";
 const authRouter = Router();
 
 authRouter.get("/auth/me", async (req, res) => {
-  const guestToken = req.headers["x-guest-token"] as string | undefined;
+  const guestToken = req.headers["x-guest-token"];
 
-  if (guestToken) {
+  if (typeof guestToken === "string" && guestToken) {
     const user = await db.query.usersTable.findFirst({
       where: eq(usersTable.guestToken, guestToken),
     });
@@ -33,22 +33,25 @@ authRouter.get("/auth/me", async (req, res) => {
     return res.status(401).json({ error: "Unauthorized" });
   }
 
+  const sessionClaims = auth.sessionClaims as Record<string, string> | undefined;
+
   let user = await db.query.usersTable.findFirst({
     where: eq(usersTable.clerkId, clerkUserId),
   });
 
   if (!user) {
     const newId = uuidv4();
-    const username = (auth as any)?.sessionClaims?.username ||
-      (auth as any)?.sessionClaims?.email?.split("@")[0] ||
+    const username =
+      sessionClaims?.["username"] ??
+      sessionClaims?.["email"]?.split("@")[0] ??
       `user_${newId.slice(0, 8)}`;
 
     const [created] = await db.insert(usersTable).values({
       id: newId,
       clerkId: clerkUserId,
-      username: username as string,
-      email: (auth as any)?.sessionClaims?.email as string | undefined,
-      avatarUrl: (auth as any)?.sessionClaims?.image_url as string | undefined,
+      username,
+      email: sessionClaims?.["email"],
+      avatarUrl: sessionClaims?.["image_url"],
       isGuest: false,
     }).returning();
     user = created;
@@ -69,8 +72,10 @@ authRouter.get("/auth/me", async (req, res) => {
 });
 
 authRouter.post("/auth/guest", async (req, res) => {
-  const { username } = req.body as { username: string };
-  if (!username || typeof username !== "string" || username.trim().length < 2) {
+  const body = req.body as { username?: unknown };
+  const username = typeof body.username === "string" ? body.username : undefined;
+
+  if (!username || username.trim().length < 2) {
     return res.status(400).json({ error: "Invalid username" });
   }
 

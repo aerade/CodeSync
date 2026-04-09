@@ -1,9 +1,18 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useLocation } from "wouter";
 import { motion } from "framer-motion";
-import Editor from "@monaco-editor/react";
+import Editor, { OnMount } from "@monaco-editor/react";
+import type * as MonacoType from "monaco-editor";
 import * as Y from "yjs";
-import { useGetRoom, useGetRoomFiles, useGetRoomMembers, useGetRoomEvents, useUpdateFile, getGetFileQueryKey, getGetRoomEventsQueryKey, getGetRoomMembersQueryKey } from "@workspace/api-client-react";
+import {
+  useGetRoom,
+  useGetRoomFiles,
+  useGetRoomMembers,
+  useGetRoomEvents,
+  useUpdateFile,
+  getGetRoomEventsQueryKey,
+  getGetRoomMembersQueryKey,
+} from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { FileTree } from "@/components/FileTree";
 import { AIPanel } from "@/components/AIPanel";
@@ -28,21 +37,41 @@ const LANG_LABELS: Record<string, string> = {
   json: "JSON", markdown: "Markdown", shell: "Shell", sql: "SQL", plaintext: "Text",
 };
 
-interface CollabCursor {
+interface CollabCursorInfo {
   userId: string;
   username: string;
   color: string;
-  line: number;
+  lineNumber: number;
   column: number;
 }
 
 interface WSMessage {
   type: string;
   update?: string;
-  states?: Record<string, { cursor?: { anchor: number; head: number } | null; userId: string; username: string; color: string }>;
+  states?: Record<string, {
+    cursor?: { anchor: number; head: number } | null;
+    userId: string;
+    username: string;
+    color: string;
+  }>;
   userId?: string;
   username?: string;
   color?: string;
+  position?: { lineNumber: number; column: number };
+}
+
+interface RoomFile {
+  id: string;
+  name: string;
+  path: string;
+  language: string;
+  content: string;
+  isFolder: boolean;
+  parentId: string | null | undefined;
+  roomId: string;
+  createdBy: string | null | undefined;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export default function RoomPage() {
@@ -60,20 +89,23 @@ export default function RoomPage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [activeMemberIds, setActiveMemberIds] = useState<Set<string>>(new Set());
   const [inviteCopied, setInviteCopied] = useState(false);
+  const [cursors, setCursors] = useState<CollabCursorInfo[]>([]);
 
   const wsRef = useRef<WebSocket | null>(null);
   const ydocRef = useRef<Y.Doc | null>(null);
-  const editorRef = useRef<any>(null);
-  const monacoRef = useRef<any>(null);
+  const editorRef = useRef<MonacoType.editor.IStandaloneCodeEditor | null>(null);
+  const monacoRef = useRef<typeof MonacoType | null>(null);
   const isRemoteUpdate = useRef(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const decorationIds = useRef<string[]>([]);
 
   const updateFile = useUpdateFile();
 
   const { data: room } = useGetRoom(roomId);
-  const { data: files = [], refetch: refetchFiles } = useGetRoomFiles(roomId);
+  const { data: rawFiles = [], refetch: refetchFiles } = useGetRoomFiles(roomId);
+  const files: RoomFile[] = rawFiles as RoomFile[];
   const { data: members = [] } = useGetRoomMembers(roomId, {
-    query: { refetchInterval: 5000 },
+    query: { refetchInterval: 5000, queryKey: getGetRoomMembersQueryKey(roomId) },
   });
   const { data: events = [] } = useGetRoomEvents(roomId, undefined, {
     query: { refetchInterval: 5000, queryKey: getGetRoomEventsQueryKey(roomId) },
@@ -83,17 +115,37 @@ export default function RoomPage() {
 
   useEffect(() => {
     if (files.length > 0 && !activeFileId) {
-      setActiveFileId(files[0].id);
-      setFileContent((files[0] as any).content ?? "");
+      const first = files[0];
+      setActiveFileId(first.id);
+      setFileContent(first.content ?? "");
     }
-  }, [files]);
+  }, [files, activeFileId]);
+
+  // Update collaborator cursor decorations
+  useEffect(() => {
+    if (!editorRef.current || !monacoRef.current) return;
+    const editor = editorRef.current;
+    const monaco = monacoRef.current;
+
+    const newDecorations: MonacoType.editor.IModelDeltaDecoration[] = cursors.map((c) => ({
+      range: new monaco.Range(c.lineNumber, c.column, c.lineNumber, c.column + 1),
+      options: {
+        afterContentClassName: "collab-cursor",
+        stickiness: monaco.editor.TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
+        overviewRuler: { color: c.color, position: monaco.editor.OverviewRulerLane.Right },
+        minimap: { color: c.color, position: monaco.editor.MinimapPosition.Gutter },
+      },
+    }));
+
+    decorationIds.current = editor.deltaDecorations(decorationIds.current, newDecorations);
+  }, [cursors]);
 
   useEffect(() => {
     if (!activeFileId) return;
 
     const file = files.find((f) => f.id === activeFileId);
     if (file) {
-      setFileContent((file as any).content ?? "");
+      setFileContent(file.content ?? "");
     }
 
     if (wsRef.current) {
@@ -109,26 +161,30 @@ export default function RoomPage() {
     ydocRef.current = ydoc;
     const yText = ydoc.getText("content");
 
-    const userId = clerkUser?.id ?? `user_${Math.random().toString(36).slice(2)}`;
-    const username = clerkUser?.firstName ?? clerkUser?.username ?? "Аноним";
+    const userId =
+      clerkUser?.id ??
+      localStorage.getItem("codesync_guest_user_id") ??
+      `anon_${Math.random().toString(36).slice(2)}`;
+    const username =
+      clerkUser?.firstName ??
+      clerkUser?.username ??
+      localStorage.getItem("codesync_guest_username") ??
+      "Аноним";
     const guestToken = localStorage.getItem("codesync_guest_token") ?? "";
 
-    const host = window.location.host;
-    const wsUrl = `${window.location.protocol === "https:" ? "wss" : "ws"}://${host}/ws/rooms/${roomId}/files/${activeFileId}?userId=${encodeURIComponent(userId)}&username=${encodeURIComponent(username)}&guestToken=${encodeURIComponent(guestToken)}`;
+    const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+    const wsUrl = `${protocol}://${window.location.host}/ws/rooms/${roomId}/files/${activeFileId}?userId=${encodeURIComponent(userId)}&username=${encodeURIComponent(username)}&guestToken=${encodeURIComponent(guestToken)}`;
 
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
-    let initialized = false;
-
-    ws.onmessage = (event) => {
+    ws.onmessage = (event: MessageEvent<string>) => {
       try {
-        const msg: WSMessage = JSON.parse(event.data);
+        const msg = JSON.parse(event.data) as WSMessage;
 
         if (msg.type === "init" && msg.update) {
           const update = Uint8Array.from(atob(msg.update), (c) => c.charCodeAt(0));
           Y.applyUpdate(ydoc, update);
-          initialized = true;
           const text = yText.toString();
           if (text && editorRef.current) {
             isRemoteUpdate.current = true;
@@ -146,10 +202,25 @@ export default function RoomPage() {
             const position = editor.getPosition();
             editor.setValue(text);
             if (position) editor.setPosition(position);
+            setFileContent(text);
           }
         } else if (msg.type === "awareness" && msg.states) {
           const ids = new Set(Object.keys(msg.states));
           setActiveMemberIds(ids);
+        } else if (msg.type === "cursor" && msg.userId && msg.position) {
+          setCursors((prev) => {
+            const next = prev.filter((c) => c.userId !== msg.userId);
+            if (msg.userId && msg.position) {
+              next.push({
+                userId: msg.userId,
+                username: msg.username ?? "Аноним",
+                color: msg.color ?? "#58A6FF",
+                lineNumber: msg.position.lineNumber,
+                column: msg.position.column,
+              });
+            }
+            return next;
+          });
         } else if (msg.type === "joined") {
           setActiveMemberIds((prev) => new Set([...prev, msg.userId ?? ""]));
         }
@@ -160,12 +231,14 @@ export default function RoomPage() {
 
     ws.onclose = () => {
       setActiveMemberIds(new Set());
+      setCursors([]);
     };
 
     return () => {
       ws.close();
       ydoc.destroy();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeFileId, roomId]);
 
   function handleEditorChange(value: string | undefined) {
@@ -176,6 +249,16 @@ export default function RoomPage() {
     if (ydocRef.current && wsRef.current?.readyState === WebSocket.OPEN) {
       const ydoc = ydocRef.current;
       const yText = ydoc.getText("content");
+
+      // Update the Yjs document with the new content
+      ydoc.transact(() => {
+        const currentText = yText.toString();
+        if (currentText !== text) {
+          yText.delete(0, yText.length);
+          yText.insert(0, text);
+        }
+      });
+
       const update = Y.encodeStateAsUpdate(ydoc);
       wsRef.current.send(JSON.stringify({
         type: "yjs-update",
@@ -191,23 +274,29 @@ export default function RoomPage() {
     }, 1500);
   }
 
-  function handleEditorMount(editor: any, monaco: any) {
+  const handleEditorMount: OnMount = (editor, monaco) => {
     editorRef.current = editor;
     monacoRef.current = monaco;
 
-    editor.onDidChangeCursorPosition((e: any) => {
+    editor.onDidChangeCursorPosition((e) => {
       if (wsRef.current?.readyState === WebSocket.OPEN) {
         wsRef.current.send(JSON.stringify({
           type: "cursor",
           position: { lineNumber: e.position.lineNumber, column: e.position.column },
         }));
+
+        // Send awareness state
+        wsRef.current.send(JSON.stringify({
+          type: "awareness",
+          state: { cursor: null },
+        }));
       }
     });
-  }
+  };
 
   function copyInviteCode() {
     if (room?.inviteCode) {
-      navigator.clipboard.writeText(room.inviteCode);
+      void navigator.clipboard.writeText(room.inviteCode);
       setInviteCopied(true);
       setTimeout(() => setInviteCopied(false), 2000);
     }
@@ -288,7 +377,7 @@ export default function RoomPage() {
             onClick={() => setIsSidebarOpen(!isSidebarOpen)}
             data-testid="btn-toggle-sidebar"
           >
-            {isSidebarOpen ? "Участники" : "Участники"}
+            Участники
           </button>
           <button
             className="text-xs px-2 py-0.5 rounded hover:bg-white/5 transition-colors"
@@ -313,13 +402,13 @@ export default function RoomPage() {
           >
             <FileTree
               roomId={roomId}
-              files={files as any}
+              files={files}
               activeFileId={activeFileId}
               onFileSelect={(file) => {
                 setActiveFileId(file.id);
-                setFileContent((file as any).content ?? "");
+                setFileContent(file.content ?? "");
               }}
-              onFilesChange={() => refetchFiles()}
+              onFilesChange={() => { void refetchFiles(); }}
             />
           </motion.div>
         )}
@@ -350,7 +439,7 @@ export default function RoomPage() {
           </div>
 
           {/* Monaco Editor */}
-          <div className="flex-1 overflow-hidden">
+          <div className="flex-1 overflow-hidden" style={{ position: "relative" }}>
             {activeFile ? (
               <Editor
                 height="100%"
@@ -385,6 +474,26 @@ export default function RoomPage() {
                 </div>
               </div>
             )}
+
+            {/* Collaborator cursor overlays */}
+            {cursors.map((c) => (
+              <div
+                key={c.userId}
+                className="pointer-events-none absolute z-10 text-xs font-medium px-1 rounded"
+                style={{
+                  background: c.color,
+                  color: "#0D1117",
+                  top: (c.lineNumber - 1) * 22 + 12 + "px",
+                  left: Math.max(0, c.column - 1) * 8.4 + 48 + "px",
+                  opacity: 0.85,
+                  whiteSpace: "nowrap",
+                  transform: "translateY(-100%)",
+                  fontSize: 10,
+                }}
+              >
+                {c.username}
+              </div>
+            ))}
           </div>
 
           {/* Bottom: Terminal */}

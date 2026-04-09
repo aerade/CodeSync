@@ -6,6 +6,13 @@ interface Props {
   language: string;
 }
 
+interface ExecuteResult {
+  stdout?: string;
+  stderr?: string;
+  compileOutput?: string;
+  exitCode?: number;
+}
+
 export function Terminal({ code, language }: Props) {
   const [output, setOutput] = useState<string[]>([]);
   const [stdin, setStdin] = useState("");
@@ -23,26 +30,28 @@ export function Terminal({ code, language }: Props) {
     executeCode.mutate(
       { data: { code, language, stdin: stdin || undefined } },
       {
-        onSuccess: (result: any) => {
+        onSuccess: (result) => {
+          const typed = result as ExecuteResult;
           const lines: string[] = [];
-          if (result.compileOutput) {
+          if (typed.compileOutput) {
             lines.push("=== Компиляция ===");
-            lines.push(result.compileOutput);
+            lines.push(typed.compileOutput);
           }
-          if (result.stdout) {
-            lines.push(...result.stdout.split("\n").filter(Boolean));
+          if (typed.stdout) {
+            lines.push(...typed.stdout.split("\n").filter(Boolean));
           }
-          if (result.stderr) {
+          if (typed.stderr) {
             lines.push("=== Ошибки ===");
-            lines.push(...result.stderr.split("\n").filter(Boolean));
+            lines.push(...typed.stderr.split("\n").filter(Boolean));
           }
-          if (result.exitCode !== 0) {
-            lines.push(`Процесс завершён с кодом ${result.exitCode}`);
+          if (typeof typed.exitCode === "number" && typed.exitCode !== 0) {
+            lines.push(`Процесс завершён с кодом ${typed.exitCode}`);
           }
           setOutput((prev) => [...prev, ...lines]);
         },
-        onError: (err: any) => {
-          setOutput((prev) => [...prev, `Ошибка: ${err.message}`]);
+        onError: (err) => {
+          const message = err instanceof Error ? err.message : String(err);
+          setOutput((prev) => [...prev, `Ошибка: ${message}`]);
         },
       }
     );
@@ -131,13 +140,14 @@ export function Terminal({ code, language }: Props) {
             <div
               key={i}
               style={{
-                color: line.startsWith("=== Ошибки") || line.startsWith("Ошибка:")
-                  ? "#FF7B72"
-                  : line.startsWith(">")
-                  ? "#58A6FF"
-                  : line.startsWith("Процесс завершён с кодом")
-                  ? "#F2CC60"
-                  : "#E6EDF3",
+                color:
+                  line.startsWith("=== Ошибки") || line.startsWith("Ошибка:")
+                    ? "#FF7B72"
+                    : line.startsWith(">")
+                    ? "#58A6FF"
+                    : line.startsWith("Процесс завершён с кодом")
+                    ? "#F2CC60"
+                    : "#E6EDF3",
               }}
             >
               {line}

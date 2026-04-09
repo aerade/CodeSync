@@ -1,10 +1,10 @@
-import { useGetMe } from "@workspace/api-client-react";
+import { useGetMe, getGetMeQueryKey } from "@workspace/api-client-react";
 import { useUser } from "@clerk/react";
 
 export function useCurrentUser() {
   const { isSignedIn, user: clerkUser, isLoaded } = useUser();
   const { data: me, isLoading } = useGetMe({
-    query: { enabled: isLoaded },
+    query: { enabled: isLoaded, queryKey: getGetMeQueryKey() },
   });
 
   const guestToken = typeof window !== "undefined" ? localStorage.getItem("codesync_guest_token") : null;

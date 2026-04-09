@@ -1,7 +1,7 @@
 import { WebSocketServer, WebSocket, RawData } from "ws";
 import { IncomingMessage } from "http";
 import { db } from "@workspace/db";
-import { roomMembersTable, eventsTable, yjsSnapshotsTable, filesTable, usersTable } from "@workspace/db";
+import { roomMembersTable, yjsSnapshotsTable, filesTable, usersTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import * as Y from "yjs";
 
@@ -12,25 +12,19 @@ interface CollaboratorInfo {
   isGuest: boolean;
 }
 
-interface RoomFileKey {
-  roomId: string;
-  fileId: string;
+interface AwarenessState {
+  cursor?: { anchor: number; head: number } | null;
+  user?: { name: string; color: string };
 }
 
 const COLLABORATOR_COLORS = [
   "#58A6FF", "#3FB950", "#D2A8FF", "#FFA657",
   "#F2CC60", "#79C0FF", "#56D364", "#FF7B72",
-  "#A5D6FF", "#FFAB70", "#7EE787", "#FFA0AC",
 ];
 
 function getColor(index: number): string {
   return COLLABORATOR_COLORS[index % COLLABORATOR_COLORS.length];
 }
-
-type AwarenessState = {
-  cursor?: { anchor: number; head: number } | null;
-  user?: { name: string; color: string };
-};
 
 class FileRoom {
   public doc: Y.Doc;
@@ -43,8 +37,8 @@ class FileRoom {
     this.awareness = new Map();
   }
 
-  broadcast(data: Buffer | string, sender?: WebSocket) {
-    const msg = typeof data === "string" ? Buffer.from(data) : data;
+  broadcastJSON(data: object, sender?: WebSocket) {
+    const msg = JSON.stringify(data);
     for (const [client] of this.clients) {
       if (client !== sender && client.readyState === WebSocket.OPEN) {
         client.send(msg);
@@ -52,7 +46,7 @@ class FileRoom {
     }
   }
 
-  broadcastAwareness(sender?: WebSocket) {
+  broadcastAwareness() {
     const states: Record<string, AwarenessState & { userId: string; username: string; color: string }> = {};
     for (const [ws, info] of this.clients) {
       const aware = this.awareness.get(ws) ?? {};
@@ -88,8 +82,8 @@ async function loadYjsSnapshot(roomId: string, fileId: string, doc: Y.Doc): Prom
     });
 
     if (snapshot?.data) {
-      const update = Buffer.from(snapshot.data as string, "base64");
-      Y.applyUpdate(doc, update);
+      const bytes = Uint8Array.from(atob(snapshot.data), (c) => c.charCodeAt(0));
+      Y.applyUpdate(doc, bytes);
     } else {
       const file = await db.query.filesTable.findFirst({
         where: eq(filesTable.id, fileId),
@@ -109,7 +103,7 @@ async function loadYjsSnapshot(roomId: string, fileId: string, doc: Y.Doc): Prom
 async function saveYjsSnapshot(roomId: string, fileId: string, doc: Y.Doc): Promise<void> {
   try {
     const update = Y.encodeStateAsUpdate(doc);
-    const data = Buffer.from(update).toString("base64");
+    const data = btoa(String.fromCharCode(...update));
     const content = doc.getText("content").toString();
 
     await db.transaction(async (tx) => {
@@ -140,6 +134,13 @@ async function saveYjsSnapshot(roomId: string, fileId: string, doc: Y.Doc): Prom
   }
 }
 
+interface WsMessage {
+  type: string;
+  update?: string;
+  state?: AwarenessState;
+  position?: { lineNumber: number; column: number };
+}
+
 export function setupWebSocketServer(wss: WebSocketServer) {
   const saveTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
@@ -158,6 +159,7 @@ export function setupWebSocketServer(wss: WebSocketServer) {
     const pathMatch = url.pathname.match(/^\/ws\/rooms\/([^/]+)\/files\/([^/]+)$/);
 
     if (!pathMatch) {
+      // Not a collaboration path — close gracefully
       ws.close(1008, "Invalid WebSocket path");
       return;
     }
@@ -165,9 +167,9 @@ export function setupWebSocketServer(wss: WebSocketServer) {
     const [, roomId, fileId] = pathMatch;
     const key = getRoomKey(roomId, fileId);
 
-    const guestToken = url.searchParams.get("guestToken");
-    const username = url.searchParams.get("username") ?? "Аноним";
     const userId = url.searchParams.get("userId") ?? `anon_${Date.now()}`;
+    const username = url.searchParams.get("username") ?? "Аноним";
+    const guestToken = url.searchParams.get("guestToken");
 
     let fileRoom = fileRooms.get(key);
     if (!fileRoom) {
@@ -189,19 +191,23 @@ export function setupWebSocketServer(wss: WebSocketServer) {
     fileRoom.clients.set(ws, collaborator);
     fileRoom.awareness.set(ws, {});
 
-    try {
-      await db.insert(roomMembersTable).values({
-        roomId,
-        userId,
-        username,
-        isGuest: !!guestToken,
-        color,
-      }).onConflictDoNothing();
-    } catch (_) {}
+    // Register member in DB (best-effort)
+    db.insert(roomMembersTable).values({
+      roomId,
+      userId,
+      username,
+      isGuest: !!guestToken,
+      color,
+    }).onConflictDoNothing().catch(() => {});
 
+    // Send current document state to new client
     const initUpdate = Y.encodeStateAsUpdate(fileRoom.doc);
-    ws.send(JSON.stringify({ type: "init", update: Buffer.from(initUpdate).toString("base64") }));
+    ws.send(JSON.stringify({
+      type: "init",
+      update: btoa(String.fromCharCode(...initUpdate)),
+    }));
 
+    // Broadcast updated awareness to all
     fileRoom.broadcastAwareness();
 
     ws.send(JSON.stringify({
@@ -216,35 +222,33 @@ export function setupWebSocketServer(wss: WebSocketServer) {
     ws.on("message", async (data: RawData) => {
       if (!fileRoom) return;
 
-      let msgStr: string;
+      let msg: WsMessage;
       try {
-        msgStr = data.toString();
-      } catch (_) {
+        msg = JSON.parse(data.toString()) as WsMessage;
+      } catch {
         return;
       }
 
-      try {
-        const msg = JSON.parse(msgStr);
-
-        if (msg.type === "yjs-update") {
-          const update = Buffer.from(msg.update, "base64");
-          Y.applyUpdate(fileRoom.doc, update);
-          fileRoom.broadcast(JSON.stringify({ type: "yjs-update", update: msg.update }), ws);
-          scheduleSave(key, roomId, fileId, fileRoom.doc);
-        } else if (msg.type === "awareness") {
-          fileRoom.awareness.set(ws, msg.state ?? {});
-          fileRoom.broadcastAwareness(ws);
-        } else if (msg.type === "cursor") {
-          fileRoom.broadcast(JSON.stringify({
+      if (msg.type === "yjs-update" && msg.update) {
+        const bytes = Uint8Array.from(atob(msg.update), (c) => c.charCodeAt(0));
+        Y.applyUpdate(fileRoom.doc, bytes);
+        // Broadcast to all other peers
+        fileRoom.broadcastJSON({ type: "yjs-update", update: msg.update }, ws);
+        scheduleSave(key, roomId, fileId, fileRoom.doc);
+      } else if (msg.type === "awareness") {
+        fileRoom.awareness.set(ws, msg.state ?? {});
+        fileRoom.broadcastAwareness();
+      } else if (msg.type === "cursor" && msg.position) {
+        const info = fileRoom.clients.get(ws);
+        if (info) {
+          fileRoom.broadcastJSON({
             type: "cursor",
-            userId,
-            username,
-            color,
+            userId: info.userId,
+            username: info.username,
+            color: info.color,
             position: msg.position,
-          }), ws);
+          }, ws);
         }
-      } catch (err) {
-        console.error("Error processing WS message:", err);
       }
     });
 
@@ -252,7 +256,6 @@ export function setupWebSocketServer(wss: WebSocketServer) {
       if (!fileRoom) return;
       fileRoom.clients.delete(ws);
       fileRoom.awareness.delete(ws);
-
       fileRoom.broadcastAwareness();
 
       if (fileRoom.clients.size === 0) {
@@ -267,7 +270,7 @@ export function setupWebSocketServer(wss: WebSocketServer) {
     });
 
     ws.on("error", (err) => {
-      console.error("WebSocket error:", err);
+      console.error("WebSocket client error:", err);
     });
   });
 }

@@ -1,13 +1,53 @@
-import { Router } from "express";
+import { Router, Request } from "express";
+import { getAuth } from "@clerk/express";
 import { db } from "@workspace/db";
-import { eventsTable } from "@workspace/db";
-import { eq, desc } from "drizzle-orm";
+import { eventsTable, roomsTable, roomMembersTable, usersTable } from "@workspace/db";
+import { eq, and, desc } from "drizzle-orm";
 
 const eventsRouter = Router();
 
+async function resolveUserId(req: Request): Promise<string | null> {
+  const guestToken = req.headers["x-guest-token"];
+  if (typeof guestToken === "string" && guestToken) {
+    const user = await db.query.usersTable.findFirst({
+      where: eq(usersTable.guestToken, guestToken),
+    });
+    if (user) return user.id;
+  }
+  const auth = getAuth(req);
+  if (auth?.userId) {
+    const user = await db.query.usersTable.findFirst({
+      where: eq(usersTable.clerkId, auth.userId),
+    });
+    return user?.id ?? null;
+  }
+  return null;
+}
+
+async function canAccessRoom(roomId: string, userId: string | null): Promise<boolean> {
+  const room = await db.query.roomsTable.findFirst({ where: eq(roomsTable.id, roomId) });
+  if (!room) return false;
+  if (!room.isPrivate) return true;
+  if (!userId) return false;
+  const member = await db.query.roomMembersTable.findFirst({
+    where: and(
+      eq(roomMembersTable.roomId, roomId),
+      eq(roomMembersTable.userId, userId)
+    ),
+  });
+  return !!member;
+}
+
 eventsRouter.get("/rooms/:roomId/events", async (req, res) => {
   const { roomId } = req.params;
-  const limit = Math.min(Number(req.query["limit"] ?? 50), 200);
+  const userId = await resolveUserId(req);
+
+  if (!(await canAccessRoom(roomId, userId))) {
+    return res.status(403).json({ error: "Forbidden" });
+  }
+
+  const queryParams = req.query as { limit?: string };
+  const limit = Math.min(Number(queryParams.limit ?? 50), 200);
 
   const events = await db.query.eventsTable.findMany({
     where: eq(eventsTable.roomId, roomId),

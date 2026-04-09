@@ -20,7 +20,8 @@ if (Number.isNaN(port) || port <= 0) {
 
 const httpServer = createServer(app);
 
-const wss = new WebSocketServer({ server: httpServer, path: "/ws" });
+// No path restriction — the handler matches /ws/rooms/:roomId/files/:fileId internally
+const wss = new WebSocketServer({ server: httpServer, noServer: false });
 setupWebSocketServer(wss);
 
 httpServer.listen(port, (err?: Error) => {
@@ -30,5 +31,5 @@ httpServer.listen(port, (err?: Error) => {
   }
 
   logger.info({ port }, "Server listening");
-  logger.info({ path: "/ws" }, "WebSocket server ready");
+  logger.info({ path: "/ws/rooms/:roomId/files/:fileId" }, "WebSocket server ready");
 });
