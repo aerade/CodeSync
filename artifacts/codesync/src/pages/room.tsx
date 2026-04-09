@@ -8,9 +8,7 @@ import { PreviewPanel } from "@/components/PreviewPanel";
 import {
   useGetRoom,
   useGetRoomFiles,
-  useGetRoomMembers,
   useUpdateFile,
-  getGetRoomMembersQueryKey,
   getGetRoomFilesQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -21,14 +19,6 @@ import { SessionSidebar } from "@/components/SessionSidebar";
 import { Button } from "@/components/ui/button";
 import { useUser } from "@clerk/react";
 
-const COLLAB_COLORS = [
-  "#58A6FF", "#3FB950", "#D2A8FF", "#FFA657",
-  "#F2CC60", "#79C0FF", "#56D364", "#FF7B72",
-];
-
-function getColor(idx: number) {
-  return COLLAB_COLORS[idx % COLLAB_COLORS.length];
-}
 
 const LANG_LABELS: Record<string, string> = {
   javascript: "JavaScript", typescript: "TypeScript", python: "Python",
@@ -53,6 +43,7 @@ interface WSMessage {
     userId: string;
     username: string;
     color: string;
+    isGuest?: boolean;
   }>;
   userId?: string;
   username?: string;
@@ -115,7 +106,7 @@ export default function RoomPage() {
       document.body.style.userSelect = "";
     };
   }, []);
-  const [activeMemberIds, setActiveMemberIds] = useState<Set<string>>(new Set());
+  const [connectedMembers, setConnectedMembers] = useState<{ userId: string; username: string; color: string; isGuest: boolean }[]>([]);
   const [inviteCopied, setInviteCopied] = useState(false);
   const [cursors, setCursors] = useState<CollabCursorInfo[]>([]);
 
@@ -133,9 +124,6 @@ export default function RoomPage() {
   const { data: room } = useGetRoom(roomId);
   const { data: rawFiles = [], refetch: refetchFiles } = useGetRoomFiles(roomId);
   const files: RoomFile[] = rawFiles as RoomFile[];
-  const { data: members = [] } = useGetRoomMembers(roomId, {
-    query: { refetchInterval: 5000, queryKey: getGetRoomMembersQueryKey(roomId) },
-  });
   const activeFile = files.find((f) => f.id === activeFileId) ?? null;
 
   useEffect(() => {
@@ -250,8 +238,13 @@ export default function RoomPage() {
             }
             isRemoteUpdate.current = false;
           } else if (msg.type === "awareness" && msg.states) {
-            const ids = new Set(Object.keys(msg.states));
-            setActiveMemberIds(ids);
+            const list = Object.values(msg.states).map((s) => ({
+              userId: s.userId,
+              username: s.username,
+              color: s.color,
+              isGuest: s.isGuest ?? false,
+            }));
+            setConnectedMembers(list);
           } else if (msg.type === "cursor" && msg.userId && msg.position) {
             setCursors((prev) => {
               const next = prev.filter((c) => c.userId !== msg.userId);
@@ -266,8 +259,6 @@ export default function RoomPage() {
               }
               return next;
             });
-          } else if (msg.type === "joined") {
-            setActiveMemberIds((prev) => new Set([...prev, msg.userId ?? ""]));
           }
         } catch (err) {
           console.error("WS message error:", err);
@@ -275,7 +266,7 @@ export default function RoomPage() {
       };
 
       ws.onclose = () => {
-        setActiveMemberIds(new Set());
+        setConnectedMembers([]);
         setCursors([]);
       };
     })();
@@ -500,19 +491,18 @@ export default function RoomPage() {
 
         {/* Members */}
         <div className="flex items-center gap-1 ml-2">
-          {members.slice(0, 5).map((m, i) => (
+          {connectedMembers.slice(0, 5).map((m) => (
             <div
-              key={m.id}
+              key={m.userId}
               className="w-6 h-6 rounded flex items-center justify-center text-xs font-bold"
-              style={{ background: getColor(i), color: "#0D1117", fontSize: 9 }}
+              style={{ background: m.color, color: "#0D1117", fontSize: 9 }}
               title={m.username}
-              data-testid={`avatar-member-${m.id}`}
             >
               {m.username.slice(0, 2).toUpperCase()}
             </div>
           ))}
-          {members.length > 5 && (
-            <span className="text-xs" style={{ color: "#8B949E" }}>+{members.length - 5}</span>
+          {connectedMembers.length > 5 && (
+            <span className="text-xs" style={{ color: "#8B949E" }}>+{connectedMembers.length - 5}</span>
           )}
         </div>
 
@@ -815,13 +805,7 @@ export default function RoomPage() {
             style={{ width: 180 }}
           >
             <SessionSidebar
-              members={members.map((m, i) => ({
-                userId: m.userId,
-                username: m.username,
-                color: getColor(i),
-                isGuest: m.isGuest,
-              }))}
-              activeMemberIds={activeMemberIds}
+              members={connectedMembers}
             />
           </motion.div>
         )}

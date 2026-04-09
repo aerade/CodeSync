@@ -48,7 +48,7 @@ class FileRoom {
   }
 
   broadcastAwareness() {
-    const states: Record<string, AwarenessState & { userId: string; username: string; color: string }> = {};
+    const states: Record<string, AwarenessState & { userId: string; username: string; color: string; isGuest: boolean }> = {};
     for (const [ws, info] of this.clients) {
       const aware = this.awareness.get(ws) ?? {};
       states[info.userId] = {
@@ -56,6 +56,7 @@ class FileRoom {
         userId: info.userId,
         username: info.username,
         color: info.color,
+        isGuest: info.isGuest,
       };
     }
     const msg = JSON.stringify({ type: "awareness", states });
