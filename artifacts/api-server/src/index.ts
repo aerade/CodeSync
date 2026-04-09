@@ -3,6 +3,7 @@ import { WebSocketServer } from "ws";
 import app from "./app";
 import { logger } from "./lib/logger";
 import { setupWebSocketServer } from "./ws/collaborationServer";
+import { setupPtyServer } from "./ws/ptyServer";
 
 const rawPort = process.env["PORT"];
 
@@ -23,6 +24,9 @@ const httpServer = createServer(app);
 // No path restriction — the handler matches /ws/rooms/:roomId/files/:fileId internally
 const wss = new WebSocketServer({ server: httpServer, noServer: false });
 setupWebSocketServer(wss);
+
+const ptyWss = new WebSocketServer({ server: httpServer, path: "/ws/pty" });
+setupPtyServer(ptyWss);
 
 httpServer.listen(port, (err?: Error) => {
   if (err) {

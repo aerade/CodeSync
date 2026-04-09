@@ -767,14 +767,23 @@ export default function RoomPage() {
                     break;
                   }
                   aiDiffDecorationsRef.current = editor.deltaDecorations(aiDiffDecorationsRef.current, decorations);
+                  setTimeout(() => {
+                    if (editorRef.current) {
+                      aiDiffDecorationsRef.current = editorRef.current.deltaDecorations(aiDiffDecorationsRef.current, []);
+                    }
+                  }, 2000);
                 }}
                 onClearAiDiff={() => {
                   const editor = editorRef.current;
                   if (!editor) return;
                   aiDiffDecorationsRef.current = editor.deltaDecorations(aiDiffDecorationsRef.current, []);
                 }}
-                onFileStream={(streamFileId, _streamFileName, content) => {
-                  if (streamFileId !== activeFileId) return;
+                onFileStream={(streamFileId, streamFileName, content) => {
+                  const matchById = streamFileId && streamFileId === activeFileId;
+                  const matchByName = !streamFileId && streamFileName &&
+                    files.some((f) => f.name === streamFileName && f.id === activeFileId);
+                  const isNewFile = !streamFileId;
+                  if (!matchById && !matchByName && !isNewFile) return;
                   isRemoteUpdate.current = true;
                   setFileContent(content);
                   if (editorRef.current) {
