@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { useUser, SignInButton } from "@clerk/react";
-import { ParticleBackground } from "@/components/ParticleBackground";
+import { FallingPattern } from "@/components/ui/falling-pattern";
 import { GuestModal } from "@/components/GuestModal";
 import { useListRooms } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
@@ -65,33 +65,32 @@ export default function Home() {
   }
 
   return (
-    <div className="relative min-h-screen flex flex-col" style={{ background: "#161B22" }}>
+    <div className="relative min-h-screen flex flex-col bg-[#161B22] overflow-hidden">
+      <div className="absolute inset-0 z-0">
+        <FallingPattern
+          className="h-full w-full opacity-70 [mask-image:radial-gradient(ellipse_at_center,transparent,black_72%)]"
+          color="#58A6FF"
+          backgroundColor="#161B22"
+          blurIntensity="0.6em"
+          density={1.2}
+          duration={180}
+        />
+      </div>
       <GuestModal
         open={showGuestModal}
         onClose={() => setShowGuestModal(false)}
         onSuccess={(_userId, _username, _guestToken) => {
-          // Guest users stay on home to join rooms with an invite code
           setShowGuestModal(false);
         }}
       />
-      <ParticleBackground />
 
       <div className="relative z-10 flex flex-col min-h-screen">
-        {/* Nav */}
         <nav className="flex items-center justify-between px-8 py-4" style={{ borderBottom: "1px solid #30363D" }}>
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="flex items-center gap-3"
-          >
+          <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="flex items-center gap-3">
             <div style={{ width: 32, height: 32, background: "linear-gradient(135deg, #58A6FF, #3FB950)", borderRadius: 8 }} />
             <span style={{ fontSize: 20, fontWeight: 700, color: "#E6EDF3", letterSpacing: "-0.5px" }}>CodeSync</span>
           </motion.div>
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="flex items-center gap-3"
-          >
+          <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="flex items-center gap-3">
             <SignInButton mode="modal">
               <Button variant="ghost" size="sm" style={{ color: "#8B949E" }} data-testid="btn-sign-in">
                 Войти
@@ -108,143 +107,75 @@ export default function Home() {
           </motion.div>
         </nav>
 
-        {/* Hero */}
         <div className="flex-1 flex flex-col items-center justify-center px-6 py-16">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="text-center max-w-3xl"
-          >
-            <div className="mb-4 inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium"
-              style={{ background: "rgba(88, 166, 255, 0.1)", border: "1px solid rgba(88, 166, 255, 0.3)", color: "#58A6FF" }}>
-              <span className="online-dot" style={{ width: 6, height: 6 }} />
-              Совместное программирование в реальном времени
+          <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} className="text-center max-w-3xl">
+            <div
+              className="mb-4 inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium"
+              style={{ background: "rgba(88, 166, 255, 0.1)", border: "1px solid rgba(88, 166, 255, 0.3)", color: "#58A6FF" }}
+            >
+              Совместная разработка в реальном времени
             </div>
-
-            <h1 className="text-5xl font-bold mb-4" style={{ color: "#E6EDF3", letterSpacing: "-1px", lineHeight: 1.15 }}>
-              Пишите код вместе,{" "}
-              <span style={{ color: "#58A6FF" }}>синхронно</span>
+            <h1 style={{ fontSize: 56, fontWeight: 800, lineHeight: 1, letterSpacing: "-2px", color: "#E6EDF3", marginBottom: 20 }}>
+              CodeSync
             </h1>
-            <p className="text-lg mb-8" style={{ color: "#8B949E", maxWidth: 520, margin: "0 auto 32px" }}>
-              Полноценный IDE в браузере с многопользовательским редактированием, AI-ревью, запуском кода и мгновенной синхронизацией.
+            <p style={{ fontSize: 20, lineHeight: 1.6, color: "#8B949E", marginBottom: 40, maxWidth: 640, marginInline: "auto" }}>
+              Онлайн IDE для совместной работы над кодом с AI-ассистентом, запуском программ и гостевым доступом.
             </p>
 
-            <div className="flex flex-col sm:flex-row gap-3 justify-center items-center mb-12">
-              <div className="flex gap-2 w-full sm:w-auto">
-                <Input
-                  placeholder="Код приглашения"
-                  value={inviteCode}
-                  onChange={(e) => setInviteCode(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleJoin()}
-                  style={{
-                    background: "#0D1117",
-                    border: "1px solid #30363D",
-                    color: "#E6EDF3",
-                    width: 200,
-                    fontFamily: "JetBrains Mono, monospace",
-                    letterSpacing: "0.1em",
-                    textTransform: "uppercase",
-                  }}
-                  data-testid="input-invite-code"
-                />
-                <Button
-                  onClick={handleJoin}
-                  disabled={!inviteCode.trim() || isJoining}
-                  style={{ background: "#30363D", color: "#E6EDF3" }}
-                  data-testid="btn-join-room"
-                >
-                  {isJoining ? "..." : "Войти"}
-                </Button>
-              </div>
-              <SignInButton mode="modal">
-                <Button
-                  size="lg"
-                  style={{ background: "linear-gradient(135deg, #58A6FF, #3FB950)", color: "#0D1117", fontWeight: 700 }}
-                  data-testid="btn-create-room"
-                >
-                  Создать комнату
-                </Button>
-              </SignInButton>
+            <div className="flex items-center justify-center gap-3 mb-12">
               <Button
-                variant="ghost"
+                size="lg"
                 onClick={() => setShowGuestModal(true)}
-                style={{ color: "#8B949E", borderColor: "#30363D" }}
+                style={{ background: "#3FB950", color: "#0D1117", fontWeight: 700, boxShadow: "0 8px 24px rgba(63, 185, 80, 0.18)" }}
                 data-testid="btn-guest-mode"
               >
                 Гостевой режим
               </Button>
+              <Button
+                size="lg"
+                variant="outline"
+                onClick={() => setLocation(`${basePath}/dashboard`)}
+                style={{ background: "transparent", borderColor: "#30363D", color: "#E6EDF3" }}
+                data-testid="btn-dashboard"
+              >
+                Открыть комнаты
+              </Button>
             </div>
 
-            {joinError && (
-              <p className="text-sm mb-4" style={{ color: "#FF7B72" }}>{joinError}</p>
-            )}
-          </motion.div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
+              {[
+                ["Yjs CRDT", "Синхронизация кода между участниками"],
+                ["Monaco Editor", "Редактор с подсветкой и курсорами"],
+                ["Piston + AI", "Запуск кода и code review"],
+              ].map(([title, desc]) => (
+                <div key={title} className="rounded-xl p-4 text-left" style={{ background: "rgba(28, 33, 40, 0.9)", border: "1px solid #30363D" }}>
+                  <div style={{ color: "#E6EDF3", fontWeight: 700, marginBottom: 8 }}>{title}</div>
+                  <div style={{ color: "#8B949E", fontSize: 14, lineHeight: 1.5 }}>{desc}</div>
+                </div>
+              ))}
+            </div>
 
-          {/* Public rooms */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3, duration: 0.5 }}
-            className="w-full max-w-4xl"
-          >
-            <h2 className="text-base font-semibold mb-4" style={{ color: "#8B949E" }}>
-              Публичные комнаты
-            </h2>
-            {roomsLoading ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {Array.from({ length: 6 }).map((_, i) => (
-                  <div key={i} className="h-24 rounded-lg animate-pulse" style={{ background: "#1C2128" }} />
-                ))}
+            <div className="max-w-xl mx-auto rounded-2xl p-4" style={{ background: "rgba(28, 33, 40, 0.9)", border: "1px solid #30363D" }}>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <Input
+                  value={inviteCode}
+                  onChange={(e) => setInviteCode(e.target.value)}
+                  placeholder="Код приглашения"
+                  className="h-11"
+                  style={{ background: "#0D1117", borderColor: "#30363D", color: "#E6EDF3" }}
+                />
+                <Button
+                  onClick={handleJoin}
+                  disabled={!inviteCode.trim() || isJoining}
+                  className="h-11 px-6"
+                  style={{ background: "#58A6FF", color: "#0D1117", fontWeight: 700 }}
+                  data-testid="btn-join-room"
+                >
+                  {isJoining ? "Подключение..." : "Войти в комнату"}
+                </Button>
               </div>
-            ) : rooms && rooms.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                <AnimatePresence>
-                  {rooms.map((room, i) => (
-                    <motion.div
-                      key={room.id}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: i * 0.05 }}
-                      className="room-card p-4 rounded-lg cursor-pointer"
-                      style={{ background: "#1C2128", border: "1px solid #30363D" }}
-                      onClick={() => setLocation(`/room/${room.id}`)}
-                      data-testid={`card-room-${room.id}`}
-                    >
-                      <div className="flex items-start justify-between mb-2">
-                        <h3 className="text-sm font-semibold truncate" style={{ color: "#E6EDF3", maxWidth: "70%" }}>
-                          {room.title}
-                        </h3>
-                        <span className="text-xs flex items-center gap-1" style={{ color: "#8B949E" }}>
-                          <span className="online-dot" style={{ width: 5, height: 5 }} />
-                          {room.memberCount}
-                        </span>
-                      </div>
-                      {room.description && (
-                        <p className="text-xs mb-2 line-clamp-1" style={{ color: "#8B949E" }}>
-                          {room.description}
-                        </p>
-                      )}
-                      <div className="flex items-center gap-1 mt-auto">
-                        <span className="text-xs px-2 py-0.5 rounded" style={{
-                          background: "rgba(48, 54, 61, 0.8)",
-                          color: "#8B949E",
-                          fontFamily: "JetBrains Mono, monospace",
-                          fontSize: 10,
-                        }}>
-                          JS
-                        </span>
-                      </div>
-                    </motion.div>
-                  ))}
-                </AnimatePresence>
-              </div>
-            ) : (
-              <div className="text-center py-12" style={{ color: "#8B949E" }}>
-                <p>Пока нет публичных комнат</p>
-                <p className="text-sm mt-1">Войдите, чтобы создать первую</p>
-              </div>
-            )}
+              {joinError && <p className="text-sm mt-3" style={{ color: "#FF7B72" }}>{joinError}</p>}
+            </div>
           </motion.div>
         </div>
       </div>
