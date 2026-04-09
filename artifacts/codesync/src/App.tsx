@@ -1,0 +1,133 @@
+import { useEffect, useRef } from "react";
+import { ClerkProvider, SignIn, SignUp, useClerk } from "@clerk/react";
+import { Switch, Route, useLocation, Router as WouterRouter } from "wouter";
+import { queryClient } from "./lib/queryClient";
+import { QueryClientProvider, useQueryClient } from "@tanstack/react-query";
+import { Toaster } from "@/components/ui/toaster";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import NotFound from "@/pages/not-found";
+import Home from "./pages/home";
+import Dashboard from "./pages/dashboard";
+import RoomPage from "./pages/room";
+
+const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
+const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL;
+const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+function stripBase(path: string): string {
+  return basePath && path.startsWith(basePath)
+    ? path.slice(basePath.length) || "/"
+    : path;
+}
+
+if (!clerkPubKey) {
+  throw new Error("Missing VITE_CLERK_PUBLISHABLE_KEY environment variable");
+}
+
+function SignInPage() {
+  return (
+    <div
+      className="min-h-screen flex items-center justify-center p-4"
+      style={{ background: "#161B22" }}
+    >
+      <SignIn
+        routing="path"
+        path={`${basePath}/sign-in`}
+        signUpUrl={`${basePath}/sign-up`}
+        appearance={{
+          variables: {
+            colorBackground: "#1C2128",
+            colorText: "#E6EDF3",
+            colorPrimary: "#58A6FF",
+            colorInputBackground: "#0D1117",
+            colorInputText: "#E6EDF3",
+          },
+        }}
+      />
+    </div>
+  );
+}
+
+function SignUpPage() {
+  return (
+    <div
+      className="min-h-screen flex items-center justify-center p-4"
+      style={{ background: "#161B22" }}
+    >
+      <SignUp
+        routing="path"
+        path={`${basePath}/sign-up`}
+        signInUrl={`${basePath}/sign-in`}
+        appearance={{
+          variables: {
+            colorBackground: "#1C2128",
+            colorText: "#E6EDF3",
+            colorPrimary: "#58A6FF",
+            colorInputBackground: "#0D1117",
+            colorInputText: "#E6EDF3",
+          },
+        }}
+      />
+    </div>
+  );
+}
+
+function ClerkQueryClientCacheInvalidator() {
+  const { addListener } = useClerk();
+  const qc = useQueryClient();
+  const prevUserIdRef = useRef<string | null | undefined>(undefined);
+
+  useEffect(() => {
+    const unsubscribe = addListener(({ user }) => {
+      const userId = user?.id ?? null;
+      if (
+        prevUserIdRef.current !== undefined &&
+        prevUserIdRef.current !== userId
+      ) {
+        qc.clear();
+      }
+      prevUserIdRef.current = userId;
+    });
+    return unsubscribe;
+  }, [addListener, qc]);
+
+  return null;
+}
+
+function ClerkProviderWithRoutes() {
+  const [, setLocation] = useLocation();
+
+  return (
+    <ClerkProvider
+      publishableKey={clerkPubKey}
+      {...(clerkProxyUrl ? { proxyUrl: clerkProxyUrl } : {})}
+      routerPush={(to) => setLocation(stripBase(to))}
+      routerReplace={(to) => setLocation(stripBase(to), { replace: true })}
+    >
+      <QueryClientProvider client={queryClient}>
+        <ClerkQueryClientCacheInvalidator />
+        <TooltipProvider>
+          <Switch>
+            <Route path="/" component={Home} />
+            <Route path="/dashboard" component={Dashboard} />
+            <Route path="/room/:roomId" component={RoomPage} />
+            <Route path="/sign-in/*?" component={SignInPage} />
+            <Route path="/sign-up/*?" component={SignUpPage} />
+            <Route component={NotFound} />
+          </Switch>
+          <Toaster />
+        </TooltipProvider>
+      </QueryClientProvider>
+    </ClerkProvider>
+  );
+}
+
+function App() {
+  return (
+    <WouterRouter base={basePath}>
+      <ClerkProviderWithRoutes />
+    </WouterRouter>
+  );
+}
+
+export default App;

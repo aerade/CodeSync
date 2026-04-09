@@ -3,20 +3,30 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: CodeSync - Collaborative Web IDE API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Authentication operations
+  - name: rooms
+    description: Room operations
+  - name: files
+    description: File operations
+  - name: events
+    description: Event feed operations
+  - name: execute
+    description: Code execution operations
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +34,359 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Get current user profile
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          description: Unauthorized
+
+  /auth/guest:
+    post:
+      operationId: createGuestSession
+      tags: [auth]
+      summary: Create a guest session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateGuestSessionBody"
+      responses:
+        "200":
+          description: Guest session created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GuestSession"
+
+  /rooms:
+    get:
+      operationId: listRooms
+      tags: [rooms]
+      summary: List public rooms
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of public rooms
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Room"
+    post:
+      operationId: createRoom
+      tags: [rooms]
+      summary: Create a new room
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRoomBody"
+      responses:
+        "201":
+          description: Room created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Room"
+        "401":
+          description: Unauthorized
+
+  /rooms/{roomId}:
+    get:
+      operationId: getRoom
+      tags: [rooms]
+      summary: Get room by ID
+      parameters:
+        - name: roomId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Room details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Room"
+        "404":
+          description: Room not found
+    delete:
+      operationId: deleteRoom
+      tags: [rooms]
+      summary: Delete a room
+      parameters:
+        - name: roomId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Room deleted
+        "403":
+          description: Forbidden
+        "404":
+          description: Not found
+
+  /rooms/join/{inviteCode}:
+    get:
+      operationId: getRoomByInviteCode
+      tags: [rooms]
+      summary: Get room by invite code
+      parameters:
+        - name: inviteCode
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Room details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Room"
+        "404":
+          description: Room not found
+
+  /rooms/{roomId}/members:
+    get:
+      operationId: getRoomMembers
+      tags: [rooms]
+      summary: Get room members
+      parameters:
+        - name: roomId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of members
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RoomMember"
+
+  /rooms/{roomId}/files:
+    get:
+      operationId: getRoomFiles
+      tags: [files]
+      summary: Get all files in a room
+      parameters:
+        - name: roomId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of files
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/File"
+    post:
+      operationId: createFile
+      tags: [files]
+      summary: Create a file or folder in a room
+      parameters:
+        - name: roomId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateFileBody"
+      responses:
+        "201":
+          description: File created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/File"
+
+  /rooms/{roomId}/files/{fileId}:
+    get:
+      operationId: getFile
+      tags: [files]
+      summary: Get file by ID
+      parameters:
+        - name: roomId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: fileId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: File details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/File"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateFile
+      tags: [files]
+      summary: Update file metadata or content
+      parameters:
+        - name: roomId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: fileId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateFileBody"
+      responses:
+        "200":
+          description: File updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/File"
+    delete:
+      operationId: deleteFile
+      tags: [files]
+      summary: Delete a file or folder
+      parameters:
+        - name: roomId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: fileId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: File deleted
+
+  /rooms/{roomId}/events:
+    get:
+      operationId: getRoomEvents
+      tags: [events]
+      summary: Get event feed for a room
+      parameters:
+        - name: roomId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        "200":
+          description: List of events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Event"
+
+  /execute:
+    post:
+      operationId: executeCode
+      tags: [execute]
+      summary: Execute code in a sandbox
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExecuteCodeBody"
+      responses:
+        "200":
+          description: Execution result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExecuteCodeResult"
+
+  /ai/chat:
+    post:
+      operationId: aiChat
+      tags: [ai]
+      summary: Chat with AI agent (streaming SSE)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AiChatBody"
+      responses:
+        "200":
+          description: SSE stream of AI response
+          content:
+            text/event-stream:
+              schema:
+                type: string
+
+  /ai/review:
+    post:
+      operationId: aiReviewCode
+      tags: [ai]
+      summary: AI code review for a code snippet
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AiReviewBody"
+      responses:
+        "200":
+          description: Code review result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiReviewResult"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +397,319 @@ components:
       required:
         - status
 
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        username:
+          type: string
+        email:
+          type: ["string", "null"]
+        avatarUrl:
+          type: ["string", "null"]
+        isGuest:
+          type: boolean
+        createdAt:
+          type: string
+      required:
+        - id
+        - username
+        - isGuest
+        - createdAt
+
+    CreateGuestSessionBody:
+      type: object
+      properties:
+        username:
+          type: string
+      required:
+        - username
+
+    GuestSession:
+      type: object
+      properties:
+        token:
+          type: string
+        user:
+          $ref: "#/components/schemas/User"
+      required:
+        - token
+        - user
+
+    Room:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        isPrivate:
+          type: boolean
+        inviteCode:
+          type: string
+        ownerId:
+          type: string
+        memberCount:
+          type: integer
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - title
+        - isPrivate
+        - inviteCode
+        - ownerId
+        - memberCount
+        - createdAt
+        - updatedAt
+
+    CreateRoomBody:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        isPrivate:
+          type: boolean
+      required:
+        - title
+
+    RoomMember:
+      type: object
+      properties:
+        id:
+          type: string
+        roomId:
+          type: string
+        userId:
+          type: string
+        username:
+          type: string
+        avatarUrl:
+          type: ["string", "null"]
+        isGuest:
+          type: boolean
+        color:
+          type: string
+        joinedAt:
+          type: string
+      required:
+        - id
+        - roomId
+        - userId
+        - username
+        - isGuest
+        - color
+        - joinedAt
+
+    File:
+      type: object
+      properties:
+        id:
+          type: string
+        roomId:
+          type: string
+        name:
+          type: string
+        path:
+          type: string
+        language:
+          type: string
+        content:
+          type: string
+        parentId:
+          type: ["string", "null"]
+        isFolder:
+          type: boolean
+        createdBy:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - roomId
+        - name
+        - path
+        - language
+        - content
+        - isFolder
+        - createdAt
+        - updatedAt
+
+    CreateFileBody:
+      type: object
+      properties:
+        name:
+          type: string
+        path:
+          type: string
+        language:
+          type: string
+        content:
+          type: string
+        parentId:
+          type: string
+        isFolder:
+          type: boolean
+      required:
+        - name
+        - path
+
+    UpdateFileBody:
+      type: object
+      properties:
+        name:
+          type: string
+        path:
+          type: string
+        language:
+          type: string
+        content:
+          type: string
+        parentId:
+          type: ["string", "null"]
+
+    Event:
+      type: object
+      properties:
+        id:
+          type: string
+        roomId:
+          type: string
+        userId:
+          type: string
+        username:
+          type: string
+        type:
+          type: string
+        description:
+          type: string
+        createdAt:
+          type: string
+      required:
+        - id
+        - roomId
+        - userId
+        - username
+        - type
+        - description
+        - createdAt
+
+    ExecuteCodeBody:
+      type: object
+      properties:
+        language:
+          type: string
+        code:
+          type: string
+        stdin:
+          type: string
+        roomId:
+          type: string
+      required:
+        - language
+        - code
+
+    ExecuteCodeResult:
+      type: object
+      properties:
+        stdout:
+          type: string
+        stderr:
+          type: string
+        exitCode:
+          type: integer
+        runtime:
+          type: number
+        language:
+          type: string
+      required:
+        - stdout
+        - stderr
+        - exitCode
+        - language
+
+    AiChatBody:
+      type: object
+      properties:
+        message:
+          type: string
+        roomId:
+          type: string
+        fileId:
+          type: string
+        codeContext:
+          type: string
+        history:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChatMessage"
+      required:
+        - message
+
+    ChatMessage:
+      type: object
+      properties:
+        role:
+          type: string
+        content:
+          type: string
+      required:
+        - role
+        - content
+
+    AiReviewBody:
+      type: object
+      properties:
+        code:
+          type: string
+        language:
+          type: string
+        roomId:
+          type: string
+        fileId:
+          type: string
+      required:
+        - code
+        - language
+
+    AiReviewResult:
+      type: object
+      properties:
+        issues:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReviewIssue"
+        summary:
+          type: string
+        suggestions:
+          type: array
+          items:
+            type: string
+      required:
+        - issues
+        - summary
+        - suggestions
+
+    ReviewIssue:
+      type: object
+      properties:
+        line:
+          type: integer
+        severity:
+          type: string
+        message:
+          type: string
+        suggestion:
+          type: string
+      required:
+        - severity
+        - message

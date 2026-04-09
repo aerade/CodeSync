@@ -1,0 +1,460 @@
+import { useState, useEffect, useRef, useCallback } from "react";
+import { useParams, useLocation } from "wouter";
+import { motion } from "framer-motion";
+import Editor from "@monaco-editor/react";
+import * as Y from "yjs";
+import { useGetRoom, useGetRoomFiles, useGetRoomMembers, useGetRoomEvents, useUpdateFile, getGetFileQueryKey, getGetRoomEventsQueryKey, getGetRoomMembersQueryKey } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { FileTree } from "@/components/FileTree";
+import { AIPanel } from "@/components/AIPanel";
+import { Terminal } from "@/components/Terminal";
+import { SessionSidebar } from "@/components/SessionSidebar";
+import { Button } from "@/components/ui/button";
+import { useUser } from "@clerk/react";
+
+const COLLAB_COLORS = [
+  "#58A6FF", "#3FB950", "#D2A8FF", "#FFA657",
+  "#F2CC60", "#79C0FF", "#56D364", "#FF7B72",
+];
+
+function getColor(idx: number) {
+  return COLLAB_COLORS[idx % COLLAB_COLORS.length];
+}
+
+const LANG_LABELS: Record<string, string> = {
+  javascript: "JavaScript", typescript: "TypeScript", python: "Python",
+  go: "Go", rust: "Rust", java: "Java", cpp: "C++", c: "C",
+  csharp: "C#", ruby: "Ruby", php: "PHP", html: "HTML", css: "CSS",
+  json: "JSON", markdown: "Markdown", shell: "Shell", sql: "SQL", plaintext: "Text",
+};
+
+interface CollabCursor {
+  userId: string;
+  username: string;
+  color: string;
+  line: number;
+  column: number;
+}
+
+interface WSMessage {
+  type: string;
+  update?: string;
+  states?: Record<string, { cursor?: { anchor: number; head: number } | null; userId: string; username: string; color: string }>;
+  userId?: string;
+  username?: string;
+  color?: string;
+}
+
+export default function RoomPage() {
+  const params = useParams<{ roomId: string }>();
+  const roomId = params.roomId;
+  const [, setLocation] = useLocation();
+  const { user: clerkUser } = useUser();
+  const qc = useQueryClient();
+
+  const [activeFileId, setActiveFileId] = useState<string | null>(null);
+  const [fileContent, setFileContent] = useState("");
+  const [isBottomOpen, setIsBottomOpen] = useState(true);
+  const [isLeftOpen, setIsLeftOpen] = useState(true);
+  const [isRightOpen, setIsRightOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [activeMemberIds, setActiveMemberIds] = useState<Set<string>>(new Set());
+  const [inviteCopied, setInviteCopied] = useState(false);
+
+  const wsRef = useRef<WebSocket | null>(null);
+  const ydocRef = useRef<Y.Doc | null>(null);
+  const editorRef = useRef<any>(null);
+  const monacoRef = useRef<any>(null);
+  const isRemoteUpdate = useRef(false);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const updateFile = useUpdateFile();
+
+  const { data: room } = useGetRoom(roomId);
+  const { data: files = [], refetch: refetchFiles } = useGetRoomFiles(roomId);
+  const { data: members = [] } = useGetRoomMembers(roomId, {
+    query: { refetchInterval: 5000 },
+  });
+  const { data: events = [] } = useGetRoomEvents(roomId, undefined, {
+    query: { refetchInterval: 5000, queryKey: getGetRoomEventsQueryKey(roomId) },
+  });
+
+  const activeFile = files.find((f) => f.id === activeFileId) ?? null;
+
+  useEffect(() => {
+    if (files.length > 0 && !activeFileId) {
+      setActiveFileId(files[0].id);
+      setFileContent((files[0] as any).content ?? "");
+    }
+  }, [files]);
+
+  useEffect(() => {
+    if (!activeFileId) return;
+
+    const file = files.find((f) => f.id === activeFileId);
+    if (file) {
+      setFileContent((file as any).content ?? "");
+    }
+
+    if (wsRef.current) {
+      wsRef.current.close();
+      wsRef.current = null;
+    }
+    if (ydocRef.current) {
+      ydocRef.current.destroy();
+      ydocRef.current = null;
+    }
+
+    const ydoc = new Y.Doc();
+    ydocRef.current = ydoc;
+    const yText = ydoc.getText("content");
+
+    const userId = clerkUser?.id ?? `user_${Math.random().toString(36).slice(2)}`;
+    const username = clerkUser?.firstName ?? clerkUser?.username ?? "Аноним";
+    const guestToken = localStorage.getItem("codesync_guest_token") ?? "";
+
+    const host = window.location.host;
+    const wsUrl = `${window.location.protocol === "https:" ? "wss" : "ws"}://${host}/ws/rooms/${roomId}/files/${activeFileId}?userId=${encodeURIComponent(userId)}&username=${encodeURIComponent(username)}&guestToken=${encodeURIComponent(guestToken)}`;
+
+    const ws = new WebSocket(wsUrl);
+    wsRef.current = ws;
+
+    let initialized = false;
+
+    ws.onmessage = (event) => {
+      try {
+        const msg: WSMessage = JSON.parse(event.data);
+
+        if (msg.type === "init" && msg.update) {
+          const update = Uint8Array.from(atob(msg.update), (c) => c.charCodeAt(0));
+          Y.applyUpdate(ydoc, update);
+          initialized = true;
+          const text = yText.toString();
+          if (text && editorRef.current) {
+            isRemoteUpdate.current = true;
+            editorRef.current.setValue(text);
+            isRemoteUpdate.current = false;
+          }
+        } else if (msg.type === "yjs-update" && msg.update) {
+          const update = Uint8Array.from(atob(msg.update), (c) => c.charCodeAt(0));
+          isRemoteUpdate.current = true;
+          Y.applyUpdate(ydoc, update);
+          isRemoteUpdate.current = false;
+          const text = yText.toString();
+          if (editorRef.current) {
+            const editor = editorRef.current;
+            const position = editor.getPosition();
+            editor.setValue(text);
+            if (position) editor.setPosition(position);
+          }
+        } else if (msg.type === "awareness" && msg.states) {
+          const ids = new Set(Object.keys(msg.states));
+          setActiveMemberIds(ids);
+        } else if (msg.type === "joined") {
+          setActiveMemberIds((prev) => new Set([...prev, msg.userId ?? ""]));
+        }
+      } catch (err) {
+        console.error("WS message error:", err);
+      }
+    };
+
+    ws.onclose = () => {
+      setActiveMemberIds(new Set());
+    };
+
+    return () => {
+      ws.close();
+      ydoc.destroy();
+    };
+  }, [activeFileId, roomId]);
+
+  function handleEditorChange(value: string | undefined) {
+    if (isRemoteUpdate.current) return;
+    const text = value ?? "";
+    setFileContent(text);
+
+    if (ydocRef.current && wsRef.current?.readyState === WebSocket.OPEN) {
+      const ydoc = ydocRef.current;
+      const yText = ydoc.getText("content");
+      const update = Y.encodeStateAsUpdate(ydoc);
+      wsRef.current.send(JSON.stringify({
+        type: "yjs-update",
+        update: btoa(String.fromCharCode(...update)),
+      }));
+    }
+
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      if (activeFileId && !isRemoteUpdate.current) {
+        updateFile.mutate({ roomId, fileId: activeFileId, data: { content: text } });
+      }
+    }, 1500);
+  }
+
+  function handleEditorMount(editor: any, monaco: any) {
+    editorRef.current = editor;
+    monacoRef.current = monaco;
+
+    editor.onDidChangeCursorPosition((e: any) => {
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify({
+          type: "cursor",
+          position: { lineNumber: e.position.lineNumber, column: e.position.column },
+        }));
+      }
+    });
+  }
+
+  function copyInviteCode() {
+    if (room?.inviteCode) {
+      navigator.clipboard.writeText(room.inviteCode);
+      setInviteCopied(true);
+      setTimeout(() => setInviteCopied(false), 2000);
+    }
+  }
+
+  if (!room) {
+    return (
+      <div className="flex items-center justify-center h-screen" style={{ background: "#161B22" }}>
+        <div className="text-sm" style={{ color: "#8B949E" }}>Загрузка комнаты...</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="ide-layout">
+      {/* TOP BAR */}
+      <div className="ide-topbar">
+        <button
+          className="text-sm font-semibold transition-colors hover:opacity-80"
+          style={{ color: "#E6EDF3", cursor: "pointer", background: "none", border: "none" }}
+          onClick={() => setLocation("/dashboard")}
+          data-testid="btn-back-dashboard"
+        >
+          CodeSync
+        </button>
+        <span style={{ color: "#30363D" }}>/</span>
+        <span className="text-sm font-medium truncate" style={{ color: "#E6EDF3", maxWidth: 200 }}>
+          {room.title}
+        </span>
+
+        {/* Invite code */}
+        <button
+          onClick={copyInviteCode}
+          className="text-xs font-mono px-2 py-0.5 rounded transition-colors hover:bg-white/5"
+          style={{
+            background: "#0D1117",
+            border: "1px solid #30363D",
+            color: inviteCopied ? "#3FB950" : "#8B949E",
+            letterSpacing: "0.1em",
+          }}
+          data-testid="btn-copy-invite"
+        >
+          {inviteCopied ? "Скопировано!" : room.inviteCode}
+        </button>
+
+        {/* Run code */}
+        <Button
+          size="sm"
+          onClick={() => setIsBottomOpen(true)}
+          style={{ background: "#3FB950", color: "#0D1117", fontWeight: 600, fontSize: 11, height: 26 }}
+          data-testid="btn-run-code-topbar"
+        >
+          Запустить
+        </Button>
+
+        {/* Members */}
+        <div className="flex items-center gap-1 ml-2">
+          {members.slice(0, 5).map((m, i) => (
+            <div
+              key={m.id}
+              className="w-6 h-6 rounded flex items-center justify-center text-xs font-bold"
+              style={{ background: getColor(i), color: "#0D1117", fontSize: 9 }}
+              title={m.username}
+              data-testid={`avatar-member-${m.id}`}
+            >
+              {m.username.slice(0, 2).toUpperCase()}
+            </div>
+          ))}
+          {members.length > 5 && (
+            <span className="text-xs" style={{ color: "#8B949E" }}>+{members.length - 5}</span>
+          )}
+        </div>
+
+        <div className="ml-auto flex items-center gap-2">
+          <button
+            className="text-xs px-2 py-0.5 rounded hover:bg-white/5 transition-colors"
+            style={{ color: "#8B949E", border: "none", background: "transparent", cursor: "pointer" }}
+            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            data-testid="btn-toggle-sidebar"
+          >
+            {isSidebarOpen ? "Участники" : "Участники"}
+          </button>
+          <button
+            className="text-xs px-2 py-0.5 rounded hover:bg-white/5 transition-colors"
+            style={{ color: "#8B949E", border: "none", background: "transparent", cursor: "pointer" }}
+            onClick={() => setIsRightOpen(!isRightOpen)}
+            data-testid="btn-toggle-ai"
+          >
+            AI
+          </button>
+        </div>
+      </div>
+
+      {/* MAIN AREA */}
+      <div className="ide-main">
+        {/* Left: File tree */}
+        {isLeftOpen && (
+          <motion.div
+            initial={{ width: 240 }}
+            animate={{ width: 240 }}
+            className="flex-shrink-0 overflow-hidden"
+            style={{ width: 240, borderRight: "1px solid #30363D", background: "#161B22" }}
+          >
+            <FileTree
+              roomId={roomId}
+              files={files as any}
+              activeFileId={activeFileId}
+              onFileSelect={(file) => {
+                setActiveFileId(file.id);
+                setFileContent((file as any).content ?? "");
+              }}
+              onFilesChange={() => refetchFiles()}
+            />
+          </motion.div>
+        )}
+
+        {/* Center: Editor */}
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+          {/* Editor header */}
+          <div
+            className="flex items-center gap-2 px-3"
+            style={{ height: 32, borderBottom: "1px solid #30363D", background: "#1C2128", flexShrink: 0 }}
+          >
+            <button
+              className="text-xs hover:bg-white/5 px-1.5 rounded transition-colors"
+              style={{ color: "#8B949E", background: "transparent", border: "none", cursor: "pointer" }}
+              onClick={() => setIsLeftOpen(!isLeftOpen)}
+              data-testid="btn-toggle-filetree"
+            >
+              {isLeftOpen ? "◀" : "▶"}
+            </button>
+            <span className="text-xs" style={{ color: "#8B949E" }}>
+              {activeFile?.name ?? "Выберите файл"}
+            </span>
+            {activeFile && (
+              <span className="text-xs px-1.5 py-0.5 rounded font-mono" style={{ marginLeft: "auto", background: "#0D1117", color: "#8B949E", border: "1px solid #30363D" }}>
+                {LANG_LABELS[activeFile.language] ?? activeFile.language}
+              </span>
+            )}
+          </div>
+
+          {/* Monaco Editor */}
+          <div className="flex-1 overflow-hidden">
+            {activeFile ? (
+              <Editor
+                height="100%"
+                language={activeFile.language === "shell" ? "shell" : activeFile.language}
+                value={fileContent}
+                onChange={handleEditorChange}
+                onMount={handleEditorMount}
+                theme="vs-dark"
+                options={{
+                  fontSize: 14,
+                  fontFamily: "'JetBrains Mono', 'Cascadia Code', 'Fira Code', monospace",
+                  lineHeight: 22,
+                  minimap: { enabled: false },
+                  scrollBeyondLastLine: false,
+                  wordWrap: "on",
+                  automaticLayout: true,
+                  padding: { top: 12, bottom: 12 },
+                  cursorBlinking: "smooth",
+                  smoothScrolling: true,
+                  renderLineHighlight: "line",
+                  bracketPairColorization: { enabled: true },
+                  tabSize: 2,
+                  insertSpaces: true,
+                  formatOnPaste: true,
+                }}
+              />
+            ) : (
+              <div className="flex items-center justify-center h-full" style={{ background: "#0D1117" }}>
+                <div className="text-center">
+                  <p className="text-sm mb-2" style={{ color: "#8B949E" }}>Выберите файл для редактирования</p>
+                  <p className="text-xs" style={{ color: "#30363D" }}>или создайте новый</p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Bottom: Terminal */}
+          {isBottomOpen && (
+            <motion.div
+              initial={{ height: 0 }}
+              animate={{ height: 200 }}
+              exit={{ height: 0 }}
+              className="ide-bottom"
+              style={{ height: 200 }}
+            >
+              <div
+                className="resize-handle-horizontal"
+                style={{ cursor: "row-resize", height: 4 }}
+              />
+              <div style={{ height: 196 }}>
+                <Terminal
+                  code={fileContent}
+                  language={activeFile?.language ?? "javascript"}
+                />
+              </div>
+            </motion.div>
+          )}
+        </div>
+
+        {/* Right: AI Panel */}
+        {isRightOpen && (
+          <motion.div
+            initial={{ width: 320 }}
+            animate={{ width: 320 }}
+            className="flex-shrink-0"
+            style={{ width: 320, borderLeft: "1px solid #30363D" }}
+          >
+            <AIPanel
+              roomId={roomId}
+              fileId={activeFileId}
+              fileContent={fileContent}
+              language={activeFile?.language ?? "javascript"}
+              fileName={activeFile?.name ?? ""}
+            />
+          </motion.div>
+        )}
+
+        {/* Session sidebar */}
+        {isSidebarOpen && (
+          <motion.div
+            initial={{ width: 0 }}
+            animate={{ width: 180 }}
+            className="flex-shrink-0"
+            style={{ width: 180 }}
+          >
+            <SessionSidebar
+              members={members.map((m, i) => ({
+                userId: m.userId,
+                username: m.username,
+                color: getColor(i),
+                isGuest: m.isGuest,
+              }))}
+              events={events.map((e) => ({
+                id: e.id,
+                username: e.username,
+                description: e.description,
+                type: e.type,
+                createdAt: e.createdAt,
+              }))}
+              activeMemberIds={activeMemberIds}
+            />
+          </motion.div>
+        )}
+      </div>
+    </div>
+  );
+}
