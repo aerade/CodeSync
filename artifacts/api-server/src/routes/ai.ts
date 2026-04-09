@@ -416,13 +416,21 @@ async function reviewHandler(req: Request, res: Response): Promise<void> {
     try {
       const parsed: unknown = JSON.parse(rawText);
       if (Array.isArray(parsed)) {
-        issues = parsed.filter(
-          (item): item is ReviewIssue => {
+        const VALID_SEVERITIES = new Set(["error", "warning", "info"]);
+        issues = parsed
+          .filter((item): item is Record<string, unknown> => {
             if (typeof item !== "object" || item === null) return false;
             const record = item as Record<string, unknown>;
             return typeof record["message"] === "string" && record["message"].length > 0;
-          }
-        );
+          })
+          .map((item) => ({
+            line: typeof item["line"] === "number" ? Math.round(item["line"]) : 0,
+            severity: (VALID_SEVERITIES.has(item["severity"] as string)
+              ? item["severity"]
+              : "info") as ReviewIssue["severity"],
+            message: item["message"] as string,
+            suggestion: typeof item["suggestion"] === "string" ? item["suggestion"] : "",
+          }));
       }
     } catch {
       issues = [];

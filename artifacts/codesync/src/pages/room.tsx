@@ -102,6 +102,18 @@ export default function RoomPage() {
   const dragStartHeight = useRef(0);
   const dragStartX = useRef(0);
   const dragStartWidth = useRef(0);
+  const terminalCleanupRef = useRef<(() => void) | null>(null);
+  const aiPanelCleanupRef = useRef<(() => void) | null>(null);
+
+  // Cleanup resize listeners on unmount
+  useEffect(() => {
+    return () => {
+      terminalCleanupRef.current?.();
+      aiPanelCleanupRef.current?.();
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+  }, []);
   const [activeMemberIds, setActiveMemberIds] = useState<Set<string>>(new Set());
   const [inviteCopied, setInviteCopied] = useState(false);
   const [cursors, setCursors] = useState<CollabCursorInfo[]>([]);
@@ -365,6 +377,7 @@ export default function RoomPage() {
       isResizingTerminal.current = false;
       document.removeEventListener("mousemove", onMove);
       document.removeEventListener("mouseup", onUp);
+      terminalCleanupRef.current = null;
       document.body.style.cursor = "";
       document.body.style.userSelect = "";
     }
@@ -373,6 +386,10 @@ export default function RoomPage() {
     document.body.style.userSelect = "none";
     document.addEventListener("mousemove", onMove);
     document.addEventListener("mouseup", onUp);
+    terminalCleanupRef.current = () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    };
   }, [terminalHeight]);
 
   const handleAiPanelResizeStart = useCallback((e: React.MouseEvent) => {
@@ -392,6 +409,7 @@ export default function RoomPage() {
       isResizingAiPanel.current = false;
       document.removeEventListener("mousemove", onMove);
       document.removeEventListener("mouseup", onUp);
+      aiPanelCleanupRef.current = null;
       document.body.style.cursor = "";
       document.body.style.userSelect = "";
     }
@@ -400,6 +418,10 @@ export default function RoomPage() {
     document.body.style.userSelect = "none";
     document.addEventListener("mousemove", onMove);
     document.addEventListener("mouseup", onUp);
+    aiPanelCleanupRef.current = () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    };
   }, [aiPanelWidth]);
 
   if (!room) {
