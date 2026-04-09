@@ -60,6 +60,7 @@ interface Props {
   activeFileId: string | null;
   onFileSelect: (file: FileItem) => void;
   onFilesChange: () => void;
+  isReadOnly?: boolean;
 }
 
 interface ContextMenuState {
@@ -69,7 +70,7 @@ interface ContextMenuState {
   fileName: string;
 }
 
-export function FileTree({ roomId, files, activeFileId, onFileSelect, onFilesChange }: Props) {
+export function FileTree({ roomId, files, activeFileId, onFileSelect, onFilesChange, isReadOnly = false }: Props) {
   const qc = useQueryClient();
   const createFile = useCreateFile();
   const deleteFile = useDeleteFile();
@@ -84,6 +85,7 @@ export function FileTree({ roomId, files, activeFileId, onFileSelect, onFilesCha
 
   function handleContextMenu(e: React.MouseEvent, fileId: string, fileName: string) {
     e.preventDefault();
+    if (isReadOnly) return;
     setContextMenu({ x: e.clientX, y: e.clientY, fileId, fileName });
   }
 
@@ -225,15 +227,22 @@ export function FileTree({ roomId, files, activeFileId, onFileSelect, onFilesCha
           Файлы
         </span>
         <div className="flex gap-1">
-          <button
-            className="px-1.5 py-0.5 rounded text-xs transition-colors hover:bg-white/5"
-            style={{ color: "#8B949E" }}
-            onClick={() => { setIsCreatingFile(true); setNewFileName(""); }}
-            title="Новый файл"
-            data-testid="btn-new-file"
-          >
-            +
-          </button>
+          {!isReadOnly && (
+            <button
+              className="px-1.5 py-0.5 rounded text-xs transition-colors hover:bg-white/5"
+              style={{ color: "#8B949E" }}
+              onClick={() => { setIsCreatingFile(true); setNewFileName(""); }}
+              title="Новый файл"
+              data-testid="btn-new-file"
+            >
+              +
+            </button>
+          )}
+          {isReadOnly && (
+            <span className="text-xs px-2" style={{ color: "#8B949E", opacity: 0.6 }}>
+              только чтение
+            </span>
+          )}
         </div>
       </div>
 

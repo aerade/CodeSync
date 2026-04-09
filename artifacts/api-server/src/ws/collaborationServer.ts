@@ -278,6 +278,8 @@ export function setupWebSocketServer(wss: WebSocketServer) {
       }
 
       if (msg.type === "yjs-update" && msg.update) {
+        // Guests are read-only observers — ignore document edits from them
+        if (collaborator.isGuest) return;
         const bytes = Uint8Array.from(atob(msg.update), (c) => c.charCodeAt(0));
         Y.applyUpdate(fileRoom.doc, bytes);
         // Broadcast to all other peers

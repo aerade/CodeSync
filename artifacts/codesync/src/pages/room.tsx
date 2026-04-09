@@ -81,6 +81,9 @@ export default function RoomPage() {
   const { user: clerkUser } = useUser();
   const qc = useQueryClient();
 
+  // Guest mode: Clerk user is not signed in but a guest token exists
+  const isGuest = !clerkUser && !!localStorage.getItem("codesync_guest_token");
+
   const [activeFileId, setActiveFileId] = useState<string | null>(null);
   const [fileContent, setFileContent] = useState("");
   const [isBottomOpen, setIsBottomOpen] = useState(true);
@@ -428,6 +431,7 @@ export default function RoomPage() {
                 setFileContent(file.content ?? "");
               }}
               onFilesChange={() => { void refetchFiles(); }}
+              isReadOnly={isGuest}
             />
           </motion.div>
         )}
@@ -483,6 +487,8 @@ export default function RoomPage() {
                   tabSize: 2,
                   insertSpaces: true,
                   formatOnPaste: true,
+                  readOnly: isGuest,
+                  domReadOnly: isGuest,
                 }}
               />
             ) : (

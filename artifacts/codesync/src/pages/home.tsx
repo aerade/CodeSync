@@ -66,8 +66,8 @@ export default function Home() {
         open={showGuestModal}
         onClose={() => setShowGuestModal(false)}
         onSuccess={(_userId, _username, _guestToken) => {
-          // Navigate to dashboard after guest login
-          setLocation("/dashboard");
+          // Guest users stay on home to join rooms with an invite code
+          setShowGuestModal(false);
         }}
       />
       <ParticleBackground />

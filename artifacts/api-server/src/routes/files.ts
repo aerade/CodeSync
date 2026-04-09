@@ -42,12 +42,13 @@ async function canReadRoom(roomId: string, userId: string | null): Promise<boole
   return !!member;
 }
 
-/** Check if user can WRITE to room — must be authenticated (member or room is public) */
-async function canWriteRoom(roomId: string, userId: string | null): Promise<boolean> {
+/** Check if user can WRITE to room — must be a non-guest authenticated user (member or public room) */
+async function canWriteRoom(roomId: string, userId: string | null, isGuest = false): Promise<boolean> {
   if (!userId) return false; // Must be authenticated to write
+  if (isGuest) return false; // Guests are read-only observers
   const room = await db.query.roomsTable.findFirst({ where: eq(roomsTable.id, roomId) });
   if (!room) return false;
-  if (!room.isPrivate) return true; // Public rooms: any authenticated user can write
+  if (!room.isPrivate) return true; // Public rooms: any non-guest authenticated user can write
   // Private rooms: must be a member
   const member = await db.query.roomMembersTable.findFirst({
     where: and(eq(roomMembersTable.roomId, roomId), eq(roomMembersTable.userId, userId)),
@@ -99,8 +100,8 @@ filesRouter.post("/rooms/:roomId/files", async (req, res) => {
   const { roomId } = req.params;
   const user = await resolveUser(req);
 
-  if (!(await canWriteRoom(roomId, user?.userId ?? null))) {
-    return res.status(user ? 403 : 401).json({ error: user ? "Forbidden" : "Authentication required" });
+  if (!(await canWriteRoom(roomId, user?.userId ?? null, user?.isGuest ?? false))) {
+    return res.status(user ? 403 : 401).json({ error: user?.isGuest ? "Guests cannot create files" : user ? "Forbidden" : "Authentication required" });
   }
 
   const body = req.body as {
@@ -193,8 +194,8 @@ filesRouter.patch("/rooms/:roomId/files/:fileId", async (req, res) => {
   const { roomId, fileId } = req.params;
   const user = await resolveUser(req);
 
-  if (!(await canWriteRoom(roomId, user?.userId ?? null))) {
-    return res.status(user ? 403 : 401).json({ error: user ? "Forbidden" : "Authentication required" });
+  if (!(await canWriteRoom(roomId, user?.userId ?? null, user?.isGuest ?? false))) {
+    return res.status(user ? 403 : 401).json({ error: user?.isGuest ? "Guests cannot edit files" : user ? "Forbidden" : "Authentication required" });
   }
 
   const body = req.body as {
@@ -248,8 +249,8 @@ filesRouter.delete("/rooms/:roomId/files/:fileId", async (req, res) => {
   const { roomId, fileId } = req.params;
   const user = await resolveUser(req);
 
-  if (!(await canWriteRoom(roomId, user?.userId ?? null))) {
-    return res.status(user ? 403 : 401).json({ error: user ? "Forbidden" : "Authentication required" });
+  if (!(await canWriteRoom(roomId, user?.userId ?? null, user?.isGuest ?? false))) {
+    return res.status(user ? 403 : 401).json({ error: user?.isGuest ? "Guests cannot delete files" : user ? "Forbidden" : "Authentication required" });
   }
 
   const file = await db.query.filesTable.findFirst({

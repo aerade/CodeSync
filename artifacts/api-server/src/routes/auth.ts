@@ -90,9 +90,15 @@ authRouter.post("/auth/guest", async (req, res) => {
   }).returning();
 
   return res.json({
-    userId: user.id,
-    username: user.username,
-    guestToken,
+    token: guestToken,
+    user: {
+      id: user.id,
+      username: user.username,
+      email: null,
+      avatarUrl: null,
+      isGuest: true,
+      createdAt: user.createdAt.toISOString(),
+    },
   });
 });
 

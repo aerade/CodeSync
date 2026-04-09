@@ -37,11 +37,11 @@ export function GuestModal({ open, onClose, onSuccess }: Props) {
         return;
       }
 
-      const data = await resp.json() as { userId: string; username: string; guestToken: string };
-      localStorage.setItem("codesync_guest_token", data.guestToken);
-      localStorage.setItem("codesync_guest_user_id", data.userId);
-      localStorage.setItem("codesync_guest_username", data.username);
-      onSuccess(data.userId, data.username, data.guestToken);
+      const data = await resp.json() as { token: string; user: { id: string; username: string } };
+      localStorage.setItem("codesync_guest_token", data.token);
+      localStorage.setItem("codesync_guest_user_id", data.user.id);
+      localStorage.setItem("codesync_guest_username", data.user.username);
+      onSuccess(data.user.id, data.user.username, data.token);
       onClose();
     } catch {
       setError("Ошибка подключения к серверу");
