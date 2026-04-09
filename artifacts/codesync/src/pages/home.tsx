@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { useUser, SignInButton, SignUpButton } from "@clerk/react";
-import { ParticleBackground } from "@/components/ParticleBackground";
+import { GridBackground } from "@/components/GridBackground";
 import { GuestModal } from "@/components/GuestModal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,7 +18,6 @@ export default function Home() {
   const [showGuestModal, setShowGuestModal] = useState(false);
   const [showAuthHint, setShowAuthHint] = useState(false);
 
-  // Redirect signed-in Clerk users to dashboard (must be in useEffect, not during render)
   useEffect(() => {
     if (isLoaded && isSignedIn) {
       setLocation("/dashboard");
@@ -35,12 +34,8 @@ export default function Home() {
       const headers: Record<string, string> = {};
       const guestToken = localStorage.getItem("codesync_guest_token");
       if (guestToken) headers["x-guest-token"] = guestToken;
-
       const resp = await fetch(`${basePath}/api/rooms/join/${inviteCode.trim().toUpperCase()}`, { headers });
-      if (!resp.ok) {
-        setJoinError("Комната не найдена. Проверьте код приглашения.");
-        return;
-      }
+      if (!resp.ok) { setJoinError("Комната не найдена. Проверьте код приглашения."); return; }
       const room = await resp.json() as { id: string };
       setLocation(`/room/${room.id}`);
     } catch {
@@ -51,75 +46,148 @@ export default function Home() {
   }
 
   return (
-    <div className="relative min-h-screen flex flex-col" style={{ background: "#161B22" }}>
+    <div className="relative min-h-screen flex flex-col" style={{ background: "#030303", color: "#f0f0f0" }}>
       <GuestModal
         open={showGuestModal}
         onClose={() => setShowGuestModal(false)}
-        onSuccess={(_userId, _username, _guestToken) => {
-          setShowGuestModal(false);
-          setLocation("/dashboard");
-        }}
+        onSuccess={() => { setShowGuestModal(false); setLocation("/dashboard"); }}
       />
-      <ParticleBackground />
+
+      <GridBackground />
 
       <div className="relative z-10 flex flex-col min-h-screen">
-        <nav className="flex items-center justify-between px-8 py-4" style={{ borderBottom: "1px solid #30363D" }}>
-          <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="flex items-center gap-3">
-            <div style={{ width: 32, height: 32, background: "linear-gradient(135deg, #58A6FF, #3FB950)", borderRadius: 8 }} />
-            <span style={{ fontSize: 20, fontWeight: 700, color: "#E6EDF3", letterSpacing: "-0.5px" }}>CodeSync</span>
+        {/* NAV */}
+        <nav
+          className="flex items-center justify-between px-8 py-4"
+          style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}
+        >
+          <motion.div initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} className="flex items-center gap-3">
+            <div
+              style={{
+                width: 30, height: 30,
+                background: "linear-gradient(135deg, #fff 0%, rgba(255,255,255,0.3) 100%)",
+                borderRadius: 8,
+                boxShadow: "0 0 20px rgba(255,255,255,0.15)",
+              }}
+            />
+            <span style={{ fontSize: 19, fontWeight: 700, color: "#fff", letterSpacing: "-0.5px" }}>
+              CodeSync
+            </span>
           </motion.div>
-          <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="flex items-center gap-3">
+
+          <motion.div initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} className="flex items-center gap-3">
             <SignInButton mode="modal">
-              <Button variant="ghost" size="sm" style={{ color: "#8B949E" }} data-testid="btn-sign-in">
+              <button
+                className="text-sm px-4 py-1.5 rounded-lg transition-all hover:bg-white/5"
+                style={{ color: "rgba(255,255,255,0.55)", background: "transparent", border: "none", cursor: "pointer" }}
+                data-testid="btn-sign-in"
+              >
                 Войти
-              </Button>
+              </button>
             </SignInButton>
             <SignUpButton mode="modal">
-              <Button
-                size="sm"
-                style={{ background: "#58A6FF", color: "#0D1117", fontWeight: 600 }}
+              <button
+                className="text-sm px-4 py-1.5 rounded-lg font-semibold transition-all hover:opacity-90"
+                style={{
+                  background: "#fff",
+                  color: "#000",
+                  border: "none",
+                  cursor: "pointer",
+                  boxShadow: "0 0 20px rgba(255,255,255,0.15)",
+                }}
                 data-testid="btn-register"
               >
                 Зарегистрироваться
-              </Button>
+              </button>
             </SignUpButton>
           </motion.div>
         </nav>
 
+        {/* HERO */}
         <div className="flex-1 flex flex-col items-center justify-center px-6 py-16">
-          <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} className="text-center max-w-3xl">
-            <div
-              className="mb-4 inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium"
-              style={{ background: "rgba(88, 166, 255, 0.1)", border: "1px solid rgba(88, 166, 255, 0.3)", color: "#58A6FF" }}
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="text-center max-w-3xl w-full"
+          >
+            {/* Badge */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.1 }}
+              className="mb-6 inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium"
+              style={{
+                background: "rgba(255,255,255,0.05)",
+                border: "1px solid rgba(255,255,255,0.1)",
+                color: "rgba(255,255,255,0.6)",
+                backdropFilter: "blur(10px)",
+              }}
             >
+              <span style={{ width: 5, height: 5, borderRadius: "50%", background: "rgba(255,255,255,0.7)", display: "inline-block" }} />
               Совместная разработка в реальном времени
-            </div>
-            <h1 style={{ fontSize: 56, fontWeight: 800, lineHeight: 1, letterSpacing: "-2px", color: "#E6EDF3", marginBottom: 20 }}>
-              CodeSync
+            </motion.div>
+
+            {/* Heading */}
+            <h1
+              style={{
+                fontSize: "clamp(52px, 9vw, 88px)",
+                fontWeight: 800,
+                lineHeight: 0.95,
+                letterSpacing: "-3px",
+                color: "#fff",
+                marginBottom: 24,
+                textShadow: "0 0 80px rgba(255,255,255,0.08)",
+              }}
+            >
+              Code
+              <span style={{ color: "rgba(255,255,255,0.35)" }}>Sync</span>
             </h1>
-            <p style={{ fontSize: 20, lineHeight: 1.6, color: "#8B949E", marginBottom: 40, maxWidth: 640, marginInline: "auto" }}>
+
+            <p
+              style={{
+                fontSize: 18,
+                lineHeight: 1.65,
+                color: "rgba(255,255,255,0.45)",
+                marginBottom: 48,
+                maxWidth: 560,
+                marginInline: "auto",
+              }}
+            >
               Онлайн IDE для совместной работы над кодом с AI-ассистентом, запуском программ и гостевым доступом.
             </p>
 
-            <div className="flex flex-col items-center gap-3 mb-12">
-              <div className="flex items-center justify-center gap-3">
-                <Button
-                  size="lg"
+            {/* CTA Buttons */}
+            <div className="flex flex-col items-center gap-3 mb-14">
+              <div className="flex items-center justify-center gap-3 flex-wrap">
+                <button
                   onClick={() => setShowGuestModal(true)}
-                  style={{ background: "#3FB950", color: "#0D1117", fontWeight: 700, boxShadow: "0 8px 24px rgba(63, 185, 80, 0.18)" }}
+                  className="px-6 py-3 rounded-xl text-sm font-semibold transition-all hover:opacity-90 active:scale-95"
+                  style={{
+                    background: "#fff",
+                    color: "#000",
+                    border: "none",
+                    cursor: "pointer",
+                    boxShadow: "0 0 30px rgba(255,255,255,0.12)",
+                  }}
                   data-testid="btn-guest-mode"
                 >
                   Гостевой режим
-                </Button>
-                <Button
-                  size="lg"
-                  variant="outline"
+                </button>
+                <button
                   onClick={() => setShowAuthHint(true)}
-                  style={{ background: "transparent", borderColor: "#30363D", color: "#E6EDF3" }}
+                  className="px-6 py-3 rounded-xl text-sm font-semibold transition-all hover:bg-white/8"
+                  style={{
+                    background: "rgba(255,255,255,0.05)",
+                    color: "rgba(255,255,255,0.8)",
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    cursor: "pointer",
+                    backdropFilter: "blur(12px)",
+                  }}
                   data-testid="btn-dashboard"
                 >
                   Открыть комнаты
-                </Button>
+                </button>
               </div>
               <AnimatePresence>
                 {showAuthHint && (
@@ -127,14 +195,19 @@ export default function Home() {
                     initial={{ opacity: 0, y: -6 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -6 }}
-                    className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm"
-                    style={{ background: "rgba(88, 166, 255, 0.1)", border: "1px solid rgba(88, 166, 255, 0.3)", color: "#8B949E" }}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm"
+                    style={{
+                      background: "rgba(255,255,255,0.04)",
+                      border: "1px solid rgba(255,255,255,0.09)",
+                      color: "rgba(255,255,255,0.45)",
+                      backdropFilter: "blur(12px)",
+                    }}
                   >
-                    <span>Чтобы управлять комнатами, нужно</span>
+                    <span>Для управления комнатами нужно</span>
                     <SignInButton mode="modal">
                       <button
                         className="underline font-semibold"
-                        style={{ color: "#58A6FF", background: "none", border: "none", cursor: "pointer" }}
+                        style={{ color: "rgba(255,255,255,0.85)", background: "none", border: "none", cursor: "pointer" }}
                         onClick={() => setShowAuthHint(false)}
                       >
                         войти в аккаунт
@@ -145,39 +218,71 @@ export default function Home() {
               </AnimatePresence>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
+            {/* Feature cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-10">
               {[
-                ["Yjs CRDT", "Синхронизация кода между участниками"],
-                ["Monaco Editor", "Редактор с подсветкой и курсорами"],
-                ["Piston + AI", "Запуск кода и code review"],
-              ].map(([title, desc]) => (
-                <div key={title} className="rounded-xl p-4 text-left" style={{ background: "rgba(28, 33, 40, 0.9)", border: "1px solid #30363D" }}>
-                  <div style={{ color: "#E6EDF3", fontWeight: 700, marginBottom: 8 }}>{title}</div>
-                  <div style={{ color: "#8B949E", fontSize: 14, lineHeight: 1.5 }}>{desc}</div>
+                { title: "Yjs CRDT", desc: "Синхронизация кода между участниками в реальном времени" },
+                { title: "Monaco Editor", desc: "Редактор с подсветкой синтаксиса и курсорами коллег" },
+                { title: "AI + Терминал", desc: "Интерактивный запуск кода и AI-ассистент" },
+              ].map(({ title, desc }) => (
+                <div
+                  key={title}
+                  className="glass rounded-xl p-5 text-left"
+                  style={{ backdropFilter: "blur(20px)" }}
+                >
+                  <div style={{ color: "#fff", fontWeight: 700, marginBottom: 8, fontSize: 15 }}>{title}</div>
+                  <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 13, lineHeight: 1.55 }}>{desc}</div>
                 </div>
               ))}
             </div>
 
-            <div className="max-w-xl mx-auto rounded-2xl p-4" style={{ background: "rgba(28, 33, 40, 0.9)", border: "1px solid #30363D" }}>
+            {/* Join by invite */}
+            <div
+              className="max-w-xl mx-auto rounded-2xl p-4 glass"
+            >
               <div className="flex flex-col sm:flex-row gap-3">
-                <Input
+                <input
+                  type="text"
                   value={inviteCode}
                   onChange={(e) => setInviteCode(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleJoin()}
                   placeholder="Код приглашения"
-                  className="h-11"
-                  style={{ background: "#0D1117", borderColor: "#30363D", color: "#E6EDF3" }}
+                  style={{
+                    flex: 1,
+                    height: 44,
+                    background: "rgba(255,255,255,0.04)",
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    borderRadius: 12,
+                    color: "#fff",
+                    fontSize: 14,
+                    padding: "0 14px",
+                    outline: "none",
+                    fontFamily: "'JetBrains Mono', monospace",
+                    letterSpacing: "0.08em",
+                  }}
                 />
-                <Button
+                <button
                   onClick={handleJoin}
                   disabled={!inviteCode.trim() || isJoining}
-                  className="h-11 px-6"
-                  style={{ background: "#58A6FF", color: "#0D1117", fontWeight: 700 }}
+                  style={{
+                    height: 44,
+                    padding: "0 22px",
+                    background: inviteCode.trim() ? "#fff" : "rgba(255,255,255,0.08)",
+                    color: inviteCode.trim() ? "#000" : "rgba(255,255,255,0.3)",
+                    border: "none",
+                    borderRadius: 12,
+                    fontWeight: 600,
+                    fontSize: 14,
+                    cursor: inviteCode.trim() ? "pointer" : "not-allowed",
+                    transition: "all 0.2s",
+                    whiteSpace: "nowrap",
+                  }}
                   data-testid="btn-join-room"
                 >
                   {isJoining ? "Подключение..." : "Войти в комнату"}
-                </Button>
+                </button>
               </div>
-              {joinError && <p className="text-sm mt-3" style={{ color: "#FF7B72" }}>{joinError}</p>}
+              {joinError && <p className="text-sm mt-3" style={{ color: "#ef4444" }}>{joinError}</p>}
             </div>
           </motion.div>
         </div>

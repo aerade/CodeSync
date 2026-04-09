@@ -21,12 +21,24 @@ if (Number.isNaN(port) || port <= 0) {
 
 const httpServer = createServer(app);
 
-// No path restriction — the handler matches /ws/rooms/:roomId/files/:fileId internally
-const wss = new WebSocketServer({ server: httpServer, noServer: false });
+const wss = new WebSocketServer({ noServer: true });
 setupWebSocketServer(wss);
 
-const ptyWss = new WebSocketServer({ server: httpServer, path: "/ws/pty" });
+const ptyWss = new WebSocketServer({ noServer: true });
 setupPtyServer(ptyWss);
+
+httpServer.on("upgrade", (request, socket, head) => {
+  const url = request.url ?? "";
+  if (url.startsWith("/ws/pty")) {
+    ptyWss.handleUpgrade(request, socket, head, (ws) => {
+      ptyWss.emit("connection", ws, request);
+    });
+  } else {
+    wss.handleUpgrade(request, socket, head, (ws) => {
+      wss.emit("connection", ws, request);
+    });
+  }
+});
 
 httpServer.listen(port, (err?: Error) => {
   if (err) {
@@ -36,4 +48,5 @@ httpServer.listen(port, (err?: Error) => {
 
   logger.info({ port }, "Server listening");
   logger.info({ path: "/ws/rooms/:roomId/files/:fileId" }, "WebSocket server ready");
+  logger.info({ path: "/ws/pty" }, "PTY WebSocket server ready");
 });
