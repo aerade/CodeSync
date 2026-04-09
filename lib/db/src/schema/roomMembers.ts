@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, uuid, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, uuid, boolean, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -11,7 +11,9 @@ export const roomMembersTable = pgTable("room_members", {
   isGuest: boolean("is_guest").notNull().default(false),
   color: text("color").notNull().default("#58A6FF"),
   joinedAt: timestamp("joined_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}, (table) => [
+  uniqueIndex("room_members_room_user_unique").on(table.roomId, table.userId),
+]);
 
 export const insertRoomMemberSchema = createInsertSchema(roomMembersTable).omit({ id: true, joinedAt: true });
 export type InsertRoomMember = z.infer<typeof insertRoomMemberSchema>;
