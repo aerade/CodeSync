@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
-import { useUser, UserButton } from "@clerk/react";
+import { useUser, UserButton, SignInButton } from "@clerk/react";
 import {
   useListRooms,
   useCreateRoom,
@@ -173,6 +173,8 @@ function RoomCard({ room, onOpen, onDelete }: { room: Room; onOpen: () => void; 
   );
 }
 
+const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+
 export default function Dashboard() {
   const { isSignedIn, isLoaded } = useUser();
   const [, setLocation] = useLocation();
@@ -182,6 +184,17 @@ export default function Dashboard() {
   const [isJoining, setIsJoining] = useState(false);
   const [search, setSearch] = useState("");
 
+  const guestToken = typeof window !== "undefined" ? localStorage.getItem("codesync_guest_token") : null;
+  const guestUsername = typeof window !== "undefined" ? localStorage.getItem("codesync_guest_username") : null;
+  const isGuest = !isSignedIn && !!guestToken;
+
+  // Redirect unauthenticated non-guest users to home (must be in useEffect, not during render)
+  useEffect(() => {
+    if (isLoaded && !isSignedIn && !guestToken) {
+      setLocation("/");
+    }
+  }, [isLoaded, isSignedIn, guestToken, setLocation]);
+
   const qc = useQueryClient();
   const searchParams = search ? { search } : undefined;
   const { data: rooms = [], isLoading } = useListRooms(searchParams, {
@@ -189,17 +202,16 @@ export default function Dashboard() {
   });
   const deleteRoom = useDeleteRoom();
 
-  if (isLoaded && !isSignedIn) {
-    setLocation("/");
-    return null;
-  }
+  if (isLoaded && !isSignedIn && !guestToken) return null;
 
   async function handleJoinByCode() {
     if (!inviteCode.trim()) return;
     setIsJoining(true);
     setJoinError("");
     try {
-      const resp = await fetch(`/api/rooms/join/${inviteCode.trim().toUpperCase()}`);
+      const headers: Record<string, string> = {};
+      if (guestToken) headers["x-guest-token"] = guestToken;
+      const resp = await fetch(`${basePath}/api/rooms/join/${inviteCode.trim().toUpperCase()}`, { headers });
       if (!resp.ok) {
         setJoinError("Комната не найдена");
         return;
@@ -234,14 +246,29 @@ export default function Dashboard() {
           <span style={{ fontSize: 18, fontWeight: 700, color: "#E6EDF3" }}>CodeSync</span>
         </div>
         <div className="flex items-center gap-3">
-          <Button
-            onClick={() => setCreateOpen(true)}
-            style={{ background: "#58A6FF", color: "#0D1117", fontWeight: 600 }}
-            data-testid="btn-create-room"
-          >
-            + Создать комнату
-          </Button>
-          <UserButton />
+          {isGuest ? (
+            <>
+              <span className="text-sm px-3 py-1 rounded-full" style={{ background: "rgba(63, 185, 80, 0.12)", border: "1px solid rgba(63, 185, 80, 0.3)", color: "#3FB950" }}>
+                Гость: {guestUsername}
+              </span>
+              <SignInButton mode="modal">
+                <Button size="sm" style={{ background: "#58A6FF", color: "#0D1117", fontWeight: 600 }}>
+                  Войти
+                </Button>
+              </SignInButton>
+            </>
+          ) : (
+            <>
+              <Button
+                onClick={() => setCreateOpen(true)}
+                style={{ background: "#58A6FF", color: "#0D1117", fontWeight: 600 }}
+                data-testid="btn-create-room"
+              >
+                + Создать комнату
+              </Button>
+              <UserButton />
+            </>
+          )}
         </div>
       </header>
 

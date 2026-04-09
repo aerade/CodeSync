@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { useUser, SignInButton, SignUpButton } from "@clerk/react";
@@ -18,10 +18,14 @@ export default function Home() {
   const [showGuestModal, setShowGuestModal] = useState(false);
   const [showAuthHint, setShowAuthHint] = useState(false);
 
-  if (isLoaded && isSignedIn) {
-    setLocation("/dashboard");
-    return null;
-  }
+  // Redirect signed-in Clerk users to dashboard (must be in useEffect, not during render)
+  useEffect(() => {
+    if (isLoaded && isSignedIn) {
+      setLocation("/dashboard");
+    }
+  }, [isLoaded, isSignedIn, setLocation]);
+
+  if (isLoaded && isSignedIn) return null;
 
   async function handleJoin() {
     if (!inviteCode.trim()) return;
@@ -53,6 +57,7 @@ export default function Home() {
         onClose={() => setShowGuestModal(false)}
         onSuccess={(_userId, _username, _guestToken) => {
           setShowGuestModal(false);
+          setLocation("/dashboard");
         }}
       />
       <ParticleBackground />
