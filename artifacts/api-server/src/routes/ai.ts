@@ -301,48 +301,75 @@ ${context ? `Контекст текущего файла (${language}):\n\`\`\`
 
     let attempts = 0;
     const MAX_TOOL_ROUNDS = 5;
+    const tools = (roomId && hasWriteAccess) ? FILE_TOOLS : undefined;
 
     while (attempts < MAX_TOOL_ROUNDS) {
       attempts++;
 
-      const completion = await openai.chat.completions.create({
+      const stream = await openai.chat.completions.create({
         model: "gpt-4o",
         messages: allMessages as Parameters<typeof openai.chat.completions.create>[0]["messages"],
         max_tokens: 2048,
-        tools: (roomId && hasWriteAccess) ? FILE_TOOLS : undefined,
+        tools,
+        stream: true,
       });
 
-      const choice = completion.choices[0];
-      if (!choice) break;
+      let currentContent = "";
+      let finishReason = "";
+      const pendingToolCalls = new Map<number, { id: string; name: string; arguments: string }>();
 
-      if (choice.finish_reason === "tool_calls" && choice.message.tool_calls) {
+      for await (const chunk of stream) {
+        const choice = chunk.choices[0];
+        if (!choice) continue;
+
+        if (choice.delta.content) {
+          currentContent += choice.delta.content;
+          res.write(`data: ${JSON.stringify({ content: choice.delta.content })}\n\n`);
+        }
+
+        if (choice.delta.tool_calls) {
+          for (const tc of choice.delta.tool_calls) {
+            const existing = pendingToolCalls.get(tc.index) ?? { id: "", name: "", arguments: "" };
+            if (tc.id) existing.id = tc.id;
+            if (tc.function?.name) existing.name = tc.function.name;
+            if (tc.function?.arguments) existing.arguments += tc.function.arguments;
+            pendingToolCalls.set(tc.index, existing);
+          }
+        }
+
+        if (choice.finish_reason) finishReason = choice.finish_reason;
+      }
+
+      if (finishReason === "tool_calls" && pendingToolCalls.size > 0) {
+        const toolCallList = Array.from(pendingToolCalls.entries())
+          .sort(([a], [b]) => a - b)
+          .map(([, tc]) => ({
+            id: tc.id,
+            type: "function" as const,
+            function: { name: tc.name, arguments: tc.arguments },
+          }));
+
         allMessages.push({
           role: "assistant",
-          content: choice.message.content ?? "",
-          ...({ tool_calls: choice.message.tool_calls } as Record<string, unknown>),
+          content: currentContent,
+          ...({ tool_calls: toolCallList } as Record<string, unknown>),
         } as { role: string; content: string });
 
-        for (const toolCall of choice.message.tool_calls) {
-          if (toolCall.type !== "function") continue;
-          const fn = toolCall.function;
-          const args = JSON.parse(fn.arguments) as Record<string, string>;
-          const result = await executeFileTool(fn.name, args, roomId, userId);
+        for (const tc of toolCallList) {
+          const args = JSON.parse(tc.function.arguments) as Record<string, string>;
+          const result = await executeFileTool(tc.function.name, args, roomId, userId);
 
-          res.write(`data: ${JSON.stringify({ toolCall: { name: fn.name, args, result: JSON.parse(result) } })}\n\n`);
+          res.write(`data: ${JSON.stringify({ toolCall: { name: tc.function.name, args, result: JSON.parse(result) } })}\n\n`);
 
           allMessages.push({
             role: "tool",
             content: result,
-            ...({ tool_call_id: toolCall.id } as Record<string, unknown>),
+            ...({ tool_call_id: tc.id } as Record<string, unknown>),
           } as { role: string; content: string });
         }
         continue;
       }
 
-      const textContent = choice.message.content ?? "";
-      if (textContent) {
-        res.write(`data: ${JSON.stringify({ content: textContent })}\n\n`);
-      }
       break;
     }
 

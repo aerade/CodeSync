@@ -598,7 +598,7 @@ export function AIPanel({ roomId, fileId, fileContent, language, fileName, onFil
                 size="sm"
                 onClick={() => { void sendChat(); }}
                 disabled={!chatInput.trim() || isChatLoading}
-                style={{ background: "#58A6FF", color: "#0D1117", fontWeight: 600, alignSelf: "flex-end", fontSize: 11 }}
+                style={{ background: "#58A6FF", color: "#0D1117", fontWeight: 600, alignSelf: "center", fontSize: 11 }}
                 data-testid="btn-send-chat"
               >
                 Отправить
