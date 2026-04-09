@@ -1,7 +1,51 @@
 import { Router, Request, Response } from "express";
+import { getAuth } from "@clerk/express";
+import { db } from "@workspace/db";
+import { usersTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
 import { openai } from "@workspace/integrations-openai-ai-server";
 
 const aiRouter = Router();
+
+// Simple in-memory rate limiter: userId -> { count, resetAt }
+const rateLimits = new Map<string, { count: number; resetAt: number }>();
+const RATE_LIMIT = 20; // requests per window
+const RATE_WINDOW = 60 * 1000; // 1 minute
+
+function checkRateLimit(userId: string): boolean {
+  const now = Date.now();
+  const entry = rateLimits.get(userId);
+  if (!entry || entry.resetAt < now) {
+    rateLimits.set(userId, { count: 1, resetAt: now + RATE_WINDOW });
+    return true;
+  }
+  if (entry.count >= RATE_LIMIT) return false;
+  entry.count++;
+  return true;
+}
+
+/** Resolve userId from Clerk session or guest token. Returns null if unauthenticated. */
+async function resolveAiUserId(req: Request): Promise<string | null> {
+  // Check Clerk first (preferred)
+  const auth = getAuth(req);
+  if (auth?.userId) {
+    const user = await db.query.usersTable.findFirst({
+      where: eq(usersTable.clerkId, auth.userId),
+    });
+    if (user) return user.id;
+  }
+
+  // Fallback to guest token only if no Clerk session
+  const guestToken = req.headers["x-guest-token"];
+  if (typeof guestToken === "string" && guestToken) {
+    const user = await db.query.usersTable.findFirst({
+      where: eq(usersTable.guestToken, guestToken),
+    });
+    if (user) return user.id;
+  }
+
+  return null;
+}
 
 interface ChatMessage {
   role: "user" | "assistant" | "system";
@@ -9,6 +53,16 @@ interface ChatMessage {
 }
 
 async function chatHandler(req: Request, res: Response): Promise<void> {
+  const userId = await resolveAiUserId(req);
+  if (!userId) {
+    res.status(401).json({ error: "Authentication required to use AI chat" });
+    return;
+  }
+  if (!checkRateLimit(userId)) {
+    res.status(429).json({ error: "Rate limit exceeded. Please wait before sending more messages." });
+    return;
+  }
+
   const body = req.body as {
     message?: unknown;
     messages?: unknown;
@@ -82,6 +136,16 @@ interface ReviewIssue {
 }
 
 async function reviewHandler(req: Request, res: Response): Promise<void> {
+  const userId = await resolveAiUserId(req);
+  if (!userId) {
+    res.status(401).json({ error: "Authentication required to use AI review" });
+    return;
+  }
+  if (!checkRateLimit(userId)) {
+    res.status(429).json({ error: "Rate limit exceeded. Please wait before sending more requests." });
+    return;
+  }
+
   const body = req.body as { code?: unknown; language?: unknown };
   const code = typeof body.code === "string" ? body.code : "";
   const language = typeof body.language === "string" ? body.language : "code";

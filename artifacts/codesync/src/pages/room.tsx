@@ -213,15 +213,16 @@ export default function RoomPage() {
             const update = Uint8Array.from(atob(msg.update), (c) => c.charCodeAt(0));
             isRemoteUpdate.current = true;
             Y.applyUpdate(ydoc, update);
-            isRemoteUpdate.current = false;
             const text = yText.toString();
             if (editorRef.current) {
               const editor = editorRef.current;
               const position = editor.getPosition();
+              // Keep isRemoteUpdate true while setValue runs so onChange doesn't re-emit
               editor.setValue(text);
               if (position) editor.setPosition(position);
               setFileContent(text);
             }
+            isRemoteUpdate.current = false;
           } else if (msg.type === "awareness" && msg.states) {
             const ids = new Set(Object.keys(msg.states));
             setActiveMemberIds(ids);
@@ -271,21 +272,21 @@ export default function RoomPage() {
     if (ydocRef.current && wsRef.current?.readyState === WebSocket.OPEN) {
       const ydoc = ydocRef.current;
       const yText = ydoc.getText("content");
+      const currentText = yText.toString();
 
-      // Update the Yjs document with the new content
-      ydoc.transact(() => {
-        const currentText = yText.toString();
-        if (currentText !== text) {
+      // Only update Yjs and broadcast if content actually changed
+      if (currentText !== text) {
+        ydoc.transact(() => {
           yText.delete(0, yText.length);
           yText.insert(0, text);
-        }
-      });
+        });
 
-      const update = Y.encodeStateAsUpdate(ydoc);
-      wsRef.current.send(JSON.stringify({
-        type: "yjs-update",
-        update: btoa(String.fromCharCode(...update)),
-      }));
+        const update = Y.encodeStateAsUpdate(ydoc);
+        wsRef.current.send(JSON.stringify({
+          type: "yjs-update",
+          update: btoa(String.fromCharCode(...update)),
+        }));
+      }
     }
 
     if (saveTimer.current) clearTimeout(saveTimer.current);

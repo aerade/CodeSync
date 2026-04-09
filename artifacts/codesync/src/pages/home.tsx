@@ -46,7 +46,11 @@ export default function Home() {
     setIsJoining(true);
     setJoinError("");
     try {
-      const resp = await fetch(`/api/rooms/join/${inviteCode.trim().toUpperCase()}`);
+      const headers: Record<string, string> = {};
+      const guestToken = localStorage.getItem("codesync_guest_token");
+      if (guestToken) headers["x-guest-token"] = guestToken;
+
+      const resp = await fetch(`${basePath}/api/rooms/join/${inviteCode.trim().toUpperCase()}`, { headers });
       if (!resp.ok) {
         setJoinError("Комната не найдена. Проверьте код приглашения.");
         return;

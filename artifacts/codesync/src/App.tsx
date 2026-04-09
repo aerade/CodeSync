@@ -90,6 +90,14 @@ function ClerkQueryClientCacheInvalidator() {
       ) {
         qc.clear();
       }
+
+      // Clear guest credentials when a Clerk user signs in so the guest token
+      // is never sent alongside a valid Clerk session (avoids identity precedence bugs)
+      if (userId) {
+        localStorage.removeItem("codesync_guest_token");
+        localStorage.removeItem("codesync_guest_user_id");
+      }
+
       prevUserIdRef.current = userId;
     });
     return unsubscribe;

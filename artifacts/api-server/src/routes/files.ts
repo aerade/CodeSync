@@ -13,13 +13,7 @@ interface ResolvedUser {
 }
 
 async function resolveUser(req: Request): Promise<ResolvedUser | null> {
-  const guestToken = req.headers["x-guest-token"];
-  if (typeof guestToken === "string" && guestToken) {
-    const user = await db.query.usersTable.findFirst({
-      where: eq(usersTable.guestToken, guestToken),
-    });
-    if (user) return { userId: user.id, username: user.username, isGuest: true };
-  }
+  // Prefer Clerk auth — signed-in users must never be treated as guests
   const auth = getAuth(req);
   if (auth?.userId) {
     const user = await db.query.usersTable.findFirst({
@@ -27,6 +21,16 @@ async function resolveUser(req: Request): Promise<ResolvedUser | null> {
     });
     if (user) return { userId: user.id, username: user.username, isGuest: false };
   }
+
+  // Only fall back to guest token when there is no Clerk session
+  const guestToken = req.headers["x-guest-token"];
+  if (typeof guestToken === "string" && guestToken) {
+    const user = await db.query.usersTable.findFirst({
+      where: eq(usersTable.guestToken, guestToken),
+    });
+    if (user) return { userId: user.id, username: user.username, isGuest: true };
+  }
+
   return null;
 }
 

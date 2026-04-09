@@ -21,8 +21,31 @@ setInterval(() => {
 }, 5 * 60 * 1000);
 
 async function issueCollabToken(req: Request, res: Response): Promise<void> {
-  const guestToken = req.headers["x-guest-token"];
+  // Always prefer Clerk auth — check it first to avoid treating signed-in users as guests
+  const auth = getAuth(req);
+  if (auth?.userId) {
+    const user = await db.query.usersTable.findFirst({
+      where: eq(usersTable.clerkId, auth.userId),
+    });
 
+    if (!user) {
+      res.status(401).json({ error: "User not found" });
+      return;
+    }
+
+    const token = uuidv4();
+    collabTokens.set(token, {
+      userId: user.id,
+      username: user.username,
+      expiresAt: Date.now() + 30 * 60 * 1000, // 30 min
+    });
+
+    res.json({ token, userId: user.id, username: user.username });
+    return;
+  }
+
+  // Fall back to guest token only when there is no Clerk session
+  const guestToken = req.headers["x-guest-token"];
   if (typeof guestToken === "string" && guestToken) {
     const user = await db.query.usersTable.findFirst({
       where: eq(usersTable.guestToken, guestToken),
@@ -41,29 +64,7 @@ async function issueCollabToken(req: Request, res: Response): Promise<void> {
     return;
   }
 
-  const auth = getAuth(req);
-  if (!auth?.userId) {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
-  }
-
-  const user = await db.query.usersTable.findFirst({
-    where: eq(usersTable.clerkId, auth.userId),
-  });
-
-  if (!user) {
-    res.status(401).json({ error: "User not found" });
-    return;
-  }
-
-  const token = uuidv4();
-  collabTokens.set(token, {
-    userId: user.id,
-    username: user.username,
-    expiresAt: Date.now() + 30 * 60 * 1000, // 30 min
-  });
-
-  res.json({ token, userId: user.id, username: user.username });
+  res.status(401).json({ error: "Unauthorized" });
 }
 
 collabRouter.post("/collab/token", (req, res) => { void issueCollabToken(req, res); });
