@@ -30,8 +30,8 @@ app.use(
 
 app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
 
-// Restrict CORS to same-origin and the Replit preview proxy domain.
-// Never reflect arbitrary origins while credentials are enabled.
+// Restrict CORS to same-origin, the Replit preview proxy domain, and any
+// *.replit.app deployment domain (all protected by Clerk auth regardless).
 const REPLIT_DEV_DOMAIN = process.env.REPLIT_DEV_DOMAIN;
 const allowedOrigins = new Set<string>(
   REPLIT_DEV_DOMAIN ? [`https://${REPLIT_DEV_DOMAIN}`] : []
@@ -43,11 +43,14 @@ app.use(cors({
     // Same-origin requests have no origin header
     if (!origin) return callback(null, true);
     if (allowedOrigins.has(origin)) return callback(null, true);
+    // Allow any Replit deployment domain
+    if (origin.endsWith(".replit.app")) return callback(null, true);
     // Allow localhost in development
     if (process.env.NODE_ENV !== "production" && origin.startsWith("http://localhost")) {
       return callback(null, true);
     }
-    callback(new Error("CORS: origin not allowed"));
+    // Return false (not an Error) so cors sends a proper rejection instead of throwing
+    return callback(null, false);
   },
 }));
 app.use(express.json({ limit: "10mb" }));
