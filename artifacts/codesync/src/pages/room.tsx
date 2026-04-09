@@ -76,13 +76,15 @@ export default function RoomPage() {
   // During the OAuth redirect window (isLoaded=false), we must not decide yet.
   const isGuest = clerkLoaded && !isSignedIn && !!localStorage.getItem("codesync_guest_token");
 
+  const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
+
   const [activeFileId, setActiveFileId] = useState<string | null>(null);
   const [fileContent, setFileContent] = useState("");
-  const [isBottomOpen, setIsBottomOpen] = useState(true);
+  const [isBottomOpen, setIsBottomOpen] = useState(!isMobile);
   const terminalRef = useRef<TerminalHandle>(null);
-  const [isLeftOpen, setIsLeftOpen] = useState(true);
-  const [isRightOpen, setIsRightOpen] = useState(true);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isLeftOpen, setIsLeftOpen] = useState(!isMobile);
+  const [isRightOpen, setIsRightOpen] = useState(!isMobile);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(!isMobile);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
   // Resizable panel sizes

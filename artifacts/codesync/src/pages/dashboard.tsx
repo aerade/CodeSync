@@ -28,6 +28,7 @@ function CreateRoomModal({ open, onClose }: { open: boolean; onClose: () => void
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [isPrivate, setIsPrivate] = useState(false);
+  const [maxUsers, setMaxUsers] = useState(5);
   const [createError, setCreateError] = useState("");
   const [, setLocation] = useLocation();
   const qc = useQueryClient();
@@ -37,7 +38,7 @@ function CreateRoomModal({ open, onClose }: { open: boolean; onClose: () => void
     if (!title.trim()) return;
     setCreateError("");
     createRoom.mutate(
-      { data: { title: title.trim(), description: description.trim() || undefined, isPrivate } },
+      { data: { title: title.trim(), description: description.trim() || undefined, isPrivate, maxUsers } },
       {
         onSuccess: (room) => {
           qc.invalidateQueries({ queryKey: getListRoomsQueryKey() });
@@ -111,6 +112,31 @@ function CreateRoomModal({ open, onClose }: { open: boolean; onClose: () => void
             />
             <span className="text-sm" style={{ color: "rgba(255,255,255,0.5)" }}>Приватная комната</span>
           </label>
+          <div>
+            <p className="text-xs mb-2" style={{ color: "rgba(255,255,255,0.4)" }}>Макс. участников: <span style={{ color: "#fff", fontWeight: 600 }}>{maxUsers}</span></p>
+            <div className="flex gap-1.5">
+              {[1, 2, 3, 4, 5].map((n) => (
+                <button
+                  key={n}
+                  onClick={() => setMaxUsers(n)}
+                  style={{
+                    flex: 1,
+                    height: 34,
+                    borderRadius: 8,
+                    border: `1px solid ${maxUsers === n ? "rgba(255,255,255,0.5)" : "rgba(255,255,255,0.1)"}`,
+                    background: maxUsers === n ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.03)",
+                    color: maxUsers === n ? "#fff" : "rgba(255,255,255,0.45)",
+                    fontWeight: maxUsers === n ? 700 : 400,
+                    fontSize: 14,
+                    cursor: "pointer",
+                    transition: "all 0.15s",
+                  }}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
+          </div>
           {createError && <p className="text-sm" style={{ color: "#ef4444" }}>{createError}</p>}
           <div className="flex gap-2 mt-1">
             <button
@@ -160,6 +186,7 @@ interface Room {
   isPrivate: boolean;
   inviteCode: string;
   memberCount: number;
+  maxUsers: number;
   createdAt: string;
 }
 
@@ -232,7 +259,7 @@ function RoomCard({ room, onOpen, onDelete }: { room: Room; onOpen: () => void; 
         <div className="flex items-center gap-2">
           <span className="flex items-center gap-1.5 text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>
             <span className="online-dot" />
-            {room.memberCount}
+            {room.memberCount}/{room.maxUsers}
           </span>
           <span
             className="text-xs font-mono px-2 py-0.5 rounded-md"
@@ -407,7 +434,7 @@ export default function Dashboard() {
         <main className="flex-1 max-w-5xl mx-auto w-full px-6 py-6">
           {/* Join by code */}
           <div
-            className="mb-6 p-4 rounded-xl glass flex items-center gap-3"
+            className="mb-6 p-4 rounded-xl glass flex items-center gap-3 flex-wrap dashboard-join-bar"
           >
             <span className="text-sm font-medium shrink-0" style={{ color: "rgba(255,255,255,0.4)" }}>
               Войти в комнату:
@@ -483,6 +510,7 @@ export default function Dashboard() {
                       ...room,
                       description: room.description ?? null,
                       memberCount: (room as { memberCount?: number }).memberCount ?? 0,
+                      maxUsers: (room as { maxUsers?: number }).maxUsers ?? 5,
                     }}
                     onOpen={() => setLocation(`/room/${room.id}`)}
                     onDelete={() => handleDelete(room.id)}

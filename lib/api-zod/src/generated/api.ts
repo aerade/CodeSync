@@ -59,6 +59,7 @@ export const ListRoomsResponseItem = zod.object({
   isPrivate: zod.boolean(),
   inviteCode: zod.string(),
   ownerId: zod.string(),
+  maxUsers: zod.number(),
   memberCount: zod.number(),
   createdAt: zod.string(),
   updatedAt: zod.string(),
@@ -68,10 +69,13 @@ export const ListRoomsResponse = zod.array(ListRoomsResponseItem);
 /**
  * @summary Create a new room
  */
+export const createRoomBodyMaxUsersMax = 5;
+
 export const CreateRoomBody = zod.object({
   title: zod.string(),
   description: zod.string().optional(),
   isPrivate: zod.boolean().optional(),
+  maxUsers: zod.number().min(1).max(createRoomBodyMaxUsersMax).optional(),
 });
 
 /**
@@ -88,6 +92,7 @@ export const GetRoomResponse = zod.object({
   isPrivate: zod.boolean(),
   inviteCode: zod.string(),
   ownerId: zod.string(),
+  maxUsers: zod.number(),
   memberCount: zod.number(),
   createdAt: zod.string(),
   updatedAt: zod.string(),
@@ -114,6 +119,7 @@ export const GetRoomByInviteCodeResponse = zod.object({
   isPrivate: zod.boolean(),
   inviteCode: zod.string(),
   ownerId: zod.string(),
+  maxUsers: zod.number(),
   memberCount: zod.number(),
   createdAt: zod.string(),
   updatedAt: zod.string(),

@@ -1,8 +1,10 @@
 import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { FilePlus, FolderPlus } from "lucide-react";
+import { FilePlus, FolderPlus, Download, Archive } from "lucide-react";
 import { useCreateFile, useDeleteFile, useUpdateFile, getGetRoomFilesQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
+
+const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 const LANG_ICONS: Record<string, { icon: string; color: string }> = {
   javascript: { icon: "JS", color: "#F2CC60" },
@@ -290,7 +292,19 @@ export function FileTree({ roomId, files, activeFileId, onFileSelect, onFilesCha
             data-testid="input-rename-file"
           />
         ) : (
-          <span className="text-xs truncate">{file.name}</span>
+          <>
+            <span className="text-xs truncate flex-1">{file.name}</span>
+            <a
+              href={`${basePath}/api/rooms/${roomId}/files/${file.id}/download`}
+              download={file.name}
+              className="file-download-btn p-0.5 rounded"
+              style={{ color: "#8B949E", lineHeight: 0, display: "flex", alignItems: "center", flexShrink: 0 }}
+              title={`Скачать ${file.name}`}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <Download size={11} />
+            </a>
+          </>
         )}
       </motion.div>
     );
@@ -361,6 +375,16 @@ export function FileTree({ roomId, files, activeFileId, onFileSelect, onFilesCha
               только чтение
             </span>
           )}
+          <a
+            href={`${basePath}/api/rooms/${roomId}/download`}
+            download
+            className="p-1 rounded transition-colors hover:bg-white/10"
+            style={{ color: "#8B949E", lineHeight: 0, display: "flex", alignItems: "center" }}
+            title="Скачать всё (ZIP)"
+            data-testid="btn-download-zip"
+          >
+            <Archive size={14} />
+          </a>
         </div>
       </div>
 

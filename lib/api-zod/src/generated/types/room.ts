@@ -14,6 +14,7 @@ export interface Room {
   isPrivate: boolean;
   inviteCode: string;
   ownerId: string;
+  maxUsers: number;
   memberCount: number;
   createdAt: string;
   updatedAt: string;

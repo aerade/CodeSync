@@ -33,7 +33,7 @@ export default function Home() {
       <div className="relative z-10 flex flex-col min-h-screen">
         {/* NAV */}
         <nav
-          className="flex items-center justify-between px-8 py-4"
+          className="flex items-center justify-between px-4 sm:px-8 py-4"
           style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}
         >
           <motion.div initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} className="flex items-center gap-3">

@@ -10,4 +10,9 @@ export interface CreateRoomBody {
   title: string;
   description?: string;
   isPrivate?: boolean;
+  /**
+   * @minimum 1
+   * @maximum 5
+   */
+  maxUsers?: number;
 }

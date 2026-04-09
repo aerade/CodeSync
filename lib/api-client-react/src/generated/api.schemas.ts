@@ -37,6 +37,7 @@ export interface Room {
   isPrivate: boolean;
   inviteCode: string;
   ownerId: string;
+  maxUsers: number;
   memberCount: number;
   createdAt: string;
   updatedAt: string;
@@ -46,6 +47,11 @@ export interface CreateRoomBody {
   title: string;
   description?: string;
   isPrivate?: boolean;
+  /**
+   * @minimum 1
+   * @maximum 5
+   */
+  maxUsers?: number;
 }
 
 export interface RoomMember {

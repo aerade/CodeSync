@@ -452,6 +452,8 @@ components:
           type: string
         ownerId:
           type: string
+        maxUsers:
+          type: integer
         memberCount:
           type: integer
         createdAt:
@@ -464,6 +466,7 @@ components:
         - isPrivate
         - inviteCode
         - ownerId
+        - maxUsers
         - memberCount
         - createdAt
         - updatedAt
@@ -477,6 +480,10 @@ components:
           type: string
         isPrivate:
           type: boolean
+        maxUsers:
+          type: integer
+          minimum: 1
+          maximum: 5
       required:
         - title
 

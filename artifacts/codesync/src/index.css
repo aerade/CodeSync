@@ -160,6 +160,16 @@
   background: rgba(255,255,255,0.06);
   color: rgba(255,255,255,0.9);
 }
+.file-tree-item .file-download-btn {
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.file-tree-item:hover .file-download-btn {
+  opacity: 0.55;
+}
+.file-tree-item .file-download-btn:hover {
+  opacity: 1 !important;
+}
 .file-tree-item.active {
   background: rgba(255,255,255,0.1);
   color: #ffffff;
@@ -228,7 +238,10 @@
   gap: 8px;
   flex-shrink: 0;
   backdrop-filter: blur(10px);
+  overflow-x: auto;
+  scrollbar-width: none;
 }
+.ide-topbar::-webkit-scrollbar { display: none; }
 
 .ide-main {
   flex: 1;
@@ -314,6 +327,20 @@
 .ai-diff-deleted {
   background: rgba(239,68,68,0.07) !important;
   border-left: 2px solid rgba(239,68,68,0.5) !important;
+}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+
+@media (max-width: 640px) {
+  .dashboard-join-bar {
+    flex-wrap: wrap;
+  }
+  .dashboard-join-bar input {
+    max-width: 100% !important;
+    flex: 1 1 100% !important;
+  }
 }
 
 /* ============================================================

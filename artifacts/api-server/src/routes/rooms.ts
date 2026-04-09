@@ -5,6 +5,7 @@ import { roomsTable, roomMembersTable, usersTable, filesTable } from "@workspace
 import { eq, and, ilike, count, desc } from "drizzle-orm";
 import { v4 as uuidv4 } from "uuid";
 import { nanoid } from "nanoid";
+import archiver from "archiver";
 
 const roomsRouter = Router();
 
@@ -151,10 +152,11 @@ roomsRouter.post("/rooms", async (req, res) => {
     return res.status(401).json({ error: "Authentication required to create rooms" });
   }
 
-  const body = req.body as { title?: unknown; description?: unknown; isPrivate?: unknown };
+  const body = req.body as { title?: unknown; description?: unknown; isPrivate?: unknown; maxUsers?: unknown };
   const title = typeof body.title === "string" ? body.title.trim() : "";
   const description = typeof body.description === "string" ? body.description.trim() : undefined;
   const isPrivate = body.isPrivate === true || body.isPrivate === "true";
+  const maxUsers = Math.min(5, Math.max(1, typeof body.maxUsers === "number" ? body.maxUsers : 5));
 
   if (!title) {
     return res.status(400).json({ error: "Title is required" });
@@ -175,6 +177,7 @@ roomsRouter.post("/rooms", async (req, res) => {
     isPrivate,
     inviteCode,
     ownerId: user.userId,
+    maxUsers,
   }).returning();
 
   await db.insert(filesTable).values({
@@ -292,6 +295,63 @@ roomsRouter.delete("/rooms/:roomId", async (req, res) => {
   await db.delete(roomsTable).where(eq(roomsTable.id, roomId));
 
   return res.status(204).send();
+});
+
+// Download a single file
+roomsRouter.get("/rooms/:roomId/files/:fileId/download", async (req, res) => {
+  const { roomId, fileId } = req.params;
+
+  const room = await db.query.roomsTable.findFirst({ where: eq(roomsTable.id, roomId) });
+  if (!room) return res.status(404).json({ error: "Room not found" });
+
+  if (room.isPrivate) {
+    const user = await resolveUser(req);
+    const hasAccess = await ensureRoomAccess(roomId, user?.userId ?? null, room.isPrivate);
+    if (!hasAccess) return res.status(403).json({ error: "Forbidden" });
+  }
+
+  const file = await db.query.filesTable.findFirst({
+    where: and(eq(filesTable.id, fileId), eq(filesTable.roomId, roomId)),
+  });
+  if (!file || file.isFolder) return res.status(404).json({ error: "File not found" });
+
+  const filename = encodeURIComponent(file.name);
+  res.setHeader("Content-Disposition", `attachment; filename*=UTF-8''${filename}`);
+  res.setHeader("Content-Type", "text/plain; charset=utf-8");
+  return res.send(file.content ?? "");
+});
+
+// Download all files as ZIP
+roomsRouter.get("/rooms/:roomId/download", async (req, res) => {
+  const { roomId } = req.params;
+
+  const room = await db.query.roomsTable.findFirst({ where: eq(roomsTable.id, roomId) });
+  if (!room) return res.status(404).json({ error: "Room not found" });
+
+  if (room.isPrivate) {
+    const user = await resolveUser(req);
+    const hasAccess = await ensureRoomAccess(roomId, user?.userId ?? null, room.isPrivate);
+    if (!hasAccess) return res.status(403).json({ error: "Forbidden" });
+  }
+
+  const files = await db.query.filesTable.findMany({
+    where: and(eq(filesTable.roomId, roomId), eq(filesTable.isFolder, false)),
+  });
+
+  const safeName = room.title.replace(/[^a-zA-Z0-9_\-]/g, "_");
+  res.setHeader("Content-Disposition", `attachment; filename="${safeName}.zip"`);
+  res.setHeader("Content-Type", "application/zip");
+
+  const archive = archiver("zip", { zlib: { level: 6 } });
+  archive.on("error", (err) => { res.destroy(err); });
+  archive.pipe(res);
+
+  for (const file of files) {
+    const content = file.content ?? "";
+    archive.append(content, { name: file.path.replace(/^\//, "") || file.name });
+  }
+
+  await archive.finalize();
 });
 
 roomsRouter.get("/rooms/:roomId/members", async (req, res) => {

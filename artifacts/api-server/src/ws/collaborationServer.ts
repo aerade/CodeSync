@@ -240,6 +240,21 @@ export function setupWebSocketServer(wss: WebSocketServer) {
       }
     }
 
+    // Enforce max users per room (count unique users across all file rooms for this room)
+    const uniqueUsersInRoom = new Set<string>();
+    for (const [roomKey, fr] of fileRooms) {
+      if (roomKey.startsWith(`${roomId}:`)) {
+        for (const [, info] of fr.clients) {
+          uniqueUsersInRoom.add(info.userId);
+        }
+      }
+    }
+    const maxUsers = room.maxUsers ?? 5;
+    if (!uniqueUsersInRoom.has(userId) && uniqueUsersInRoom.size >= maxUsers) {
+      ws.close(1008, `Room is full (max ${maxUsers} users)`);
+      return;
+    }
+
     let fileRoom = fileRooms.get(key);
     if (!fileRoom) {
       fileRoom = new FileRoom();
