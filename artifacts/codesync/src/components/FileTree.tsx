@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { FilePlus, FolderPlus } from "lucide-react";
 import { useCreateFile, useDeleteFile, useUpdateFile, getGetRoomFilesQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -336,22 +337,22 @@ export function FileTree({ roomId, files, activeFileId, onFileSelect, onFilesCha
           {!isReadOnly && (
             <>
               <button
-                className="px-1.5 py-0.5 rounded text-xs transition-colors hover:bg-white/5"
-                style={{ color: "#8B949E" }}
+                className="p-1 rounded transition-colors hover:bg-white/10"
+                style={{ color: "#8B949E", lineHeight: 0, display: "flex", alignItems: "center" }}
                 onClick={() => { setIsCreatingFolder(true); setNewFolderName(""); }}
                 title="Новая папка"
                 data-testid="btn-new-folder"
               >
-                [+]
+                <FolderPlus size={14} />
               </button>
               <button
-                className="px-1.5 py-0.5 rounded text-xs transition-colors hover:bg-white/5"
-                style={{ color: "#8B949E" }}
+                className="p-1 rounded transition-colors hover:bg-white/10"
+                style={{ color: "#8B949E", lineHeight: 0, display: "flex", alignItems: "center" }}
                 onClick={() => { setIsCreatingFile(true); setNewFileName(""); setCreatingInFolderId(null); }}
                 title="Новый файл"
                 data-testid="btn-new-file"
               >
-                +
+                <FilePlus size={14} />
               </button>
             </>
           )}

@@ -400,7 +400,17 @@ async function reviewHandler(req: Request, res: Response): Promise<void> {
       max_tokens: 1500,
     });
 
-    const rawText = completion.choices[0]?.message?.content ?? "[]";
+    let rawText = completion.choices[0]?.message?.content ?? "[]";
+
+    // Strip markdown code fences if AI wrapped the JSON
+    rawText = rawText.trim();
+    if (rawText.startsWith("```")) {
+      rawText = rawText.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/, "").trim();
+    }
+
+    // Extract JSON array if there's surrounding text
+    const jsonMatch = rawText.match(/\[[\s\S]*\]/);
+    if (jsonMatch) rawText = jsonMatch[0];
 
     let issues: ReviewIssue[] = [];
     try {
@@ -410,7 +420,7 @@ async function reviewHandler(req: Request, res: Response): Promise<void> {
           (item): item is ReviewIssue => {
             if (typeof item !== "object" || item === null) return false;
             const record = item as Record<string, unknown>;
-            return typeof record["line"] === "number" && typeof record["message"] === "string";
+            return typeof record["message"] === "string" && record["message"].length > 0;
           }
         );
       }

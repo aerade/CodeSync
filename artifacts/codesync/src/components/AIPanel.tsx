@@ -138,6 +138,8 @@ export function AIPanel({ roomId, fileId, fileContent, language, fileName, onFil
   const [activeTab, setActiveTab] = useState<"review" | "chat">("chat");
   const [issues, setIssues] = useState<Issue[]>([]);
   const [isReviewing, setIsReviewing] = useState(false);
+  const [reviewError, setReviewError] = useState<string | null>(null);
+  const [hasReviewed, setHasReviewed] = useState(false);
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [toolCalls, setToolCalls] = useState<ToolCallInfo[]>([]);
@@ -160,6 +162,8 @@ export function AIPanel({ roomId, fileId, fileContent, language, fileName, onFil
     if (!fileContent || isReviewing) return;
     setIsReviewing(true);
     setIssues([]);
+    setReviewError(null);
+    setHasReviewed(false);
     setActiveTab("review");
 
     try {
@@ -169,7 +173,10 @@ export function AIPanel({ roomId, fileId, fileContent, language, fileName, onFil
         body: JSON.stringify({ code: fileContent, language, roomId, fileId }),
       });
 
-      if (!resp.ok) throw new Error("Review failed");
+      if (!resp.ok) {
+        const errText = await resp.text().catch(() => "");
+        throw new Error(`Ошибка сервера: ${resp.status}${errText ? ` — ${errText}` : ""}`);
+      }
 
       const reader = resp.body!.getReader();
       const decoder = new TextDecoder();
@@ -188,16 +195,21 @@ export function AIPanel({ roomId, fileId, fileContent, language, fileName, onFil
           if (data === "[DONE]") break;
           try {
             const parsed = JSON.parse(data) as { issues?: unknown[]; error?: string };
-            if (Array.isArray(parsed.issues)) {
+            if (parsed.error) {
+              setReviewError(parsed.error);
+            } else if (Array.isArray(parsed.issues)) {
               setIssues(parsed.issues as Issue[]);
             }
           } catch (_) {}
         }
       }
     } catch (err) {
+      const msg = err instanceof Error ? err.message : "Ошибка ревью. Попробуйте ещё раз.";
+      setReviewError(msg);
       console.error("Review error:", err);
     } finally {
       setIsReviewing(false);
+      setHasReviewed(true);
     }
   }
 
@@ -339,10 +351,20 @@ export function AIPanel({ roomId, fileId, fileContent, language, fileName, onFil
                 </div>
               )}
 
-              {!isReviewing && issues.length === 0 && (
+              {!isReviewing && reviewError && (
+                <div className="p-3 rounded mx-2 mt-2 text-xs" style={{ background: "rgba(255,123,114,0.1)", border: "1px solid rgba(255,123,114,0.3)", color: "#FF7B72" }}>
+                  {reviewError}
+                </div>
+              )}
+
+              {!isReviewing && !reviewError && issues.length === 0 && (
                 <div className="text-center py-8">
                   <p className="text-xs" style={{ color: "#8B949E" }}>
-                    {fileContent ? "Нажмите «Запустить ревью»" : "Откройте файл для ревью"}
+                    {hasReviewed
+                      ? "Проблем не обнаружено — код выглядит хорошо!"
+                      : fileContent
+                      ? "Нажмите «Запустить ревью»"
+                      : "Откройте файл для ревью"}
                   </p>
                 </div>
               )}

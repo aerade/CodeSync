@@ -92,6 +92,16 @@ export default function RoomPage() {
   const [isLeftOpen, setIsLeftOpen] = useState(true);
   const [isRightOpen, setIsRightOpen] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+
+  // Resizable panel sizes
+  const [terminalHeight, setTerminalHeight] = useState(200);
+  const [aiPanelWidth, setAiPanelWidth] = useState(320);
+  const isResizingTerminal = useRef(false);
+  const isResizingAiPanel = useRef(false);
+  const dragStartY = useRef(0);
+  const dragStartHeight = useRef(0);
+  const dragStartX = useRef(0);
+  const dragStartWidth = useRef(0);
   const [activeMemberIds, setActiveMemberIds] = useState<Set<string>>(new Set());
   const [inviteCopied, setInviteCopied] = useState(false);
   const [cursors, setCursors] = useState<CollabCursorInfo[]>([]);
@@ -338,6 +348,60 @@ export default function RoomPage() {
     }
   }
 
+  const handleTerminalResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    isResizingTerminal.current = true;
+    dragStartY.current = e.clientY;
+    dragStartHeight.current = terminalHeight;
+
+    function onMove(ev: MouseEvent) {
+      if (!isResizingTerminal.current) return;
+      const delta = dragStartY.current - ev.clientY;
+      const newH = Math.max(80, Math.min(600, dragStartHeight.current + delta));
+      setTerminalHeight(newH);
+    }
+
+    function onUp() {
+      isResizingTerminal.current = false;
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    }
+
+    document.body.style.cursor = "row-resize";
+    document.body.style.userSelect = "none";
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  }, [terminalHeight]);
+
+  const handleAiPanelResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    isResizingAiPanel.current = true;
+    dragStartX.current = e.clientX;
+    dragStartWidth.current = aiPanelWidth;
+
+    function onMove(ev: MouseEvent) {
+      if (!isResizingAiPanel.current) return;
+      const delta = dragStartX.current - ev.clientX;
+      const newW = Math.max(240, Math.min(600, dragStartWidth.current + delta));
+      setAiPanelWidth(newW);
+    }
+
+    function onUp() {
+      isResizingAiPanel.current = false;
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    }
+
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  }, [aiPanelWidth]);
+
   if (!room) {
     return (
       <div className="flex items-center justify-center h-screen" style={{ background: "#161B22" }}>
@@ -547,47 +611,60 @@ export default function RoomPage() {
 
           {/* Bottom: Terminal */}
           {isBottomOpen && (
-            <motion.div
-              initial={{ height: 0 }}
-              animate={{ height: 200 }}
-              exit={{ height: 0 }}
+            <div
               className="ide-bottom"
-              style={{ height: 200 }}
+              style={{ height: terminalHeight, flexShrink: 0, borderTop: "1px solid #30363D" }}
             >
               <div
                 className="resize-handle-horizontal"
-                style={{ cursor: "row-resize", height: 4 }}
+                onMouseDown={handleTerminalResizeStart}
+                style={{
+                  cursor: "row-resize",
+                  height: 6,
+                  background: "transparent",
+                  flexShrink: 0,
+                }}
               />
-              <div style={{ height: 196 }}>
+              <div style={{ height: terminalHeight - 6, overflow: "hidden" }}>
                 <Terminal
                   ref={terminalRef}
                   code={fileContent}
                   language={activeFile?.language ?? "javascript"}
                 />
               </div>
-            </motion.div>
+            </div>
           )}
         </div>
 
         {/* Right: AI Panel */}
         {isRightOpen && (
-          <motion.div
-            initial={{ width: 320 }}
-            animate={{ width: 320 }}
-            className="flex-shrink-0"
-            style={{ width: 320, borderLeft: "1px solid #30363D" }}
+          <div
+            className="flex-shrink-0 flex"
+            style={{ width: aiPanelWidth, borderLeft: "1px solid #30363D" }}
           >
-            <AIPanel
-              roomId={roomId}
-              fileId={activeFileId}
-              fileContent={fileContent}
-              language={activeFile?.language ?? "javascript"}
-              fileName={activeFile?.name ?? ""}
-              onFilesChanged={() => {
-                void qc.invalidateQueries({ queryKey: getGetRoomFilesQueryKey(roomId) });
+            <div
+              onMouseDown={handleAiPanelResizeStart}
+              style={{
+                width: 6,
+                cursor: "col-resize",
+                flexShrink: 0,
+                background: "transparent",
               }}
+              className="hover:bg-blue-500/20 transition-colors"
             />
-          </motion.div>
+            <div style={{ flex: 1, overflow: "hidden" }}>
+              <AIPanel
+                roomId={roomId}
+                fileId={activeFileId}
+                fileContent={fileContent}
+                language={activeFile?.language ?? "javascript"}
+                fileName={activeFile?.name ?? ""}
+                onFilesChanged={() => {
+                  void qc.invalidateQueries({ queryKey: getGetRoomFilesQueryKey(roomId) });
+                }}
+              />
+            </div>
+          </div>
         )}
 
         {/* Session sidebar */}
