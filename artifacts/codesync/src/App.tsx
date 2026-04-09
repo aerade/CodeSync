@@ -9,6 +9,10 @@ import NotFound from "@/pages/not-found";
 import Home from "./pages/home";
 import Dashboard from "./pages/dashboard";
 import RoomPage from "./pages/room";
+import { setGuestTokenGetter } from "@workspace/api-client-react";
+
+// Initialize guest token getter so all API calls include x-guest-token when present
+setGuestTokenGetter(() => localStorage.getItem("codesync_guest_token"));
 
 const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL;

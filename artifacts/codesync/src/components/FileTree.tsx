@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useCreateFile, useDeleteFile, getGetRoomFilesQueryKey } from "@workspace/api-client-react";
+import { useCreateFile, useDeleteFile, useUpdateFile, getGetRoomFilesQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 
 const LANG_ICONS: Record<string, { icon: string; color: string }> = {
@@ -73,10 +73,14 @@ export function FileTree({ roomId, files, activeFileId, onFileSelect, onFilesCha
   const qc = useQueryClient();
   const createFile = useCreateFile();
   const deleteFile = useDeleteFile();
+  const updateFile = useUpdateFile();
 
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [isCreatingFile, setIsCreatingFile] = useState(false);
   const [newFileName, setNewFileName] = useState("");
+  const [renamingFileId, setRenamingFileId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const renameInputRef = useRef<HTMLInputElement>(null);
 
   function handleContextMenu(e: React.MouseEvent, fileId: string, fileName: string) {
     e.preventDefault();
@@ -96,6 +100,34 @@ export function FileTree({ roomId, files, activeFileId, onFileSelect, onFilesCha
     setContextMenu(null);
   }
 
+  function startRename(fileId: string, currentName: string) {
+    setRenamingFileId(fileId);
+    setRenameValue(currentName);
+    setContextMenu(null);
+    setTimeout(() => renameInputRef.current?.focus(), 50);
+  }
+
+  function handleRename(fileId: string) {
+    const name = renameValue.trim();
+    if (!name) {
+      setRenamingFileId(null);
+      return;
+    }
+    const lang = detectLanguage(name);
+    updateFile.mutate(
+      { roomId, fileId, data: { name, path: `/${name}`, language: lang } },
+      {
+        onSuccess: () => {
+          void qc.invalidateQueries({ queryKey: getGetRoomFilesQueryKey(roomId) });
+          onFilesChange();
+        },
+        onSettled: () => {
+          setRenamingFileId(null);
+        },
+      }
+    );
+  }
+
   function handleCreateFile() {
     if (!newFileName.trim()) {
       setIsCreatingFile(false);
@@ -109,7 +141,6 @@ export function FileTree({ roomId, files, activeFileId, onFileSelect, onFilesCha
       {
         onSuccess: (file) => {
           void qc.invalidateQueries({ queryKey: getGetRoomFilesQueryKey(roomId) });
-          // Convert API response to FileItem
           const fileItem: FileItem = {
             id: (file as { id: string }).id,
             name: (file as { name: string }).name,
@@ -134,6 +165,53 @@ export function FileTree({ roomId, files, activeFileId, onFileSelect, onFilesCha
 
   const rootFiles = files.filter((f) => !f.parentId && !f.isFolder);
   const rootFolders = files.filter((f) => !f.parentId && f.isFolder);
+
+  function renderFileItem(file: FileItem, extraClass = "") {
+    const icon = getLangIcon(file.language);
+    const isRenaming = renamingFileId === file.id;
+
+    return (
+      <motion.div
+        key={file.id}
+        initial={{ opacity: 0, x: -4 }}
+        animate={{ opacity: 1, x: 0 }}
+        exit={{ opacity: 0 }}
+        className={`file-tree-item ${extraClass} ${activeFileId === file.id ? "active" : ""}`}
+        onClick={() => { if (!isRenaming) onFileSelect(file); }}
+        onContextMenu={(e) => handleContextMenu(e, file.id, file.name)}
+        data-testid={`file-item-${file.id}`}
+      >
+        <span style={{ fontSize: 9, fontWeight: 700, color: icon.color, fontFamily: "JetBrains Mono, monospace", minWidth: 18 }}>
+          {icon.icon}
+        </span>
+        {isRenaming ? (
+          <input
+            ref={renameInputRef}
+            value={renameValue}
+            onChange={(e) => setRenameValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleRename(file.id);
+              if (e.key === "Escape") setRenamingFileId(null);
+            }}
+            onBlur={() => handleRename(file.id)}
+            className="text-xs outline-none rounded px-1"
+            style={{
+              background: "#0D1117",
+              border: "1px solid #58A6FF",
+              color: "#E6EDF3",
+              fontFamily: "JetBrains Mono, monospace",
+              flex: 1,
+              minWidth: 0,
+            }}
+            onClick={(e) => e.stopPropagation()}
+            data-testid="input-rename-file"
+          />
+        ) : (
+          <span className="text-xs truncate">{file.name}</span>
+        )}
+      </motion.div>
+    );
+  }
 
   return (
     <div
@@ -175,47 +253,12 @@ export function FileTree({ roomId, files, activeFileId, onFileSelect, onFilesCha
                   </svg>
                   <span className="text-xs">{folder.name}</span>
                 </div>
-                {children.map((child) => {
-                  const icon = getLangIcon(child.language);
-                  return (
-                    <div
-                      key={child.id}
-                      className={`file-tree-item pl-6 ${activeFileId === child.id ? "active" : ""}`}
-                      onClick={() => onFileSelect(child)}
-                      onContextMenu={(e) => handleContextMenu(e, child.id, child.name)}
-                      data-testid={`file-item-${child.id}`}
-                    >
-                      <span style={{ fontSize: 9, fontWeight: 700, color: icon.color, fontFamily: "JetBrains Mono, monospace", minWidth: 16 }}>
-                        {icon.icon}
-                      </span>
-                      <span className="text-xs truncate">{child.name}</span>
-                    </div>
-                  );
-                })}
+                {children.map((child) => renderFileItem(child, "pl-6"))}
               </motion.div>
             );
           })}
 
-          {rootFiles.map((file) => {
-            const icon = getLangIcon(file.language);
-            return (
-              <motion.div
-                key={file.id}
-                initial={{ opacity: 0, x: -4 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0 }}
-                className={`file-tree-item ${activeFileId === file.id ? "active" : ""}`}
-                onClick={() => onFileSelect(file)}
-                onContextMenu={(e) => handleContextMenu(e, file.id, file.name)}
-                data-testid={`file-item-${file.id}`}
-              >
-                <span style={{ fontSize: 9, fontWeight: 700, color: icon.color, fontFamily: "JetBrains Mono, monospace", minWidth: 18 }}>
-                  {icon.icon}
-                </span>
-                <span className="text-xs truncate">{file.name}</span>
-              </motion.div>
-            );
-          })}
+          {rootFiles.map((file) => renderFileItem(file))}
         </AnimatePresence>
 
         {isCreatingFile && (
@@ -260,10 +303,18 @@ export function FileTree({ roomId, files, activeFileId, onFileSelect, onFilesCha
             left: contextMenu.x,
             background: "#1C2128",
             border: "1px solid #30363D",
-            minWidth: 140,
+            minWidth: 160,
           }}
           onClick={(e) => e.stopPropagation()}
         >
+          <button
+            className="w-full text-left px-3 py-1.5 text-xs hover:bg-white/5 transition-colors"
+            style={{ color: "#E6EDF3" }}
+            onClick={() => startRename(contextMenu.fileId, contextMenu.fileName)}
+          >
+            Переименовать
+          </button>
+          <div style={{ borderTop: "1px solid #30363D", margin: "2px 0" }} />
           <button
             className="w-full text-left px-3 py-1.5 text-xs hover:bg-white/5 transition-colors"
             style={{ color: "#FF7B72" }}

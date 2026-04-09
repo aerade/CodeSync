@@ -17,6 +17,16 @@ const DEFAULT_JSON_ACCEPT = "application/json, application/problem+json";
 
 let _baseUrl: string | null = null;
 let _authTokenGetter: AuthTokenGetter | null = null;
+let _guestTokenGetter: (() => string | null) | null = null;
+
+/**
+ * Register a getter that supplies a guest token. When set, the token is
+ * attached as the `x-guest-token` header on every request that doesn't
+ * already have one, allowing unauthenticated guest users to access the API.
+ */
+export function setGuestTokenGetter(getter: (() => string | null) | null): void {
+  _guestTokenGetter = getter;
+}
 
 /**
  * Set a base URL that is prepended to every relative request URL
@@ -355,6 +365,14 @@ export async function customFetch<T = unknown>(
     const token = await _authTokenGetter();
     if (token) {
       headers.set("authorization", `Bearer ${token}`);
+    }
+  }
+
+  // Attach guest token when a getter is configured and no x-guest-token is set.
+  if (_guestTokenGetter && !headers.has("x-guest-token")) {
+    const guestToken = _guestTokenGetter();
+    if (guestToken) {
+      headers.set("x-guest-token", guestToken);
     }
   }
 

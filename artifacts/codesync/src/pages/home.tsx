@@ -3,7 +3,8 @@ import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { useUser, SignInButton } from "@clerk/react";
 import { ParticleBackground } from "@/components/ParticleBackground";
-import { useListRooms, useGetRoomByInviteCode } from "@workspace/api-client-react";
+import { GuestModal } from "@/components/GuestModal";
+import { useListRooms } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -31,6 +32,7 @@ export default function Home() {
   const [inviteCode, setInviteCode] = useState("");
   const [joinError, setJoinError] = useState("");
   const [isJoining, setIsJoining] = useState(false);
+  const [showGuestModal, setShowGuestModal] = useState(false);
 
   const { data: rooms, isLoading: roomsLoading } = useListRooms();
 
@@ -60,6 +62,14 @@ export default function Home() {
 
   return (
     <div className="relative min-h-screen flex flex-col" style={{ background: "#161B22" }}>
+      <GuestModal
+        open={showGuestModal}
+        onClose={() => setShowGuestModal(false)}
+        onSuccess={(_userId, _username, _guestToken) => {
+          // Navigate to dashboard after guest login
+          setLocation("/dashboard");
+        }}
+      />
       <ParticleBackground />
 
       <div className="relative z-10 flex flex-col min-h-screen">
@@ -152,6 +162,14 @@ export default function Home() {
                   Создать комнату
                 </Button>
               </SignInButton>
+              <Button
+                variant="ghost"
+                onClick={() => setShowGuestModal(true)}
+                style={{ color: "#8B949E", borderColor: "#30363D" }}
+                data-testid="btn-guest-mode"
+              >
+                Гостевой режим
+              </Button>
             </div>
 
             {joinError && (

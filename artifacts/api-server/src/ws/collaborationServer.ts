@@ -1,9 +1,10 @@
 import { WebSocketServer, WebSocket, RawData } from "ws";
 import { IncomingMessage } from "http";
 import { db } from "@workspace/db";
-import { roomMembersTable, yjsSnapshotsTable, filesTable, usersTable } from "@workspace/db";
+import { roomMembersTable, yjsSnapshotsTable, filesTable, roomsTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import * as Y from "yjs";
+import { collabTokens } from "../routes/collab";
 
 interface CollaboratorInfo {
   userId: string;
@@ -159,7 +160,6 @@ export function setupWebSocketServer(wss: WebSocketServer) {
     const pathMatch = url.pathname.match(/^\/ws\/rooms\/([^/]+)\/files\/([^/]+)$/);
 
     if (!pathMatch) {
-      // Not a collaboration path — close gracefully
       ws.close(1008, "Invalid WebSocket path");
       return;
     }
@@ -167,28 +167,54 @@ export function setupWebSocketServer(wss: WebSocketServer) {
     const [, roomId, fileId] = pathMatch;
     const key = getRoomKey(roomId, fileId);
 
-    const userId = url.searchParams.get("userId");
-    const username = url.searchParams.get("username") ?? "Аноним";
-    const guestToken = url.searchParams.get("guestToken");
-
-    // Validate user identity: must provide a userId, and guest token must be valid
-    if (!userId) {
-      ws.close(1008, "userId is required");
+    // --- Authentication: require a valid collab token ---
+    const collabToken = url.searchParams.get("token");
+    if (!collabToken) {
+      ws.close(1008, "Collab token required");
       return;
     }
 
-    // If guestToken provided, verify it matches the userId in the DB
-    if (guestToken) {
-      try {
-        const guestUser = await db.query.usersTable.findFirst({
-          where: eq(usersTable.guestToken, guestToken),
-        });
-        if (!guestUser || guestUser.id !== userId) {
-          ws.close(1008, "Invalid guest token");
-          return;
-        }
-      } catch {
-        // If token validation fails due to DB error, allow connection (best-effort)
+    const tokenData = collabTokens.get(collabToken);
+    if (!tokenData || tokenData.expiresAt < Date.now()) {
+      collabTokens.delete(collabToken ?? "");
+      ws.close(1008, "Invalid or expired collab token");
+      return;
+    }
+
+    // Consume the token (one-time use for this connection)
+    // Keep it alive for reconnects — remove after connection closes instead
+    const { userId, username } = tokenData;
+
+    // --- Verify fileId belongs to roomId ---
+    const file = await db.query.filesTable.findFirst({
+      where: and(eq(filesTable.id, fileId), eq(filesTable.roomId, roomId)),
+    });
+
+    if (!file) {
+      ws.close(1008, "File not found in room");
+      return;
+    }
+
+    // --- Verify room membership for private rooms ---
+    const room = await db.query.roomsTable.findFirst({
+      where: eq(roomsTable.id, roomId),
+    });
+
+    if (!room) {
+      ws.close(1008, "Room not found");
+      return;
+    }
+
+    if (room.isPrivate) {
+      const member = await db.query.roomMembersTable.findFirst({
+        where: and(
+          eq(roomMembersTable.roomId, roomId),
+          eq(roomMembersTable.userId, userId)
+        ),
+      });
+      if (!member) {
+        ws.close(1008, "Not a member of this room");
+        return;
       }
     }
 
@@ -201,12 +227,13 @@ export function setupWebSocketServer(wss: WebSocketServer) {
 
     const colorIndex = fileRoom.clients.size;
     const color = getColor(colorIndex);
+    const isGuest = tokenData.userId.startsWith("guest_");
 
     const collaborator: CollaboratorInfo = {
       userId,
       username,
       color,
-      isGuest: !!guestToken,
+      isGuest,
     };
 
     fileRoom.clients.set(ws, collaborator);
@@ -217,7 +244,7 @@ export function setupWebSocketServer(wss: WebSocketServer) {
       roomId,
       userId,
       username,
-      isGuest: !!guestToken,
+      isGuest,
       color,
     }).onConflictDoNothing().catch(() => {});
 
@@ -278,6 +305,8 @@ export function setupWebSocketServer(wss: WebSocketServer) {
       fileRoom.clients.delete(ws);
       fileRoom.awareness.delete(ws);
       fileRoom.broadcastAwareness();
+      // Remove the used token on disconnect
+      collabTokens.delete(collabToken);
 
       if (fileRoom.clients.size === 0) {
         await saveYjsSnapshot(roomId, fileId, fileRoom.doc);

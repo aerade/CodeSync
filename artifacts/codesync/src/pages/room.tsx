@@ -161,82 +161,101 @@ export default function RoomPage() {
     ydocRef.current = ydoc;
     const yText = ydoc.getText("content");
 
-    const userId =
-      clerkUser?.id ??
-      localStorage.getItem("codesync_guest_user_id") ??
-      `anon_${Math.random().toString(36).slice(2)}`;
-    const username =
-      clerkUser?.firstName ??
-      clerkUser?.username ??
-      localStorage.getItem("codesync_guest_username") ??
-      "Аноним";
-    const guestToken = localStorage.getItem("codesync_guest_token") ?? "";
+    let cancelled = false;
 
-    const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-    const wsUrl = `${protocol}://${window.location.host}/ws/rooms/${roomId}/files/${activeFileId}?userId=${encodeURIComponent(userId)}&username=${encodeURIComponent(username)}&guestToken=${encodeURIComponent(guestToken)}`;
+    void (async () => {
+      const guestToken = localStorage.getItem("codesync_guest_token") ?? "";
 
-    const ws = new WebSocket(wsUrl);
-    wsRef.current = ws;
-
-    ws.onmessage = (event: MessageEvent<string>) => {
+      // Request a collaboration token from the server (validates auth server-side)
+      let collabToken = "";
       try {
-        const msg = JSON.parse(event.data) as WSMessage;
-
-        if (msg.type === "init" && msg.update) {
-          const update = Uint8Array.from(atob(msg.update), (c) => c.charCodeAt(0));
-          Y.applyUpdate(ydoc, update);
-          const text = yText.toString();
-          if (text && editorRef.current) {
-            isRemoteUpdate.current = true;
-            editorRef.current.setValue(text);
-            isRemoteUpdate.current = false;
-          }
-        } else if (msg.type === "yjs-update" && msg.update) {
-          const update = Uint8Array.from(atob(msg.update), (c) => c.charCodeAt(0));
-          isRemoteUpdate.current = true;
-          Y.applyUpdate(ydoc, update);
-          isRemoteUpdate.current = false;
-          const text = yText.toString();
-          if (editorRef.current) {
-            const editor = editorRef.current;
-            const position = editor.getPosition();
-            editor.setValue(text);
-            if (position) editor.setPosition(position);
-            setFileContent(text);
-          }
-        } else if (msg.type === "awareness" && msg.states) {
-          const ids = new Set(Object.keys(msg.states));
-          setActiveMemberIds(ids);
-        } else if (msg.type === "cursor" && msg.userId && msg.position) {
-          setCursors((prev) => {
-            const next = prev.filter((c) => c.userId !== msg.userId);
-            if (msg.userId && msg.position) {
-              next.push({
-                userId: msg.userId,
-                username: msg.username ?? "Аноним",
-                color: msg.color ?? "#58A6FF",
-                lineNumber: msg.position.lineNumber,
-                column: msg.position.column,
-              });
-            }
-            return next;
-          });
-        } else if (msg.type === "joined") {
-          setActiveMemberIds((prev) => new Set([...prev, msg.userId ?? ""]));
+        const headers: Record<string, string> = { "Content-Type": "application/json" };
+        if (guestToken) headers["x-guest-token"] = guestToken;
+        const tokenResp = await fetch("/api/collab/token", { method: "POST", headers });
+        if (tokenResp.ok) {
+          const tokenData = await tokenResp.json() as { token: string };
+          collabToken = tokenData.token;
         }
       } catch (err) {
-        console.error("WS message error:", err);
+        console.error("Failed to get collab token:", err);
       }
-    };
 
-    ws.onclose = () => {
-      setActiveMemberIds(new Set());
-      setCursors([]);
-    };
+      if (cancelled || !collabToken) {
+        if (!collabToken) console.warn("No collab token — WebSocket connection skipped");
+        ydoc.destroy();
+        return;
+      }
+
+      const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+      const wsUrl = `${protocol}://${window.location.host}/ws/rooms/${roomId}/files/${activeFileId}?token=${encodeURIComponent(collabToken)}`;
+
+      const ws = new WebSocket(wsUrl);
+      if (cancelled) { ws.close(); return; }
+      wsRef.current = ws;
+
+      ws.onmessage = (event: MessageEvent<string>) => {
+        try {
+          const msg = JSON.parse(event.data) as WSMessage;
+
+          if (msg.type === "init" && msg.update) {
+            const update = Uint8Array.from(atob(msg.update), (c) => c.charCodeAt(0));
+            Y.applyUpdate(ydoc, update);
+            const text = yText.toString();
+            if (text && editorRef.current) {
+              isRemoteUpdate.current = true;
+              editorRef.current.setValue(text);
+              isRemoteUpdate.current = false;
+            }
+          } else if (msg.type === "yjs-update" && msg.update) {
+            const update = Uint8Array.from(atob(msg.update), (c) => c.charCodeAt(0));
+            isRemoteUpdate.current = true;
+            Y.applyUpdate(ydoc, update);
+            isRemoteUpdate.current = false;
+            const text = yText.toString();
+            if (editorRef.current) {
+              const editor = editorRef.current;
+              const position = editor.getPosition();
+              editor.setValue(text);
+              if (position) editor.setPosition(position);
+              setFileContent(text);
+            }
+          } else if (msg.type === "awareness" && msg.states) {
+            const ids = new Set(Object.keys(msg.states));
+            setActiveMemberIds(ids);
+          } else if (msg.type === "cursor" && msg.userId && msg.position) {
+            setCursors((prev) => {
+              const next = prev.filter((c) => c.userId !== msg.userId);
+              if (msg.userId && msg.position) {
+                next.push({
+                  userId: msg.userId,
+                  username: msg.username ?? "Аноним",
+                  color: msg.color ?? "#58A6FF",
+                  lineNumber: msg.position.lineNumber,
+                  column: msg.position.column,
+                });
+              }
+              return next;
+            });
+          } else if (msg.type === "joined") {
+            setActiveMemberIds((prev) => new Set([...prev, msg.userId ?? ""]));
+          }
+        } catch (err) {
+          console.error("WS message error:", err);
+        }
+      };
+
+      ws.onclose = () => {
+        setActiveMemberIds(new Set());
+        setCursors([]);
+      };
+    })();
 
     return () => {
-      ws.close();
-      ydoc.destroy();
+      cancelled = true;
+      wsRef.current?.close();
+      wsRef.current = null;
+      ydocRef.current?.destroy();
+      ydocRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeFileId, roomId]);
