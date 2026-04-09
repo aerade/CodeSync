@@ -68,6 +68,7 @@ interface ContextMenuState {
   y: number;
   fileId: string;
   fileName: string;
+  isFolder: boolean;
 }
 
 export function FileTree({ roomId, files, activeFileId, onFileSelect, onFilesChange, isReadOnly = false }: Props) {
@@ -78,15 +79,29 @@ export function FileTree({ roomId, files, activeFileId, onFileSelect, onFilesCha
 
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [isCreatingFile, setIsCreatingFile] = useState(false);
+  const [isCreatingFolder, setIsCreatingFolder] = useState(false);
   const [newFileName, setNewFileName] = useState("");
+  const [newFolderName, setNewFolderName] = useState("");
   const [renamingFileId, setRenamingFileId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const renameInputRef = useRef<HTMLInputElement>(null);
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
+  const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
+  const [creatingInFolderId, setCreatingInFolderId] = useState<string | null>(null);
 
-  function handleContextMenu(e: React.MouseEvent, fileId: string, fileName: string) {
+  function toggleFolder(folderId: string) {
+    setExpandedFolders((prev) => {
+      const next = new Set(prev);
+      if (next.has(folderId)) next.delete(folderId);
+      else next.add(folderId);
+      return next;
+    });
+  }
+
+  function handleContextMenu(e: React.MouseEvent, fileId: string, fileName: string, isFolder: boolean) {
     e.preventDefault();
     if (isReadOnly) return;
-    setContextMenu({ x: e.clientX, y: e.clientY, fileId, fileName });
+    setContextMenu({ x: e.clientX, y: e.clientY, fileId, fileName, isFolder });
   }
 
   function handleDeleteFile(fileId: string) {
@@ -130,16 +145,17 @@ export function FileTree({ roomId, files, activeFileId, onFileSelect, onFilesCha
     );
   }
 
-  function handleCreateFile() {
+  function handleCreateFile(parentId?: string | null) {
     if (!newFileName.trim()) {
       setIsCreatingFile(false);
       setNewFileName("");
+      setCreatingInFolderId(null);
       return;
     }
     const name = newFileName.trim();
     const lang = detectLanguage(name);
     createFile.mutate(
-      { roomId, data: { name, path: `/${name}`, language: lang } },
+      { roomId, data: { name, path: `/${name}`, language: lang, parentId: parentId ?? undefined } },
       {
         onSuccess: (file) => {
           void qc.invalidateQueries({ queryKey: getGetRoomFilesQueryKey(roomId) });
@@ -163,6 +179,65 @@ export function FileTree({ roomId, files, activeFileId, onFileSelect, onFilesCha
     );
     setIsCreatingFile(false);
     setNewFileName("");
+    setCreatingInFolderId(null);
+  }
+
+  function handleCreateFolder() {
+    if (!newFolderName.trim()) {
+      setIsCreatingFolder(false);
+      setNewFolderName("");
+      return;
+    }
+    const name = newFolderName.trim();
+    createFile.mutate(
+      { roomId, data: { name, path: `/${name}`, language: "plaintext", isFolder: true } },
+      {
+        onSuccess: (folder) => {
+          void qc.invalidateQueries({ queryKey: getGetRoomFilesQueryKey(roomId) });
+          onFilesChange();
+          setExpandedFolders((prev) => new Set(prev).add((folder as { id: string }).id));
+        },
+      }
+    );
+    setIsCreatingFolder(false);
+    setNewFolderName("");
+  }
+
+  function handleDragStart(e: React.DragEvent, fileId: string) {
+    if (isReadOnly) return;
+    e.dataTransfer.setData("text/plain", fileId);
+    e.dataTransfer.effectAllowed = "move";
+  }
+
+  function handleDragOver(e: React.DragEvent, folderId: string | null) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setDragOverFolderId(folderId);
+  }
+
+  function handleDragLeave() {
+    setDragOverFolderId(null);
+  }
+
+  function handleDrop(e: React.DragEvent, targetFolderId: string | null) {
+    e.preventDefault();
+    setDragOverFolderId(null);
+    const fileId = e.dataTransfer.getData("text/plain");
+    if (!fileId) return;
+
+    const file = files.find((f) => f.id === fileId);
+    if (!file || file.isFolder) return;
+    if (file.parentId === targetFolderId) return;
+
+    updateFile.mutate(
+      { roomId, fileId, data: { parentId: targetFolderId } },
+      {
+        onSuccess: () => {
+          void qc.invalidateQueries({ queryKey: getGetRoomFilesQueryKey(roomId) });
+          onFilesChange();
+        },
+      }
+    );
   }
 
   const rootFiles = files.filter((f) => !f.parentId && !f.isFolder);
@@ -180,7 +255,9 @@ export function FileTree({ roomId, files, activeFileId, onFileSelect, onFilesCha
         exit={{ opacity: 0 }}
         className={`file-tree-item ${extraClass} ${activeFileId === file.id ? "active" : ""}`}
         onClick={() => { if (!isRenaming) onFileSelect(file); }}
-        onContextMenu={(e) => handleContextMenu(e, file.id, file.name)}
+        onContextMenu={(e) => handleContextMenu(e, file.id, file.name, false)}
+        draggable={!isReadOnly && !isRenaming}
+        onDragStart={(e) => handleDragStart(e, file.id)}
         data-testid={`file-item-${file.id}`}
       >
         <span style={{ fontSize: 9, fontWeight: 700, color: icon.color, fontFamily: "JetBrains Mono, monospace", minWidth: 18 }}>
@@ -215,6 +292,32 @@ export function FileTree({ roomId, files, activeFileId, onFileSelect, onFilesCha
     );
   }
 
+  function renderNewFileInput(parentId?: string | null) {
+    return (
+      <div className="px-2 py-1">
+        <input
+          autoFocus
+          value={newFileName}
+          onChange={(e) => setNewFileName(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") handleCreateFile(parentId);
+            if (e.key === "Escape") { setIsCreatingFile(false); setNewFileName(""); setCreatingInFolderId(null); }
+          }}
+          onBlur={() => handleCreateFile(parentId)}
+          placeholder="имя_файла.ts"
+          className="w-full text-xs outline-none rounded px-2 py-1"
+          style={{
+            background: "#0D1117",
+            border: "1px solid #58A6FF",
+            color: "#E6EDF3",
+            fontFamily: "JetBrains Mono, monospace",
+          }}
+          data-testid="input-new-file-name"
+        />
+      </div>
+    );
+  }
+
   return (
     <div
       className="flex flex-col h-full select-none"
@@ -228,15 +331,26 @@ export function FileTree({ roomId, files, activeFileId, onFileSelect, onFilesCha
         </span>
         <div className="flex gap-1">
           {!isReadOnly && (
-            <button
-              className="px-1.5 py-0.5 rounded text-xs transition-colors hover:bg-white/5"
-              style={{ color: "#8B949E" }}
-              onClick={() => { setIsCreatingFile(true); setNewFileName(""); }}
-              title="Новый файл"
-              data-testid="btn-new-file"
-            >
-              +
-            </button>
+            <>
+              <button
+                className="px-1.5 py-0.5 rounded text-xs transition-colors hover:bg-white/5"
+                style={{ color: "#8B949E" }}
+                onClick={() => { setIsCreatingFolder(true); setNewFolderName(""); }}
+                title="Новая папка"
+                data-testid="btn-new-folder"
+              >
+                📁
+              </button>
+              <button
+                className="px-1.5 py-0.5 rounded text-xs transition-colors hover:bg-white/5"
+                style={{ color: "#8B949E" }}
+                onClick={() => { setIsCreatingFile(true); setNewFileName(""); setCreatingInFolderId(null); }}
+                title="Новый файл"
+                data-testid="btn-new-file"
+              >
+                +
+              </button>
+            </>
           )}
           {isReadOnly && (
             <span className="text-xs px-2" style={{ color: "#8B949E", opacity: 0.6 }}>
@@ -246,23 +360,78 @@ export function FileTree({ roomId, files, activeFileId, onFileSelect, onFilesCha
         </div>
       </div>
 
+      {/* New folder input */}
+      {isCreatingFolder && (
+        <div className="px-2 py-1">
+          <input
+            autoFocus
+            value={newFolderName}
+            onChange={(e) => setNewFolderName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleCreateFolder();
+              if (e.key === "Escape") { setIsCreatingFolder(false); setNewFolderName(""); }
+            }}
+            onBlur={handleCreateFolder}
+            placeholder="название_папки"
+            className="w-full text-xs outline-none rounded px-2 py-1"
+            style={{
+              background: "#0D1117",
+              border: "1px solid #F2CC60",
+              color: "#E6EDF3",
+              fontFamily: "JetBrains Mono, monospace",
+            }}
+            data-testid="input-new-folder-name"
+          />
+        </div>
+      )}
+
       {/* Files list */}
-      <div className="flex-1 overflow-y-auto py-1 px-1">
+      <div
+        className="flex-1 overflow-y-auto py-1 px-1"
+        onDragOver={(e) => handleDragOver(e, null)}
+        onDragLeave={handleDragLeave}
+        onDrop={(e) => handleDrop(e, null)}
+        style={{
+          background: dragOverFolderId === null ? undefined : undefined,
+        }}
+      >
         <AnimatePresence>
           {rootFolders.map((folder) => {
-            const children = files.filter((f) => f.parentId === folder.id);
+            const children = files.filter((f) => f.parentId === folder.id && !f.isFolder);
+            const isExpanded = expandedFolders.has(folder.id);
+            const isDragOver = dragOverFolderId === folder.id;
             return (
               <motion.div key={folder.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                 <div
                   className="file-tree-item"
-                  onContextMenu={(e) => handleContextMenu(e, folder.id, folder.name)}
+                  onClick={() => toggleFolder(folder.id)}
+                  onContextMenu={(e) => handleContextMenu(e, folder.id, folder.name, true)}
+                  onDragOver={(e) => { e.stopPropagation(); handleDragOver(e, folder.id); }}
+                  onDragLeave={handleDragLeave}
+                  onDrop={(e) => { e.stopPropagation(); handleDrop(e, folder.id); }}
+                  style={{
+                    background: isDragOver ? "rgba(88, 166, 255, 0.15)" : undefined,
+                    borderRadius: 4,
+                  }}
                 >
+                  <svg
+                    width="10" height="10" viewBox="0 0 10 10" fill="#8B949E"
+                    style={{ transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.15s" }}
+                  >
+                    <path d="M3 1l4 4-4 4z" />
+                  </svg>
                   <svg width="12" height="12" viewBox="0 0 12 12" fill="#F2CC60">
                     <path d="M1 3h4l1 1h5v7H1V3z" />
                   </svg>
                   <span className="text-xs">{folder.name}</span>
+                  <span className="text-xs ml-auto" style={{ color: "#30363D" }}>{children.length}</span>
                 </div>
-                {children.map((child) => renderFileItem(child, "pl-6"))}
+                {isExpanded && (
+                  <>
+                    {children.map((child) => renderFileItem(child, "pl-6"))}
+                    {isCreatingFile && creatingInFolderId === folder.id && renderNewFileInput(folder.id)}
+                  </>
+                )}
               </motion.div>
             );
           })}
@@ -270,31 +439,9 @@ export function FileTree({ roomId, files, activeFileId, onFileSelect, onFilesCha
           {rootFiles.map((file) => renderFileItem(file))}
         </AnimatePresence>
 
-        {isCreatingFile && (
-          <div className="px-2 py-1">
-            <input
-              autoFocus
-              value={newFileName}
-              onChange={(e) => setNewFileName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleCreateFile();
-                if (e.key === "Escape") { setIsCreatingFile(false); setNewFileName(""); }
-              }}
-              onBlur={handleCreateFile}
-              placeholder="имя_файла.ts"
-              className="w-full text-xs outline-none rounded px-2 py-1"
-              style={{
-                background: "#0D1117",
-                border: "1px solid #58A6FF",
-                color: "#E6EDF3",
-                fontFamily: "JetBrains Mono, monospace",
-              }}
-              data-testid="input-new-file-name"
-            />
-          </div>
-        )}
+        {isCreatingFile && !creatingInFolderId && renderNewFileInput(null)}
 
-        {files.length === 0 && !isCreatingFile && (
+        {files.length === 0 && !isCreatingFile && !isCreatingFolder && (
           <div className="text-center py-6">
             <p className="text-xs" style={{ color: "#8B949E" }}>Нет файлов</p>
           </div>
@@ -316,6 +463,21 @@ export function FileTree({ roomId, files, activeFileId, onFileSelect, onFilesCha
           }}
           onClick={(e) => e.stopPropagation()}
         >
+          {contextMenu.isFolder && (
+            <button
+              className="w-full text-left px-3 py-1.5 text-xs hover:bg-white/5 transition-colors"
+              style={{ color: "#E6EDF3" }}
+              onClick={() => {
+                setIsCreatingFile(true);
+                setNewFileName("");
+                setCreatingInFolderId(contextMenu.fileId);
+                setExpandedFolders((prev) => new Set(prev).add(contextMenu.fileId));
+                setContextMenu(null);
+              }}
+            >
+              Новый файл в папке
+            </button>
+          )}
           <button
             className="w-full text-left px-3 py-1.5 text-xs hover:bg-white/5 transition-colors"
             style={{ color: "#E6EDF3" }}

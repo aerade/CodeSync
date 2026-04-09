@@ -90,8 +90,9 @@ async function ensureRoomAccess(
 
 roomsRouter.get("/rooms", async (req, res) => {
   const { search } = req.query as { search?: string };
+  const user = await resolveUser(req);
 
-  const rooms = await db.query.roomsTable.findMany({
+  const publicRooms = await db.query.roomsTable.findMany({
     where: search
       ? and(eq(roomsTable.isPrivate, false), ilike(roomsTable.title, `%${search}%`))
       : eq(roomsTable.isPrivate, false),
@@ -99,8 +100,34 @@ roomsRouter.get("/rooms", async (req, res) => {
     limit: 50,
   });
 
+  let privateRooms: typeof publicRooms = [];
+  if (user) {
+    const memberRows = await db.query.roomMembersTable.findMany({
+      where: eq(roomMembersTable.userId, user.userId),
+    });
+    const memberRoomIds = memberRows.map((m) => m.roomId);
+    if (memberRoomIds.length > 0) {
+      const allMemberRooms = await db.query.roomsTable.findMany({
+        where: and(
+          eq(roomsTable.isPrivate, true),
+          ...(search ? [ilike(roomsTable.title, `%${search}%`)] : [])
+        ),
+        orderBy: [desc(roomsTable.createdAt)],
+      });
+      privateRooms = allMemberRooms.filter((r) => memberRoomIds.includes(r.id));
+    }
+  }
+
+  const allRooms = [...privateRooms, ...publicRooms];
+  const seen = new Set<string>();
+  const uniqueRooms = allRooms.filter((r) => {
+    if (seen.has(r.id)) return false;
+    seen.add(r.id);
+    return true;
+  });
+
   const roomsWithCounts = await Promise.all(
-    rooms.map(async (room) => {
+    uniqueRooms.map(async (room) => {
       const [memberCountResult] = await db
         .select({ count: count() })
         .from(roomMembersTable)
@@ -131,6 +158,13 @@ roomsRouter.post("/rooms", async (req, res) => {
 
   if (!title) {
     return res.status(400).json({ error: "Title is required" });
+  }
+
+  const existing = await db.query.roomsTable.findFirst({
+    where: eq(roomsTable.title, title),
+  });
+  if (existing) {
+    return res.status(409).json({ error: "Комната с таким названием уже существует" });
   }
 
   const inviteCode = nanoid(8).toUpperCase();

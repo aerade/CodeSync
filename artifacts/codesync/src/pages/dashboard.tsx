@@ -29,12 +29,14 @@ function CreateRoomModal({ open, onClose }: { open: boolean; onClose: () => void
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [isPrivate, setIsPrivate] = useState(false);
+  const [createError, setCreateError] = useState("");
   const [, setLocation] = useLocation();
   const qc = useQueryClient();
   const createRoom = useCreateRoom();
 
   function handleCreate() {
     if (!title.trim()) return;
+    setCreateError("");
     createRoom.mutate(
       { data: { title: title.trim(), description: description.trim() || undefined, isPrivate } },
       {
@@ -42,6 +44,16 @@ function CreateRoomModal({ open, onClose }: { open: boolean; onClose: () => void
           qc.invalidateQueries({ queryKey: getListRoomsQueryKey() });
           onClose();
           setLocation(`/room/${room.id}`);
+        },
+        onError: (err) => {
+          const msg = err instanceof Error ? err.message : String(err);
+          if (msg.includes("409") || msg.toLowerCase().includes("уже существует") || msg.toLowerCase().includes("conflict")) {
+            setCreateError("Комната с таким названием уже существует");
+          } else if (msg.includes("401") || msg.toLowerCase().includes("auth")) {
+            setCreateError("Гости не могут создавать комнаты. Войдите в аккаунт.");
+          } else {
+            setCreateError(msg || "Ошибка при создании комнаты");
+          }
         },
       }
     );
@@ -57,7 +69,7 @@ function CreateRoomModal({ open, onClose }: { open: boolean; onClose: () => void
           <Input
             placeholder="Название комнаты"
             value={title}
-            onChange={(e) => setTitle(e.target.value)}
+            onChange={(e) => { setTitle(e.target.value); setCreateError(""); }}
             onKeyDown={(e) => e.key === "Enter" && handleCreate()}
             style={{ background: "#0D1117", border: "1px solid #30363D", color: "#E6EDF3" }}
             data-testid="input-room-title"
@@ -79,6 +91,9 @@ function CreateRoomModal({ open, onClose }: { open: boolean; onClose: () => void
             />
             <span className="text-sm" style={{ color: "#8B949E" }}>Приватная комната</span>
           </label>
+          {createError && (
+            <p className="text-sm" style={{ color: "#FF7B72" }}>{createError}</p>
+          )}
           <div className="flex gap-2 mt-2">
             <Button
               onClick={handleCreate}
@@ -299,7 +314,7 @@ export default function Dashboard() {
 
         {/* Rooms section */}
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-base font-semibold" style={{ color: "#E6EDF3" }}>Публичные комнаты</h2>
+          <h2 className="text-base font-semibold" style={{ color: "#E6EDF3" }}>Комнаты</h2>
           <Input
             placeholder="Поиск..."
             value={search}

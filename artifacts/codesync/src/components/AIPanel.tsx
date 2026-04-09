@@ -2,6 +2,8 @@ import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 
+const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+
 interface Issue {
   line?: number | null;
   severity: "error" | "warning" | "info";
@@ -14,12 +16,19 @@ interface ChatMessage {
   content: string;
 }
 
+interface ToolCallInfo {
+  name: string;
+  args: Record<string, string>;
+  result: { success?: boolean; name?: string; error?: string };
+}
+
 interface Props {
   roomId: string;
   fileId: string | null;
   fileContent: string;
   language: string;
   fileName: string;
+  onFilesChanged?: () => void;
 }
 
 function TypingDots() {
@@ -46,7 +55,29 @@ function SeverityBadge({ severity }: { severity: string }) {
   );
 }
 
-/** Render markdown safely without dangerouslySetInnerHTML */
+function ToolCallBadge({ toolCall }: { toolCall: ToolCallInfo }) {
+  const labels: Record<string, string> = {
+    create_file: "Создал файл",
+    edit_file: "Отредактировал файл",
+    delete_file: "Удалил файл",
+  };
+  const label = labels[toolCall.name] ?? toolCall.name;
+  const ok = toolCall.result?.success;
+  return (
+    <div
+      className="flex items-center gap-2 px-2 py-1 rounded text-xs my-1"
+      style={{
+        background: ok ? "rgba(63, 185, 80, 0.1)" : "rgba(255, 123, 114, 0.1)",
+        border: `1px solid ${ok ? "rgba(63, 185, 80, 0.3)" : "rgba(255, 123, 114, 0.3)"}`,
+        color: ok ? "#3FB950" : "#FF7B72",
+      }}
+    >
+      <span>{ok ? "✓" : "✗"}</span>
+      <span>{label}: {toolCall.result?.name ?? toolCall.args?.name ?? toolCall.args?.fileId ?? ""}</span>
+    </div>
+  );
+}
+
 function SafeMarkdown({ text }: { text: string }) {
   const parts: Array<{ type: "code" | "inline-code" | "text"; content: string }> = [];
   const codeBlockRegex = /```(?:\w+)?\n?([\s\S]*?)```/g;
@@ -74,7 +105,6 @@ function SafeMarkdown({ text }: { text: string }) {
             </pre>
           );
         }
-        // Split by inline code
         const segments = part.content.split(/(`[^`]+`)/g);
         return (
           <span key={i}>
@@ -86,7 +116,6 @@ function SafeMarkdown({ text }: { text: string }) {
                   </code>
                 );
               }
-              // Render plain text with line breaks
               return (
                 <span key={j}>
                   {seg.split("\n").map((line, k) => (
@@ -105,19 +134,27 @@ function SafeMarkdown({ text }: { text: string }) {
   );
 }
 
-export function AIPanel({ roomId, fileId, fileContent, language, fileName }: Props) {
+export function AIPanel({ roomId, fileId, fileContent, language, fileName, onFilesChanged }: Props) {
   const [activeTab, setActiveTab] = useState<"review" | "chat">("chat");
   const [issues, setIssues] = useState<Issue[]>([]);
   const [isReviewing, setIsReviewing] = useState(false);
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [toolCalls, setToolCalls] = useState<ToolCallInfo[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [isChatLoading, setIsChatLoading] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isChatLoading]);
+  }, [messages, isChatLoading, toolCalls]);
+
+  function getHeaders(): Record<string, string> {
+    const h: Record<string, string> = { "Content-Type": "application/json" };
+    const guestToken = localStorage.getItem("codesync_guest_token");
+    if (guestToken) h["x-guest-token"] = guestToken;
+    return h;
+  }
 
   async function runReview() {
     if (!fileContent || isReviewing) return;
@@ -126,9 +163,9 @@ export function AIPanel({ roomId, fileId, fileContent, language, fileName }: Pro
     setActiveTab("review");
 
     try {
-      const resp = await fetch("/api/ai/review", {
+      const resp = await fetch(`${basePath}/api/ai/review`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getHeaders(),
         body: JSON.stringify({ code: fileContent, language, roomId, fileId }),
       });
 
@@ -151,7 +188,6 @@ export function AIPanel({ roomId, fileId, fileContent, language, fileName }: Pro
           if (data === "[DONE]") break;
           try {
             const parsed = JSON.parse(data) as { issues?: unknown[]; error?: string };
-            // Server sends { issues: [...] } — no "complete" flag needed
             if (Array.isArray(parsed.issues)) {
               setIssues(parsed.issues as Issue[]);
             }
@@ -175,9 +211,9 @@ export function AIPanel({ roomId, fileId, fileContent, language, fileName }: Pro
     const allMessages = [...messages, { role: "user" as const, content: userMsg }];
 
     try {
-      const resp = await fetch("/api/ai/chat", {
+      const resp = await fetch(`${basePath}/api/ai/chat`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getHeaders(),
         body: JSON.stringify({
           messages: allMessages,
           context: fileContent,
@@ -193,8 +229,7 @@ export function AIPanel({ roomId, fileId, fileContent, language, fileName }: Pro
       const decoder = new TextDecoder();
       let buffer = "";
       let assistantContent = "";
-
-      setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
+      let addedAssistant = false;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -208,8 +243,18 @@ export function AIPanel({ roomId, fileId, fileContent, language, fileName }: Pro
           const data = line.slice(6).trim();
           if (data === "[DONE]") break;
           try {
-            const parsed = JSON.parse(data) as { content?: string; error?: string };
+            const parsed = JSON.parse(data) as { content?: string; error?: string; toolCall?: ToolCallInfo };
+
+            if (parsed.toolCall) {
+              setToolCalls((prev) => [...prev, parsed.toolCall!]);
+              onFilesChanged?.();
+            }
+
             if (parsed.content) {
+              if (!addedAssistant) {
+                setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
+                addedAssistant = true;
+              }
               assistantContent += parsed.content;
               setMessages((prev) => {
                 const updated = [...prev];
@@ -220,13 +265,16 @@ export function AIPanel({ roomId, fileId, fileContent, language, fileName }: Pro
           } catch (_) {}
         }
       }
+
+      if (!addedAssistant && assistantContent === "") {
+        const lastToolCalls = toolCalls;
+        if (lastToolCalls.length === 0) {
+          setMessages((prev) => [...prev, { role: "assistant", content: "Готово!" }]);
+        }
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Произошла ошибка. Попробуйте ещё раз.";
-      setMessages((prev) => {
-        const updated = [...prev];
-        updated[updated.length - 1] = { role: "assistant", content: message };
-        return updated;
-      });
+      setMessages((prev) => [...prev, { role: "assistant", content: message }]);
     } finally {
       setIsChatLoading(false);
     }
@@ -339,35 +387,41 @@ export function AIPanel({ roomId, fileId, fileContent, language, fileName }: Pro
           >
             {/* Messages */}
             <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
-              {messages.length === 0 && (
+              {messages.length === 0 && toolCalls.length === 0 && (
                 <div className="text-center py-8">
                   <p className="text-sm font-medium mb-1" style={{ color: "#E6EDF3" }}>CodeSync AI</p>
-                  <p className="text-xs" style={{ color: "#8B949E" }}>Задайте вопрос по коду или просто поговорите</p>
+                  <p className="text-xs" style={{ color: "#8B949E" }}>Задайте вопрос по коду или попросите создать/изменить файл</p>
                 </div>
               )}
 
               {messages.map((msg, i) => (
-                <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                  {msg.role === "assistant" && (
+                <div key={i}>
+                  <div className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                    {msg.role === "assistant" && (
+                      <div
+                        className="w-5 h-5 rounded mr-2 mt-0.5 flex-shrink-0 flex items-center justify-center text-xs font-bold"
+                        style={{ background: "linear-gradient(135deg, #58A6FF, #3FB950)", color: "#0D1117", fontSize: 8 }}
+                      >
+                        AI
+                      </div>
+                    )}
                     <div
-                      className="w-5 h-5 rounded mr-2 mt-0.5 flex-shrink-0 flex items-center justify-center text-xs font-bold"
-                      style={{ background: "linear-gradient(135deg, #58A6FF, #3FB950)", color: "#0D1117", fontSize: 8 }}
+                      className="max-w-[85%] rounded-lg px-3 py-2 text-xs ai-prose"
+                      style={{
+                        background: msg.role === "user" ? "rgba(88,166,255,0.15)" : "#0D1117",
+                        border: `1px solid ${msg.role === "user" ? "rgba(88,166,255,0.3)" : "#30363D"}`,
+                        color: "#E6EDF3",
+                        lineHeight: 1.6,
+                      }}
                     >
-                      AI
+                      <SafeMarkdown text={msg.content} />
                     </div>
-                  )}
-                  <div
-                    className="max-w-[85%] rounded-lg px-3 py-2 text-xs ai-prose"
-                    style={{
-                      background: msg.role === "user" ? "rgba(88,166,255,0.15)" : "#0D1117",
-                      border: `1px solid ${msg.role === "user" ? "rgba(88,166,255,0.3)" : "#30363D"}`,
-                      color: "#E6EDF3",
-                      lineHeight: 1.6,
-                    }}
-                  >
-                    <SafeMarkdown text={msg.content} />
                   </div>
                 </div>
+              ))}
+
+              {toolCalls.map((tc, i) => (
+                <ToolCallBadge key={`tc-${i}`} toolCall={tc} />
               ))}
 
               {isChatLoading && (
@@ -397,7 +451,7 @@ export function AIPanel({ roomId, fileId, fileContent, language, fileName }: Pro
                     void sendChat();
                   }
                 }}
-                placeholder="Спросите что угодно..."
+                placeholder="Спросите что угодно или попросите создать файл..."
                 rows={2}
                 className="flex-1 resize-none text-xs rounded px-2 py-1.5 outline-none"
                 style={{

@@ -50,12 +50,13 @@ lib/
 ## Key Features
 
 - **Collaborative editing**: Yjs CRDT over WebSocket at `/ws/rooms/:roomId/files/:fileId`
-- **Monaco Editor**: VS-Code-like editor with Deep Focus dark theme
-- **AI Panel**: Two tabs — code review (streaming SSE) and chat (streaming SSE)
-- **Code execution**: Piston API, supports JS/TS/Python/Go/Rust/Java/C++/etc.
-- **File tree**: Create/delete files with language icons
-- **Guest mode**: Join rooms without account; can't create rooms
+- **Monaco Editor**: VS-Code-like editor with Deep Focus dark theme, autocomplete/suggestions for JS/TS/HTML
+- **AI Panel**: Two tabs — code review (SSE) and chat (SSE with tool-calling for file create/edit/delete)
+- **Code execution**: Piston API with auth + rate limiting, supports JS/TS/Python/Go/Rust/Java/C++/etc.
+- **File tree**: Create/delete files and folders, drag-and-drop to move files between folders, context menus
+- **Guest mode**: Join rooms without account; can't create rooms. Proper error messages for restricted actions
 - **Session sidebar**: Online collaborators with pastel colors, event feed
+- **Room management**: Duplicate room name prevention (409 error), private rooms visible to members on dashboard
 
 ## Color Palette "Deep Focus"
 

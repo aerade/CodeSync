@@ -1,8 +1,8 @@
 import { Router, Request, Response } from "express";
 import { getAuth } from "@clerk/express";
 import { db } from "@workspace/db";
-import { usersTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { usersTable, filesTable, eventsTable, roomsTable, roomMembersTable } from "@workspace/db";
+import { eq, and } from "drizzle-orm";
 import { openai } from "@workspace/integrations-openai-ai-server";
 
 const aiRouter = Router();
@@ -24,27 +24,50 @@ function checkRateLimit(userId: string): boolean {
   return true;
 }
 
-/** Resolve userId from Clerk session or guest token. Returns null if unauthenticated. */
-async function resolveAiUserId(req: Request): Promise<string | null> {
-  // Check Clerk first (preferred)
+interface ResolvedAiUser {
+  userId: string;
+  isGuest: boolean;
+}
+
+async function resolveAiUser(req: Request): Promise<ResolvedAiUser | null> {
   const auth = getAuth(req);
   if (auth?.userId) {
     const user = await db.query.usersTable.findFirst({
       where: eq(usersTable.clerkId, auth.userId),
     });
-    if (user) return user.id;
+    if (user) return { userId: user.id, isGuest: false };
   }
 
-  // Fallback to guest token only if no Clerk session
   const guestToken = req.headers["x-guest-token"];
   if (typeof guestToken === "string" && guestToken) {
     const user = await db.query.usersTable.findFirst({
       where: eq(usersTable.guestToken, guestToken),
     });
-    if (user) return user.id;
+    if (user) return { userId: user.id, isGuest: true };
   }
 
   return null;
+}
+
+async function canReadRoom(roomId: string, userId: string): Promise<boolean> {
+  const room = await db.query.roomsTable.findFirst({ where: eq(roomsTable.id, roomId) });
+  if (!room) return false;
+  if (!room.isPrivate) return true;
+  const member = await db.query.roomMembersTable.findFirst({
+    where: and(eq(roomMembersTable.roomId, roomId), eq(roomMembersTable.userId, userId)),
+  });
+  return !!member;
+}
+
+async function canWriteRoom(roomId: string, userId: string, isGuest: boolean): Promise<boolean> {
+  if (isGuest) return false;
+  const room = await db.query.roomsTable.findFirst({ where: eq(roomsTable.id, roomId) });
+  if (!room) return false;
+  if (!room.isPrivate) return true;
+  const member = await db.query.roomMembersTable.findFirst({
+    where: and(eq(roomMembersTable.roomId, roomId), eq(roomMembersTable.userId, userId)),
+  });
+  return !!member;
 }
 
 interface ChatMessage {
@@ -52,12 +75,149 @@ interface ChatMessage {
   content: string;
 }
 
+function detectLanguageFromName(filename: string): string {
+  const ext = filename.split(".").pop()?.toLowerCase() ?? "";
+  const langMap: Record<string, string> = {
+    js: "javascript", jsx: "javascript", ts: "typescript", tsx: "typescript",
+    py: "python", go: "go", rs: "rust", java: "java", cpp: "cpp", c: "c",
+    cs: "csharp", rb: "ruby", php: "php", html: "html", css: "css",
+    json: "json", md: "markdown", sh: "shell", yaml: "yaml", yml: "yaml",
+    sql: "sql", kt: "kotlin", swift: "swift",
+  };
+  return langMap[ext] ?? "plaintext";
+}
+
+const FILE_TOOLS: Array<{
+  type: "function";
+  function: { name: string; description: string; parameters: Record<string, unknown> };
+}> = [
+  {
+    type: "function",
+    function: {
+      name: "create_file",
+      description: "Создать новый файл в комнате CodeSync. Используй для создания новых файлов с кодом.",
+      parameters: {
+        type: "object",
+        properties: {
+          name: { type: "string", description: "Имя файла (например, utils.ts)" },
+          content: { type: "string", description: "Содержимое файла" },
+          parentId: { type: "string", description: "ID родительской папки (опционально)" },
+        },
+        required: ["name", "content"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "edit_file",
+      description: "Отредактировать существующий файл в комнате CodeSync. Перезаписывает содержимое файла целиком.",
+      parameters: {
+        type: "object",
+        properties: {
+          fileId: { type: "string", description: "ID файла для редактирования" },
+          content: { type: "string", description: "Новое содержимое файла" },
+        },
+        required: ["fileId", "content"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "delete_file",
+      description: "Удалить файл из комнаты CodeSync.",
+      parameters: {
+        type: "object",
+        properties: {
+          fileId: { type: "string", description: "ID файла для удаления" },
+        },
+        required: ["fileId"],
+      },
+    },
+  },
+];
+
+async function executeFileTool(
+  toolName: string,
+  args: Record<string, string>,
+  roomId: string,
+  userId: string,
+): Promise<string> {
+  try {
+    if (toolName === "create_file") {
+      const name = args.name ?? "";
+      const content = args.content ?? "";
+      const parentId = args.parentId || null;
+      const language = detectLanguageFromName(name);
+      const [file] = await db.insert(filesTable).values({
+        roomId,
+        name,
+        path: parentId ? `/${name}` : `/${name}`,
+        language,
+        content,
+        parentId,
+        isFolder: false,
+        createdBy: userId,
+      }).returning();
+      await db.insert(eventsTable).values({
+        roomId,
+        userId,
+        username: "AI",
+        type: "file_created",
+        description: `AI создал файл ${name}`,
+      }).catch(() => {});
+      return JSON.stringify({ success: true, fileId: file.id, name: file.name });
+    }
+
+    if (toolName === "edit_file") {
+      const fileId = args.fileId ?? "";
+      const content = args.content ?? "";
+      const [file] = await db.update(filesTable)
+        .set({ content, updatedAt: new Date() })
+        .where(and(eq(filesTable.id, fileId), eq(filesTable.roomId, roomId)))
+        .returning();
+      if (!file) return JSON.stringify({ success: false, error: "Файл не найден" });
+      await db.insert(eventsTable).values({
+        roomId,
+        userId,
+        username: "AI",
+        type: "file_updated",
+        description: `AI отредактировал файл ${file.name}`,
+      }).catch(() => {});
+      return JSON.stringify({ success: true, fileId: file.id, name: file.name });
+    }
+
+    if (toolName === "delete_file") {
+      const fileId = args.fileId ?? "";
+      const file = await db.query.filesTable.findFirst({
+        where: and(eq(filesTable.id, fileId), eq(filesTable.roomId, roomId)),
+      });
+      if (!file) return JSON.stringify({ success: false, error: "Файл не найден" });
+      await db.delete(filesTable).where(and(eq(filesTable.id, fileId), eq(filesTable.roomId, roomId)));
+      await db.insert(eventsTable).values({
+        roomId,
+        userId,
+        username: "AI",
+        type: "file_deleted",
+        description: `AI удалил файл ${file.name}`,
+      }).catch(() => {});
+      return JSON.stringify({ success: true, name: file.name });
+    }
+
+    return JSON.stringify({ error: "Unknown tool" });
+  } catch (err) {
+    return JSON.stringify({ error: err instanceof Error ? err.message : "Tool execution failed" });
+  }
+}
+
 async function chatHandler(req: Request, res: Response): Promise<void> {
-  const userId = await resolveAiUserId(req);
-  if (!userId) {
+  const aiUser = await resolveAiUser(req);
+  if (!aiUser) {
     res.status(401).json({ error: "Authentication required to use AI chat" });
     return;
   }
+  const { userId, isGuest } = aiUser;
   if (!checkRateLimit(userId)) {
     res.status(429).json({ error: "Rate limit exceeded. Please wait before sending more messages." });
     return;
@@ -68,9 +228,11 @@ async function chatHandler(req: Request, res: Response): Promise<void> {
     messages?: unknown;
     context?: unknown;
     language?: unknown;
+    roomId?: unknown;
+    fileId?: unknown;
+    allFiles?: unknown;
   };
 
-  // Accept both `message` (single string) and `messages` (array) for flexibility
   let chatMessages: ChatMessage[];
   if (Array.isArray(body.messages)) {
     chatMessages = (body.messages as Array<{ role?: unknown; content?: unknown }>)
@@ -90,10 +252,33 @@ async function chatHandler(req: Request, res: Response): Promise<void> {
 
   const context = typeof body.context === "string" ? body.context : "";
   const language = typeof body.language === "string" ? body.language : "code";
+  const roomId = typeof body.roomId === "string" ? body.roomId : "";
+
+  if (roomId) {
+    const hasAccess = await canReadRoom(roomId, userId);
+    if (!hasAccess) {
+      res.status(403).json({ error: "У вас нет доступа к этой комнате" });
+      return;
+    }
+  }
+
+  const hasWriteAccess = roomId ? await canWriteRoom(roomId, userId, isGuest) : false;
+
+  let fileListContext = "";
+  if (roomId) {
+    const roomFiles = await db.query.filesTable.findMany({
+      where: eq(filesTable.roomId, roomId),
+    });
+    if (roomFiles.length > 0) {
+      fileListContext = `\n\nФайлы в комнате:\n${roomFiles.map((f) => `- ${f.name} (id: ${f.id}, ${f.language}${f.isFolder ? ", папка" : ""})`).join("\n")}`;
+    }
+  }
 
   const systemPrompt = `Ты — AI-ассистент для разработчиков в среде CodeSync (онлайн IDE).
 Отвечай на русском языке. Помогай с написанием, объяснением и дебаггингом кода.
-${context ? `Контекст текущего файла (${language}):\n\`\`\`${language}\n${context}\n\`\`\`` : ""}`;
+Ты можешь создавать, редактировать и удалять файлы в комнате с помощью доступных инструментов.
+Если пользователь просит создать, изменить или удалить файл — используй соответствующий инструмент.
+${context ? `Контекст текущего файла (${language}):\n\`\`\`${language}\n${context}\n\`\`\`` : ""}${fileListContext}`;
 
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
@@ -102,21 +287,54 @@ ${context ? `Контекст текущего файла (${language}):\n\`\`\`
   res.flushHeaders();
 
   try {
-    const stream = await openai.chat.completions.create({
-      model: "gpt-4o",
-      stream: true,
-      messages: [
-        { role: "system", content: systemPrompt },
-        ...chatMessages,
-      ],
-      max_tokens: 2048,
-    });
+    const allMessages: Array<{ role: string; content: string }> = [
+      { role: "system", content: systemPrompt },
+      ...chatMessages,
+    ];
 
-    for await (const chunk of stream) {
-      const delta = chunk.choices[0]?.delta?.content;
-      if (delta) {
-        res.write(`data: ${JSON.stringify({ content: delta })}\n\n`);
+    let attempts = 0;
+    const MAX_TOOL_ROUNDS = 5;
+
+    while (attempts < MAX_TOOL_ROUNDS) {
+      attempts++;
+
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: allMessages as Parameters<typeof openai.chat.completions.create>[0]["messages"],
+        max_tokens: 2048,
+        tools: (roomId && hasWriteAccess) ? FILE_TOOLS : undefined,
+      });
+
+      const choice = completion.choices[0];
+      if (!choice) break;
+
+      if (choice.finish_reason === "tool_calls" && choice.message.tool_calls) {
+        allMessages.push({
+          role: "assistant",
+          content: choice.message.content ?? "",
+          ...({ tool_calls: choice.message.tool_calls } as Record<string, unknown>),
+        } as { role: string; content: string });
+
+        for (const toolCall of choice.message.tool_calls) {
+          const args = JSON.parse(toolCall.function.arguments) as Record<string, string>;
+          const result = await executeFileTool(toolCall.function.name, args, roomId, userId);
+
+          res.write(`data: ${JSON.stringify({ toolCall: { name: toolCall.function.name, args, result: JSON.parse(result) } })}\n\n`);
+
+          allMessages.push({
+            role: "tool",
+            content: result,
+            ...({ tool_call_id: toolCall.id } as Record<string, unknown>),
+          } as { role: string; content: string });
+        }
+        continue;
       }
+
+      const textContent = choice.message.content ?? "";
+      if (textContent) {
+        res.write(`data: ${JSON.stringify({ content: textContent })}\n\n`);
+      }
+      break;
     }
 
     res.write("data: [DONE]\n\n");
@@ -136,7 +354,8 @@ interface ReviewIssue {
 }
 
 async function reviewHandler(req: Request, res: Response): Promise<void> {
-  const userId = await resolveAiUserId(req);
+  const aiUser = await resolveAiUser(req);
+  const userId = aiUser?.userId ?? null;
   if (!userId) {
     res.status(401).json({ error: "Authentication required to use AI review" });
     return;

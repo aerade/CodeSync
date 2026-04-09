@@ -12,6 +12,7 @@ import {
   useUpdateFile,
   getGetRoomEventsQueryKey,
   getGetRoomMembersQueryKey,
+  getGetRoomFilesQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { FileTree } from "@/components/FileTree";
@@ -301,6 +302,18 @@ export default function RoomPage() {
     editorRef.current = editor;
     monacoRef.current = monaco;
 
+    monaco.languages.typescript.javascriptDefaults.setDiagnosticsOptions({
+      noSemanticValidation: false,
+      noSyntaxValidation: false,
+    });
+    monaco.languages.typescript.typescriptDefaults.setDiagnosticsOptions({
+      noSemanticValidation: false,
+      noSyntaxValidation: false,
+    });
+    monaco.languages.html.htmlDefaults?.setOptions?.({
+      suggest: { html5: true },
+    });
+
     editor.onDidChangeCursorPosition((e) => {
       if (wsRef.current?.readyState === WebSocket.OPEN) {
         wsRef.current.send(JSON.stringify({
@@ -308,7 +321,6 @@ export default function RoomPage() {
           position: { lineNumber: e.position.lineNumber, column: e.position.column },
         }));
 
-        // Send awareness state
         wsRef.current.send(JSON.stringify({
           type: "awareness",
           state: { cursor: null },
@@ -490,6 +502,13 @@ export default function RoomPage() {
                   formatOnPaste: true,
                   readOnly: isGuest,
                   domReadOnly: isGuest,
+                  quickSuggestions: { other: true, comments: true, strings: true },
+                  suggestOnTriggerCharacters: true,
+                  parameterHints: { enabled: true },
+                  suggest: { showKeywords: true, showSnippets: true, showFunctions: true, showVariables: true },
+                  autoClosingBrackets: "always",
+                  autoClosingQuotes: "always",
+                  autoSurround: "languageDefined",
                 }}
               />
             ) : (
@@ -559,6 +578,9 @@ export default function RoomPage() {
               fileContent={fileContent}
               language={activeFile?.language ?? "javascript"}
               fileName={activeFile?.name ?? ""}
+              onFilesChanged={() => {
+                void qc.invalidateQueries({ queryKey: getGetRoomFilesQueryKey(roomId) });
+              }}
             />
           </motion.div>
         )}
