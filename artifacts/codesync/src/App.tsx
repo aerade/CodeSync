@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { ClerkProvider, SignIn, SignUp, useClerk } from "@clerk/react";
+import { ClerkProvider, SignIn, SignUp, useClerk, useUser } from "@clerk/react";
 import { Switch, Route, useLocation, Router as WouterRouter } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider, useQueryClient } from "@tanstack/react-query";
@@ -78,8 +78,20 @@ function SignUpPage() {
 
 function ClerkQueryClientCacheInvalidator() {
   const { addListener } = useClerk();
+  const { isLoaded, isSignedIn } = useUser();
   const qc = useQueryClient();
   const prevUserIdRef = useRef<string | null | undefined>(undefined);
+
+  // Eagerly clear stale guest tokens as soon as Clerk confirms a signed-in user.
+  // This covers page refreshes and OAuth redirects (Gmail etc.) where the listener
+  // may fire after a brief delay, causing the app to show guest-mode UI temporarily.
+  useEffect(() => {
+    if (isLoaded && isSignedIn) {
+      localStorage.removeItem("codesync_guest_token");
+      localStorage.removeItem("codesync_guest_user_id");
+      localStorage.removeItem("codesync_guest_username");
+    }
+  }, [isLoaded, isSignedIn]);
 
   useEffect(() => {
     const unsubscribe = addListener(({ user }) => {
@@ -96,6 +108,7 @@ function ClerkQueryClientCacheInvalidator() {
       if (userId) {
         localStorage.removeItem("codesync_guest_token");
         localStorage.removeItem("codesync_guest_user_id");
+        localStorage.removeItem("codesync_guest_username");
       }
 
       prevUserIdRef.current = userId;

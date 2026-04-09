@@ -277,7 +277,9 @@ export default function Dashboard() {
 
   const guestToken = typeof window !== "undefined" ? localStorage.getItem("codesync_guest_token") : null;
   const guestUsername = typeof window !== "undefined" ? localStorage.getItem("codesync_guest_username") : null;
-  const isGuest = !isSignedIn && !!guestToken;
+  // Only treat as guest when Clerk has fully loaded AND confirmed no signed-in user.
+  // Prevents Gmail/OAuth redirect window from briefly showing guest-mode UI.
+  const isGuest = isLoaded && !isSignedIn && !!guestToken;
 
   useEffect(() => {
     if (isLoaded && !isSignedIn && !guestToken) setLocation("/");

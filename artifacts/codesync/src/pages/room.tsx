@@ -78,11 +78,12 @@ export default function RoomPage() {
   const params = useParams<{ roomId: string }>();
   const roomId = params.roomId;
   const [, setLocation] = useLocation();
-  const { user: clerkUser } = useUser();
+  const { user: clerkUser, isLoaded: clerkLoaded, isSignedIn } = useUser();
   const qc = useQueryClient();
 
-  // Guest mode: Clerk user is not signed in but a guest token exists
-  const isGuest = !clerkUser && !!localStorage.getItem("codesync_guest_token");
+  // Only treat as guest when Clerk has fully loaded AND confirmed the user is NOT signed in.
+  // During the OAuth redirect window (isLoaded=false), we must not decide yet.
+  const isGuest = clerkLoaded && !isSignedIn && !!localStorage.getItem("codesync_guest_token");
 
   const [activeFileId, setActiveFileId] = useState<string | null>(null);
   const [fileContent, setFileContent] = useState("");
