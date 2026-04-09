@@ -177,7 +177,7 @@ async function executeFileTool(
       const existing = await db.query.filesTable.findFirst({
         where: and(eq(filesTable.id, fileId), eq(filesTable.roomId, roomId)),
       });
-      if (existing?.content) {
+      if (existing && existing.content !== content) {
         await saveFileSnapshot(fileId, roomId, existing.content, userId, "AI (before edit)").catch(() => {});
       }
       const [file] = await db.update(filesTable)

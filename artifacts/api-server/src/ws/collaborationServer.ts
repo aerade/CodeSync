@@ -73,6 +73,27 @@ function getRoomKey(roomId: string, fileId: string): string {
   return `${roomId}:${fileId}`;
 }
 
+/**
+ * Forcefully update the content of an active file room's Yjs doc and
+ * broadcast the new state to all connected clients. Called by the restore
+ * API endpoint so that live collaborators immediately see the restored content.
+ */
+export function broadcastFileContent(roomId: string, fileId: string, content: string): void {
+  const key = getRoomKey(roomId, fileId);
+  const fileRoom = fileRooms.get(key);
+  if (!fileRoom) return;
+
+  const yText = fileRoom.doc.getText("content");
+  fileRoom.doc.transact(() => {
+    yText.delete(0, yText.length);
+    yText.insert(0, content);
+  });
+
+  const update = Y.encodeStateAsUpdate(fileRoom.doc);
+  const encoded = btoa(String.fromCharCode(...update));
+  fileRoom.broadcastJSON({ type: "yjs-update", update: encoded });
+}
+
 async function loadYjsSnapshot(roomId: string, fileId: string, doc: Y.Doc): Promise<void> {
   try {
     const snapshot = await db.query.yjsSnapshotsTable.findFirst({

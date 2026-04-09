@@ -40,6 +40,7 @@ interface Props {
   language: string;
   fileName: string;
   onFilesChanged?: () => void;
+  onContentRestored?: (content: string) => void;
   onShowAiDiff?: (oldContent: string, newContent: string) => void;
   onClearAiDiff?: () => void;
 }
@@ -157,7 +158,7 @@ function relativeTime(dateStr: string): string {
   return `${Math.floor(diff / 86400)} дн. назад`;
 }
 
-export function AIPanel({ roomId, fileId, fileContent, language, fileName, onFilesChanged, onShowAiDiff, onClearAiDiff }: Props) {
+export function AIPanel({ roomId, fileId, fileContent, language, fileName, onFilesChanged, onContentRestored, onShowAiDiff, onClearAiDiff }: Props) {
   const [activeTab, setActiveTab] = useState<"review" | "chat" | "history">("chat");
   const [issues, setIssues] = useState<Issue[]>([]);
   const [isReviewing, setIsReviewing] = useState(false);
@@ -379,6 +380,8 @@ export function AIPanel({ roomId, fileId, fileContent, language, fileName, onFil
         headers: getHeaders(),
       });
       if (!resp.ok) throw new Error(`Ошибка ${resp.status}`);
+      const data = await resp.json() as { content: string };
+      onContentRestored?.(data.content);
       onFilesChanged?.();
       onClearAiDiff?.();
       setPreviewSnapshotId(null);

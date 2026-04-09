@@ -689,6 +689,29 @@ export default function RoomPage() {
                 onFilesChanged={() => {
                   void qc.invalidateQueries({ queryKey: getGetRoomFilesQueryKey(roomId) });
                 }}
+                onContentRestored={(content: string) => {
+                  isRemoteUpdate.current = true;
+                  setFileContent(content);
+                  if (editorRef.current) {
+                    const pos = editorRef.current.getPosition();
+                    editorRef.current.setValue(content);
+                    if (pos) editorRef.current.setPosition(pos);
+                  }
+                  if (ydocRef.current && wsRef.current?.readyState === WebSocket.OPEN) {
+                    const ydoc = ydocRef.current;
+                    const yText = ydoc.getText("content");
+                    ydoc.transact(() => {
+                      yText.delete(0, yText.length);
+                      yText.insert(0, content);
+                    });
+                    const update = Y.encodeStateAsUpdate(ydoc);
+                    wsRef.current.send(JSON.stringify({
+                      type: "yjs-update",
+                      update: btoa(String.fromCharCode(...update)),
+                    }));
+                  }
+                  isRemoteUpdate.current = false;
+                }}
                 onShowAiDiff={(oldContent: string, newContent: string) => {
                   const editor = editorRef.current;
                   const monaco = monacoRef.current;

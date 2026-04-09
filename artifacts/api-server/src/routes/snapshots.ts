@@ -1,8 +1,10 @@
 import { Router, Request, Response } from "express";
 import { getAuth } from "@clerk/express";
 import { db } from "@workspace/db";
-import { fileSnapshotsTable, filesTable, usersTable, roomsTable, roomMembersTable } from "@workspace/db";
+import { fileSnapshotsTable, filesTable, usersTable, roomsTable, roomMembersTable, yjsSnapshotsTable } from "@workspace/db";
 import { eq, and, desc } from "drizzle-orm";
+import * as Y from "yjs";
+import { broadcastFileContent } from "../ws/collaborationServer";
 
 const snapshotsRouter = Router();
 
@@ -142,25 +144,44 @@ snapshotsRouter.post("/rooms/:roomId/files/:fileId/snapshots/:snapshotId/restore
   });
   if (!snapshot) return res.status(404).json({ error: "Snapshot not found" });
 
-  const [file] = await db.update(filesTable)
-    .set({ content: snapshot.content, updatedAt: new Date() })
-    .where(and(eq(filesTable.id, fileId), eq(filesTable.roomId, roomId)))
-    .returning();
+  const restoredContent = snapshot.content;
 
-  if (!file) return res.status(404).json({ error: "File not found" });
+  await db.transaction(async (tx) => {
+    await tx.update(filesTable)
+      .set({ content: restoredContent, updatedAt: new Date() })
+      .where(and(eq(filesTable.id, fileId), eq(filesTable.roomId, roomId)));
 
-  await db.insert(fileSnapshotsTable).values({
-    fileId,
-    roomId,
-    content: snapshot.content,
-    authorId: user!.userId,
-    authorName: user!.username,
-  }).catch(() => {});
+    const newYjsDoc = new Y.Doc();
+    const yText = newYjsDoc.getText("content");
+    newYjsDoc.transact(() => { yText.insert(0, restoredContent); });
+    const yjsData = btoa(String.fromCharCode(...Y.encodeStateAsUpdate(newYjsDoc)));
+
+    const existingYjs = await tx.query.yjsSnapshotsTable.findFirst({
+      where: and(eq(yjsSnapshotsTable.roomId, roomId), eq(yjsSnapshotsTable.fileId, fileId)),
+    });
+    if (existingYjs) {
+      await tx.update(yjsSnapshotsTable)
+        .set({ data: yjsData, updatedAt: new Date() })
+        .where(and(eq(yjsSnapshotsTable.roomId, roomId), eq(yjsSnapshotsTable.fileId, fileId)));
+    } else {
+      await tx.insert(yjsSnapshotsTable).values({ roomId, fileId, data: yjsData });
+    }
+
+    await tx.insert(fileSnapshotsTable).values({
+      fileId,
+      roomId,
+      content: restoredContent,
+      authorId: user!.userId,
+      authorName: user!.username,
+    }).catch(() => {});
+  });
+
+  broadcastFileContent(roomId, fileId, restoredContent);
 
   return res.json({
-    id: file.id,
-    content: file.content,
-    updatedAt: file.updatedAt.toISOString(),
+    fileId,
+    content: restoredContent,
+    updatedAt: new Date().toISOString(),
   });
 });
 

@@ -232,7 +232,7 @@ filesRouter.patch("/rooms/:roomId/files/:fileId", async (req, res) => {
     const existing = await db.query.filesTable.findFirst({
       where: and(eq(filesTable.id, fileId), eq(filesTable.roomId, roomId)),
     });
-    if (existing && existing.content !== body.content && existing.content.trim()) {
+    if (existing && existing.content !== body.content) {
       await saveFileSnapshot(fileId, roomId, existing.content, user!.userId, user!.username).catch(() => {});
     }
   }
