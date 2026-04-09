@@ -9,7 +9,7 @@ const LANG_ICONS: Record<string, { icon: string; color: string }> = {
   python: { icon: "PY", color: "#3FB950" },
   go: { icon: "GO", color: "#79C0FF" },
   rust: { icon: "RS", color: "#FFA657" },
-  java: { icon: "☕", color: "#FF7B72" },
+  java: { icon: "JV", color: "#FF7B72" },
   cpp: { icon: "C+", color: "#D2A8FF" },
   c: { icon: "C", color: "#D2A8FF" },
   csharp: { icon: "C#", color: "#D2A8FF" },
@@ -203,10 +203,13 @@ export function FileTree({ roomId, files, activeFileId, onFileSelect, onFilesCha
     setNewFolderName("");
   }
 
-  function handleDragStart(e: React.DragEvent, fileId: string) {
+  function handleDragStart(e: unknown, fileId: string) {
     if (isReadOnly) return;
-    e.dataTransfer.setData("text/plain", fileId);
-    e.dataTransfer.effectAllowed = "move";
+    const de = e as React.DragEvent;
+    if (de.dataTransfer) {
+      de.dataTransfer.setData("text/plain", fileId);
+      de.dataTransfer.effectAllowed = "move";
+    }
   }
 
   function handleDragOver(e: React.DragEvent, folderId: string | null) {
@@ -339,7 +342,7 @@ export function FileTree({ roomId, files, activeFileId, onFileSelect, onFilesCha
                 title="Новая папка"
                 data-testid="btn-new-folder"
               >
-                📁
+                [+]
               </button>
               <button
                 className="px-1.5 py-0.5 rounded text-xs transition-colors hover:bg-white/5"

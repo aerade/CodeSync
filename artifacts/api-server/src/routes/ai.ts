@@ -316,10 +316,12 @@ ${context ? `Контекст текущего файла (${language}):\n\`\`\`
         } as { role: string; content: string });
 
         for (const toolCall of choice.message.tool_calls) {
-          const args = JSON.parse(toolCall.function.arguments) as Record<string, string>;
-          const result = await executeFileTool(toolCall.function.name, args, roomId, userId);
+          if (toolCall.type !== "function") continue;
+          const fn = toolCall.function;
+          const args = JSON.parse(fn.arguments) as Record<string, string>;
+          const result = await executeFileTool(fn.name, args, roomId, userId);
 
-          res.write(`data: ${JSON.stringify({ toolCall: { name: toolCall.function.name, args, result: JSON.parse(result) } })}\n\n`);
+          res.write(`data: ${JSON.stringify({ toolCall: { name: fn.name, args, result: JSON.parse(result) } })}\n\n`);
 
           allMessages.push({
             role: "tool",
