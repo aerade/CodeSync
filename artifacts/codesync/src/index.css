@@ -236,6 +236,10 @@
   background: rgba(63, 185, 80, 0.12) !important;
   border-left: 3px solid #3FB950 !important;
 }
+.ai-diff-deleted {
+  background: rgba(255, 123, 114, 0.1) !important;
+  border-left: 3px solid #FF7B72 !important;
+}
 
 /* Fix Clerk password toggle eye button — browser outline/ring can appear and stick */
 .cl-formFieldInputShowPasswordButton,

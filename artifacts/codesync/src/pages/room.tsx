@@ -719,22 +719,31 @@ export default function RoomPage() {
                   const oldLines = oldContent.split("\n");
                   const newLines = newContent.split("\n");
                   const decorations: MonacoType.editor.IModelDeltaDecoration[] = [];
-                  const maxLines = Math.max(oldLines.length, newLines.length);
-                  for (let i = 0; i < maxLines; i++) {
+                  for (let i = 0; i < newLines.length; i++) {
                     const oldLine = oldLines[i];
                     const newLine = newLines[i];
                     if (oldLine !== newLine) {
-                      if (newLine !== undefined) {
-                        decorations.push({
-                          range: new monaco.Range(i + 1, 1, i + 1, 1),
-                          options: {
-                            isWholeLine: true,
-                            className: "ai-diff-added",
-                            overviewRuler: { color: "rgba(63,185,80,0.7)", position: monaco.editor.OverviewRulerLane.Right },
-                          },
-                        });
-                      }
+                      decorations.push({
+                        range: new monaco.Range(i + 1, 1, i + 1, 1),
+                        options: {
+                          isWholeLine: true,
+                          className: "ai-diff-added",
+                          overviewRuler: { color: "rgba(63,185,80,0.7)", position: monaco.editor.OverviewRulerLane.Right },
+                        },
+                      });
                     }
+                  }
+                  for (let i = newLines.length; i < oldLines.length; i++) {
+                    const lineNum = Math.max(1, newLines.length);
+                    decorations.push({
+                      range: new monaco.Range(lineNum, 1, lineNum, 1),
+                      options: {
+                        isWholeLine: true,
+                        className: "ai-diff-deleted",
+                        overviewRuler: { color: "rgba(255,123,114,0.7)", position: monaco.editor.OverviewRulerLane.Right },
+                      },
+                    });
+                    break;
                   }
                   aiDiffDecorationsRef.current = editor.deltaDecorations(aiDiffDecorationsRef.current, decorations);
                 }}

@@ -354,6 +354,7 @@ export function AIPanel({ roomId, fileId, fileContent, language, fileName, onFil
       }
 
       if (editedFileId && editedNewContent !== null && fileId === editedFileId) {
+        onContentRestored?.(editedNewContent);
         onShowAiDiff?.(contentBeforeEdit, editedNewContent);
       }
 
