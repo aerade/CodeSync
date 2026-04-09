@@ -773,6 +773,17 @@ export default function RoomPage() {
                   if (!editor) return;
                   aiDiffDecorationsRef.current = editor.deltaDecorations(aiDiffDecorationsRef.current, []);
                 }}
+                onFileStream={(streamFileId, _streamFileName, content) => {
+                  if (streamFileId !== activeFileId) return;
+                  isRemoteUpdate.current = true;
+                  setFileContent(content);
+                  if (editorRef.current) {
+                    const pos = editorRef.current.getPosition();
+                    editorRef.current.setValue(content);
+                    if (pos) editorRef.current.setPosition(pos);
+                  }
+                  isRemoteUpdate.current = false;
+                }}
               />
             </div>
           </div>

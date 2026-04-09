@@ -43,6 +43,28 @@ interface Props {
   onContentRestored?: (content: string) => void;
   onShowAiDiff?: (oldContent: string, newContent: string) => void;
   onClearAiDiff?: () => void;
+  onFileStream?: (fileId: string | null, fileName: string | null, content: string) => void;
+}
+
+function playDoneSound() {
+  try {
+    const ctx = new AudioContext();
+    const now = ctx.currentTime;
+    [880, 1100].forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = "sine";
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0, now + i * 0.13);
+      gain.gain.linearRampToValueAtTime(0.12, now + i * 0.13 + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.13 + 0.32);
+      osc.start(now + i * 0.13);
+      osc.stop(now + i * 0.13 + 0.32);
+    });
+    setTimeout(() => ctx.close(), 1000);
+  } catch (_) {}
 }
 
 function TypingDots() {
@@ -158,7 +180,7 @@ function relativeTime(dateStr: string): string {
   return `${Math.floor(diff / 86400)} дн. назад`;
 }
 
-export function AIPanel({ roomId, fileId, fileContent, language, fileName, onFilesChanged, onContentRestored, onShowAiDiff, onClearAiDiff }: Props) {
+export function AIPanel({ roomId, fileId, fileContent, language, fileName, onFilesChanged, onContentRestored, onShowAiDiff, onClearAiDiff, onFileStream }: Props) {
   const [activeTab, setActiveTab] = useState<"review" | "chat" | "history">("chat");
   const [issues, setIssues] = useState<Issue[]>([]);
   const [isReviewing, setIsReviewing] = useState(false);
@@ -170,6 +192,17 @@ export function AIPanel({ roomId, fileId, fileContent, language, fileName, onFil
   const [chatInput, setChatInput] = useState("");
   const [isChatLoading, setIsChatLoading] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
+
+  const [toast, setToast] = useState<{ text: string; ok: boolean } | null>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function showToast(text: string, ok: boolean) {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    setToast({ text, ok });
+    toastTimerRef.current = setTimeout(() => setToast(null), 2500);
+  }
+
+  useEffect(() => () => { if (toastTimerRef.current) clearTimeout(toastTimerRef.current); }, []);
 
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
@@ -313,6 +346,7 @@ export function AIPanel({ roomId, fileId, fileContent, language, fileName, onFil
       let addedAssistant = false;
       let editedFileId: string | null = null;
       let editedNewContent: string | null = null;
+      let hadToolCalls = false;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -326,14 +360,32 @@ export function AIPanel({ roomId, fileId, fileContent, language, fileName, onFil
           const data = line.slice(6).trim();
           if (data === "[DONE]") break;
           try {
-            const parsed = JSON.parse(data) as { content?: string; error?: string; toolCall?: ToolCallInfo };
+            const parsed = JSON.parse(data) as {
+              content?: string;
+              error?: string;
+              toolCall?: ToolCallInfo;
+              fileStream?: { toolName: string; fileId?: string; fileName?: string; content: string; done?: boolean };
+            };
+
+            if (parsed.fileStream) {
+              const fs = parsed.fileStream;
+              onFileStream?.(fs.fileId ?? null, fs.fileName ?? null, fs.content);
+            }
 
             if (parsed.toolCall) {
-              setToolCalls((prev) => [...prev, parsed.toolCall!]);
+              hadToolCalls = true;
+              const tc = parsed.toolCall;
+              const labels: Record<string, string> = {
+                create_file: "Создал файл",
+                edit_file: "Отредактировал файл",
+                delete_file: "Удалил файл",
+              };
+              const label = `${labels[tc.name] ?? tc.name}${tc.result?.name ? `: ${tc.result.name}` : ""}`;
+              showToast(label, !!tc.result?.success);
               onFilesChanged?.();
-              if (parsed.toolCall.name === "edit_file" && parsed.toolCall.result?.success && parsed.toolCall.args?.fileId === fileId) {
-                editedFileId = parsed.toolCall.args.fileId;
-                editedNewContent = parsed.toolCall.args.content ?? null;
+              if (tc.name === "edit_file" && tc.result?.success && tc.args?.fileId === fileId) {
+                editedFileId = tc.args.fileId;
+                editedNewContent = tc.args.content ?? null;
               }
             }
 
@@ -358,12 +410,11 @@ export function AIPanel({ roomId, fileId, fileContent, language, fileName, onFil
         onShowAiDiff?.(contentBeforeEdit, editedNewContent);
       }
 
-      if (!addedAssistant && assistantContent === "") {
-        const lastToolCalls = toolCalls;
-        if (lastToolCalls.length === 0) {
-          setMessages((prev) => [...prev, { role: "assistant", content: "Готово!" }]);
-        }
+      if (!addedAssistant && assistantContent === "" && !hadToolCalls) {
+        setMessages((prev) => [...prev, { role: "assistant", content: "Готово!" }]);
       }
+
+      playDoneSound();
     } catch (err) {
       const message = err instanceof Error ? err.message : "Произошла ошибка. Попробуйте ещё раз.";
       setMessages((prev) => [...prev, { role: "assistant", content: message }]);
@@ -552,10 +603,6 @@ export function AIPanel({ roomId, fileId, fileContent, language, fileName, onFil
                 </div>
               ))}
 
-              {toolCalls.map((tc, i) => (
-                <ToolCallBadge key={`tc-${i}`} toolCall={tc} />
-              ))}
-
               {isChatLoading && (
                 <div className="flex justify-start">
                   <div
@@ -571,6 +618,29 @@ export function AIPanel({ roomId, fileId, fileContent, language, fileName, onFil
               )}
               <div ref={chatEndRef} />
             </div>
+
+            {/* Toast notification */}
+            <AnimatePresence>
+              {toast && (
+                <motion.div
+                  key="toast"
+                  initial={{ opacity: 0, y: 6, scale: 0.96 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 4, scale: 0.96 }}
+                  transition={{ duration: 0.18 }}
+                  className="mx-2 mb-1 px-3 py-1.5 rounded text-xs flex items-center gap-2"
+                  style={{
+                    background: toast.ok ? "rgba(63,185,80,0.12)" : "rgba(255,123,114,0.12)",
+                    border: `1px solid ${toast.ok ? "rgba(63,185,80,0.35)" : "rgba(255,123,114,0.35)"}`,
+                    color: toast.ok ? "#3FB950" : "#FF7B72",
+                    flexShrink: 0,
+                  }}
+                >
+                  <span>{toast.ok ? "✓" : "✗"}</span>
+                  <span>{toast.text}</span>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {/* Input */}
             <div className="p-2 flex gap-2" style={{ borderTop: "1px solid #30363D", flexShrink: 0 }}>

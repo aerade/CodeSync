@@ -62,6 +62,10 @@ const LANGUAGE_CONFIG: Record<string, ExecConfig> = {
     run: { cmd: "npx", args: (_d, f) => ["--yes", "tsx", f] },
     ext: "ts",
   },
+  python: {
+    run: { cmd: "python3", args: (_d, f) => [f] },
+    ext: "py",
+  },
   c: {
     compile: { cmd: "gcc", args: (d, f) => [f, "-o", join(d, "a.out"), "-lm"] },
     run: { cmd: "", args: (d) => [join(d, "a.out")] },

@@ -357,6 +357,21 @@ ${context ? `Контекст текущего файла (${language}):\n\`\`\`
 
         for (const tc of toolCallList) {
           const args = JSON.parse(tc.function.arguments) as Record<string, string>;
+
+          // Stream file content progressively to animate code writing
+          const isFileEdit = tc.function.name === "edit_file" || tc.function.name === "create_file";
+          if (isFileEdit && args.content && args.content.length > 0) {
+            const content = args.content;
+            const fileId = args.fileId;
+            const fileName = args.name;
+            const chunkSize = Math.max(8, Math.ceil(content.length / 80));
+            for (let i = 0; i < content.length; i += chunkSize) {
+              res.write(`data: ${JSON.stringify({ fileStream: { toolName: tc.function.name, fileId, fileName, content: content.slice(0, i + chunkSize) } })}\n\n`);
+              await new Promise((r) => setTimeout(r, 6));
+            }
+            res.write(`data: ${JSON.stringify({ fileStream: { toolName: tc.function.name, fileId, fileName, content, done: true } })}\n\n`);
+          }
+
           const result = await executeFileTool(tc.function.name, args, roomId, userId);
 
           res.write(`data: ${JSON.stringify({ toolCall: { name: tc.function.name, args, result: JSON.parse(result) } })}\n\n`);
