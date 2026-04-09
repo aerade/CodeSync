@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { useUser, SignInButton } from "@clerk/react";
-import { FallingPattern } from "@/components/ui/falling-pattern";
+import { ParticleBackground } from "@/components/ParticleBackground";
 import { GuestModal } from "@/components/GuestModal";
 import { useListRooms } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
@@ -65,17 +65,7 @@ export default function Home() {
   }
 
   return (
-    <div className="relative min-h-screen flex flex-col bg-[#161B22] overflow-hidden">
-      <div className="absolute inset-0 z-0">
-        <FallingPattern
-          className="h-full w-full opacity-70 [mask-image:radial-gradient(ellipse_at_center,transparent,black_72%)]"
-          color="#58A6FF"
-          backgroundColor="#161B22"
-          blurIntensity="0.6em"
-          density={1.2}
-          duration={180}
-        />
-      </div>
+    <div className="relative min-h-screen flex flex-col" style={{ background: "#161B22" }}>
       <GuestModal
         open={showGuestModal}
         onClose={() => setShowGuestModal(false)}
@@ -83,6 +73,7 @@ export default function Home() {
           setShowGuestModal(false);
         }}
       />
+      <ParticleBackground />
 
       <div className="relative z-10 flex flex-col min-h-screen">
         <nav className="flex items-center justify-between px-8 py-4" style={{ borderBottom: "1px solid #30363D" }}>
