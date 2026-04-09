@@ -8,8 +8,49 @@ import { v4 as uuidv4 } from "uuid";
 const authRouter = Router();
 
 authRouter.get("/auth/me", async (req, res) => {
-  const guestToken = req.headers["x-guest-token"];
+  const auth = getAuth(req);
+  const clerkUserId = auth?.userId;
 
+  if (clerkUserId) {
+    const sessionClaims = auth.sessionClaims as Record<string, string> | undefined;
+
+    let user = await db.query.usersTable.findFirst({
+      where: eq(usersTable.clerkId, clerkUserId),
+    });
+
+    if (!user) {
+      const newId = uuidv4();
+      const username =
+        sessionClaims?.["username"] ??
+        sessionClaims?.["email"]?.split("@")[0] ??
+        `user_${newId.slice(0, 8)}`;
+
+      const [created] = await db.insert(usersTable).values({
+        id: newId,
+        clerkId: clerkUserId,
+        username,
+        email: sessionClaims?.["email"],
+        avatarUrl: sessionClaims?.["image_url"],
+        isGuest: false,
+      }).returning();
+      user = created;
+    }
+
+    if (!user) {
+      return res.status(500).json({ error: "Failed to get or create user" });
+    }
+
+    return res.json({
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      avatarUrl: user.avatarUrl,
+      isGuest: false,
+      createdAt: user.createdAt.toISOString(),
+    });
+  }
+
+  const guestToken = req.headers["x-guest-token"];
   if (typeof guestToken === "string" && guestToken) {
     const user = await db.query.usersTable.findFirst({
       where: eq(usersTable.guestToken, guestToken),
@@ -26,49 +67,7 @@ authRouter.get("/auth/me", async (req, res) => {
     }
   }
 
-  const auth = getAuth(req);
-  const clerkUserId = auth?.userId;
-
-  if (!clerkUserId) {
-    return res.status(401).json({ error: "Unauthorized" });
-  }
-
-  const sessionClaims = auth.sessionClaims as Record<string, string> | undefined;
-
-  let user = await db.query.usersTable.findFirst({
-    where: eq(usersTable.clerkId, clerkUserId),
-  });
-
-  if (!user) {
-    const newId = uuidv4();
-    const username =
-      sessionClaims?.["username"] ??
-      sessionClaims?.["email"]?.split("@")[0] ??
-      `user_${newId.slice(0, 8)}`;
-
-    const [created] = await db.insert(usersTable).values({
-      id: newId,
-      clerkId: clerkUserId,
-      username,
-      email: sessionClaims?.["email"],
-      avatarUrl: sessionClaims?.["image_url"],
-      isGuest: false,
-    }).returning();
-    user = created;
-  }
-
-  if (!user) {
-    return res.status(500).json({ error: "Failed to get or create user" });
-  }
-
-  return res.json({
-    id: user.id,
-    username: user.username,
-    email: user.email,
-    avatarUrl: user.avatarUrl,
-    isGuest: false,
-    createdAt: user.createdAt.toISOString(),
-  });
+  return res.status(401).json({ error: "Unauthorized" });
 });
 
 authRouter.post("/auth/guest", async (req, res) => {
