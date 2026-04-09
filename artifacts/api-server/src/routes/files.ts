@@ -3,6 +3,7 @@ import { getAuth } from "@clerk/express";
 import { db } from "@workspace/db";
 import { filesTable, usersTable, eventsTable, roomsTable, roomMembersTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
+import { saveFileSnapshot } from "./snapshots";
 
 const filesRouter = Router();
 
@@ -225,6 +226,15 @@ filesRouter.patch("/rooms/:roomId/files/:fileId", async (req, res) => {
   if (typeof body.content === "string") updates.content = body.content;
   if (body.parentId === null || typeof body.parentId === "string") {
     updates.parentId = body.parentId as string | null;
+  }
+
+  if (typeof body.content === "string") {
+    const existing = await db.query.filesTable.findFirst({
+      where: and(eq(filesTable.id, fileId), eq(filesTable.roomId, roomId)),
+    });
+    if (existing && existing.content !== body.content && existing.content.trim()) {
+      await saveFileSnapshot(fileId, roomId, existing.content, user!.userId, user!.username).catch(() => {});
+    }
   }
 
   const [file] = await db.update(filesTable)

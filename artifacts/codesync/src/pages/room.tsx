@@ -125,6 +125,7 @@ export default function RoomPage() {
   const isRemoteUpdate = useRef(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const decorationIds = useRef<string[]>([]);
+  const aiDiffDecorationsRef = useRef<string[]>([]);
 
   const updateFile = useUpdateFile();
 
@@ -173,6 +174,10 @@ export default function RoomPage() {
     const file = files.find((f) => f.id === activeFileId);
     if (file) {
       setFileContent(file.content ?? "");
+    }
+
+    if (editorRef.current && aiDiffDecorationsRef.current.length > 0) {
+      aiDiffDecorationsRef.current = editorRef.current.deltaDecorations(aiDiffDecorationsRef.current, []);
     }
 
     if (wsRef.current) {
@@ -683,6 +688,37 @@ export default function RoomPage() {
                 fileName={activeFile?.name ?? ""}
                 onFilesChanged={() => {
                   void qc.invalidateQueries({ queryKey: getGetRoomFilesQueryKey(roomId) });
+                }}
+                onShowAiDiff={(oldContent: string, newContent: string) => {
+                  const editor = editorRef.current;
+                  const monaco = monacoRef.current;
+                  if (!editor || !monaco) return;
+                  const oldLines = oldContent.split("\n");
+                  const newLines = newContent.split("\n");
+                  const decorations: MonacoType.editor.IModelDeltaDecoration[] = [];
+                  const maxLines = Math.max(oldLines.length, newLines.length);
+                  for (let i = 0; i < maxLines; i++) {
+                    const oldLine = oldLines[i];
+                    const newLine = newLines[i];
+                    if (oldLine !== newLine) {
+                      if (newLine !== undefined) {
+                        decorations.push({
+                          range: new monaco.Range(i + 1, 1, i + 1, 1),
+                          options: {
+                            isWholeLine: true,
+                            className: "ai-diff-added",
+                            overviewRuler: { color: "rgba(63,185,80,0.7)", position: monaco.editor.OverviewRulerLane.Right },
+                          },
+                        });
+                      }
+                    }
+                  }
+                  aiDiffDecorationsRef.current = editor.deltaDecorations(aiDiffDecorationsRef.current, decorations);
+                }}
+                onClearAiDiff={() => {
+                  const editor = editorRef.current;
+                  if (!editor) return;
+                  aiDiffDecorationsRef.current = editor.deltaDecorations(aiDiffDecorationsRef.current, []);
                 }}
               />
             </div>

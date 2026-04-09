@@ -4,6 +4,7 @@ import { db } from "@workspace/db";
 import { usersTable, filesTable, eventsTable, roomsTable, roomMembersTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { openai } from "@workspace/integrations-openai-ai-server";
+import { saveFileSnapshot } from "./snapshots";
 
 const aiRouter = Router();
 
@@ -173,6 +174,12 @@ async function executeFileTool(
     if (toolName === "edit_file") {
       const fileId = args.fileId ?? "";
       const content = args.content ?? "";
+      const existing = await db.query.filesTable.findFirst({
+        where: and(eq(filesTable.id, fileId), eq(filesTable.roomId, roomId)),
+      });
+      if (existing?.content) {
+        await saveFileSnapshot(fileId, roomId, existing.content, userId, "AI (before edit)").catch(() => {});
+      }
       const [file] = await db.update(filesTable)
         .set({ content, updatedAt: new Date() })
         .where(and(eq(filesTable.id, fileId), eq(filesTable.roomId, roomId)))

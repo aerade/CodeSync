@@ -40,7 +40,7 @@ artifacts/
       hooks/           # useCurrentUser.ts
 lib/
   db/                  # Drizzle ORM + PostgreSQL schema
-    src/schema/        # users, rooms, roomMembers, files, events, yjsSnapshots
+    src/schema/        # users, rooms, roomMembers, files, events, yjsSnapshots, fileSnapshots
   api-spec/            # OpenAPI YAML spec
   api-client-react/    # Orval-generated React Query hooks
   api-zod/             # Orval-generated Zod schemas
@@ -51,7 +51,9 @@ lib/
 
 - **Collaborative editing**: Yjs CRDT over WebSocket at `/ws/rooms/:roomId/files/:fileId`
 - **Monaco Editor**: VS-Code-like editor with Deep Focus dark theme, autocomplete/suggestions for JS/TS/HTML
-- **AI Panel**: Two tabs — code review (SSE) and chat (SSE with tool-calling for file create/edit/delete)
+- **AI Panel**: Three tabs — code review (SSE), chat (SSE with tool-calling for file create/edit/delete), and History (file snapshots)
+- **File History & Revert**: `file_snapshots` table stores content snapshots on every save or AI edit; History tab shows timeline with author/timestamp, inline preview, and one-click Restore
+- **AI Diff Display**: When AI edits a file via chat, Monaco editor highlights changed lines with green decorations (`ai-diff-added` CSS class) so users can see what changed
 - **Code execution**: Local execution (child_process) with auth + rate limiting, supports JS/TS/C/C++/Bash/HTML preview
 - **File tree**: Create/delete files and folders, drag-and-drop to move files between folders, context menus
 - **Guest mode**: Join rooms without account; can't create rooms. Proper error messages for restricted actions

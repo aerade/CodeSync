@@ -1,6 +1,7 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
+import { RotateCcw, Clock, ChevronDown } from "lucide-react";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -22,6 +23,16 @@ interface ToolCallInfo {
   result: { success?: boolean; name?: string; error?: string };
 }
 
+interface Snapshot {
+  id: string;
+  fileId: string;
+  roomId: string;
+  content: string;
+  authorId: string;
+  authorName: string;
+  createdAt: string;
+}
+
 interface Props {
   roomId: string;
   fileId: string | null;
@@ -29,6 +40,8 @@ interface Props {
   language: string;
   fileName: string;
   onFilesChanged?: () => void;
+  onShowAiDiff?: (oldContent: string, newContent: string) => void;
+  onClearAiDiff?: () => void;
 }
 
 function TypingDots() {
@@ -134,8 +147,18 @@ function SafeMarkdown({ text }: { text: string }) {
   );
 }
 
-export function AIPanel({ roomId, fileId, fileContent, language, fileName, onFilesChanged }: Props) {
-  const [activeTab, setActiveTab] = useState<"review" | "chat">("chat");
+function relativeTime(dateStr: string): string {
+  const now = Date.now();
+  const then = new Date(dateStr).getTime();
+  const diff = Math.floor((now - then) / 1000);
+  if (diff < 60) return "только что";
+  if (diff < 3600) return `${Math.floor(diff / 60)} мин. назад`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)} ч. назад`;
+  return `${Math.floor(diff / 86400)} дн. назад`;
+}
+
+export function AIPanel({ roomId, fileId, fileContent, language, fileName, onFilesChanged, onShowAiDiff, onClearAiDiff }: Props) {
+  const [activeTab, setActiveTab] = useState<"review" | "chat" | "history">("chat");
   const [issues, setIssues] = useState<Issue[]>([]);
   const [isReviewing, setIsReviewing] = useState(false);
   const [reviewError, setReviewError] = useState<string | null>(null);
@@ -147,9 +170,52 @@ export function AIPanel({ roomId, fileId, fileContent, language, fileName, onFil
   const [isChatLoading, setIsChatLoading] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
+  const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [previewSnapshotId, setPreviewSnapshotId] = useState<string | null>(null);
+  const [isRestoring, setIsRestoring] = useState(false);
+
+  const prevFileIdRef = useRef<string | null>(null);
+
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isChatLoading, toolCalls]);
+
+  useEffect(() => {
+    if (fileId !== prevFileIdRef.current) {
+      prevFileIdRef.current = fileId;
+      setPreviewSnapshotId(null);
+      setSnapshots([]);
+      setHistoryError(null);
+      onClearAiDiff?.();
+    }
+  }, [fileId, onClearAiDiff]);
+
+  const fetchSnapshots = useCallback(async () => {
+    if (!fileId || !roomId) return;
+    setIsLoadingHistory(true);
+    setHistoryError(null);
+    try {
+      const headers: Record<string, string> = {};
+      const guestToken = localStorage.getItem("codesync_guest_token");
+      if (guestToken) headers["x-guest-token"] = guestToken;
+      const resp = await fetch(`${basePath}/api/rooms/${roomId}/files/${fileId}/snapshots`, { headers });
+      if (!resp.ok) throw new Error(`Ошибка ${resp.status}`);
+      const data = await resp.json() as Snapshot[];
+      setSnapshots(data);
+    } catch (err) {
+      setHistoryError(err instanceof Error ? err.message : "Ошибка загрузки истории");
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  }, [fileId, roomId]);
+
+  useEffect(() => {
+    if (activeTab === "history" && fileId) {
+      void fetchSnapshots();
+    }
+  }, [activeTab, fileId, fetchSnapshots]);
 
   function getHeaders(): Record<string, string> {
     const h: Record<string, string> = { "Content-Type": "application/json" };
@@ -219,8 +285,10 @@ export function AIPanel({ roomId, fileId, fileContent, language, fileName, onFil
     setChatInput("");
     setMessages((prev) => [...prev, { role: "user", content: userMsg }]);
     setIsChatLoading(true);
+    onClearAiDiff?.();
 
     const allMessages = [...messages, { role: "user" as const, content: userMsg }];
+    const contentBeforeEdit = fileContent;
 
     try {
       const resp = await fetch(`${basePath}/api/ai/chat`, {
@@ -242,6 +310,8 @@ export function AIPanel({ roomId, fileId, fileContent, language, fileName, onFil
       let buffer = "";
       let assistantContent = "";
       let addedAssistant = false;
+      let editedFileId: string | null = null;
+      let editedNewContent: string | null = null;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -260,6 +330,10 @@ export function AIPanel({ roomId, fileId, fileContent, language, fileName, onFil
             if (parsed.toolCall) {
               setToolCalls((prev) => [...prev, parsed.toolCall!]);
               onFilesChanged?.();
+              if (parsed.toolCall.name === "edit_file" && parsed.toolCall.result?.success && parsed.toolCall.args?.fileId === fileId) {
+                editedFileId = parsed.toolCall.args.fileId;
+                editedNewContent = parsed.toolCall.args.content ?? null;
+              }
             }
 
             if (parsed.content) {
@@ -278,6 +352,10 @@ export function AIPanel({ roomId, fileId, fileContent, language, fileName, onFil
         }
       }
 
+      if (editedFileId && editedNewContent !== null && fileId === editedFileId) {
+        onShowAiDiff?.(contentBeforeEdit, editedNewContent);
+      }
+
       if (!addedAssistant && assistantContent === "") {
         const lastToolCalls = toolCalls;
         if (lastToolCalls.length === 0) {
@@ -292,25 +370,53 @@ export function AIPanel({ roomId, fileId, fileContent, language, fileName, onFil
     }
   }
 
+  async function restoreSnapshot(snapshotId: string) {
+    if (!fileId || isRestoring) return;
+    setIsRestoring(true);
+    try {
+      const resp = await fetch(`${basePath}/api/rooms/${roomId}/files/${fileId}/snapshots/${snapshotId}/restore`, {
+        method: "POST",
+        headers: getHeaders(),
+      });
+      if (!resp.ok) throw new Error(`Ошибка ${resp.status}`);
+      onFilesChanged?.();
+      onClearAiDiff?.();
+      setPreviewSnapshotId(null);
+      await fetchSnapshots();
+    } catch (err) {
+      console.error("Restore error:", err);
+    } finally {
+      setIsRestoring(false);
+    }
+  }
+
+  const TABS = [
+    { id: "chat" as const, label: "Чат с AI" },
+    { id: "review" as const, label: "Ревью" },
+    { id: "history" as const, label: "История" },
+  ];
+
+  const previewSnapshot = previewSnapshotId ? snapshots.find((s) => s.id === previewSnapshotId) : null;
+
   return (
     <div className="flex flex-col h-full" style={{ background: "#1C2128" }}>
       {/* Tabs */}
       <div className="flex items-center" style={{ borderBottom: "1px solid #30363D", flexShrink: 0 }}>
-        {(["review", "chat"] as const).map((tab) => (
+        {TABS.map((tab) => (
           <button
-            key={tab}
-            className="px-4 py-2 text-xs font-medium transition-colors relative"
+            key={tab.id}
+            className="px-3 py-2 text-xs font-medium transition-colors relative"
             style={{
-              color: activeTab === tab ? "#E6EDF3" : "#8B949E",
+              color: activeTab === tab.id ? "#E6EDF3" : "#8B949E",
               background: "transparent",
               border: "none",
               cursor: "pointer",
             }}
-            onClick={() => setActiveTab(tab)}
-            data-testid={`tab-ai-${tab}`}
+            onClick={() => setActiveTab(tab.id)}
+            data-testid={`tab-ai-${tab.id}`}
           >
-            {tab === "review" ? "Ревью кода" : "Чат с AI"}
-            {activeTab === tab && (
+            {tab.label}
+            {activeTab === tab.id && (
               <motion.div
                 layoutId="ai-tab-indicator"
                 className="absolute bottom-0 left-0 right-0 h-0.5"
@@ -399,7 +505,7 @@ export function AIPanel({ roomId, fileId, fileContent, language, fileName, onFil
               )}
             </div>
           </motion.div>
-        ) : (
+        ) : activeTab === "chat" ? (
           <motion.div
             key="chat"
             initial={{ opacity: 0 }}
@@ -493,6 +599,174 @@ export function AIPanel({ roomId, fileId, fileContent, language, fileName, onFil
               >
                 Отправить
               </Button>
+            </div>
+          </motion.div>
+        ) : (
+          <motion.div
+            key="history"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="flex flex-col h-full overflow-hidden"
+          >
+            {/* History header */}
+            <div className="p-3 flex items-center gap-2" style={{ borderBottom: "1px solid #30363D", flexShrink: 0 }}>
+              <Clock size={13} style={{ color: "#8B949E" }} />
+              <span className="text-xs" style={{ color: "#8B949E" }}>{fileName || "Файл не выбран"}</span>
+              <Button
+                size="sm"
+                onClick={() => { void fetchSnapshots(); }}
+                disabled={isLoadingHistory || !fileId}
+                style={{ marginLeft: "auto", background: "#21262D", color: "#8B949E", fontWeight: 600, fontSize: 11, border: "1px solid #30363D" }}
+              >
+                ↻
+              </Button>
+            </div>
+
+            {/* Preview banner */}
+            {previewSnapshot && (
+              <div className="px-3 py-2 flex items-center gap-2" style={{ background: "rgba(88,166,255,0.08)", borderBottom: "1px solid rgba(88,166,255,0.2)", flexShrink: 0 }}>
+                <span className="text-xs flex-1" style={{ color: "#58A6FF" }}>
+                  Просмотр: {previewSnapshot.authorName} · {relativeTime(previewSnapshot.createdAt)}
+                </span>
+                <button
+                  className="text-xs"
+                  style={{ color: "#8B949E", background: "none", border: "none", cursor: "pointer" }}
+                  onClick={() => {
+                    setPreviewSnapshotId(null);
+                    onClearAiDiff?.();
+                  }}
+                >
+                  ✕
+                </button>
+                <Button
+                  size="sm"
+                  onClick={() => { void restoreSnapshot(previewSnapshot.id); }}
+                  disabled={isRestoring}
+                  style={{ background: "#3FB950", color: "#0D1117", fontWeight: 600, fontSize: 11 }}
+                >
+                  {isRestoring ? "..." : "Восстановить"}
+                </Button>
+              </div>
+            )}
+
+            <div className="flex-1 overflow-y-auto">
+              {isLoadingHistory && (
+                <div className="flex items-center justify-center py-8 text-xs" style={{ color: "#8B949E" }}>
+                  <TypingDots />
+                </div>
+              )}
+
+              {!isLoadingHistory && historyError && (
+                <div className="p-3 m-2 rounded text-xs" style={{ background: "rgba(255,123,114,0.1)", border: "1px solid rgba(255,123,114,0.3)", color: "#FF7B72" }}>
+                  {historyError}
+                </div>
+              )}
+
+              {!isLoadingHistory && !historyError && !fileId && (
+                <div className="text-center py-8">
+                  <p className="text-xs" style={{ color: "#8B949E" }}>Выберите файл для просмотра истории</p>
+                </div>
+              )}
+
+              {!isLoadingHistory && !historyError && fileId && snapshots.length === 0 && (
+                <div className="text-center py-8">
+                  <p className="text-xs" style={{ color: "#8B949E" }}>История изменений пуста</p>
+                  <p className="text-xs mt-1" style={{ color: "#30363D" }}>Снимки сохраняются при каждом изменении файла</p>
+                </div>
+              )}
+
+              {!isLoadingHistory && snapshots.length > 0 && (
+                <div className="p-2 flex flex-col gap-1.5">
+                  {snapshots.map((snapshot, i) => {
+                    const isActive = previewSnapshotId === snapshot.id;
+                    const isAI = snapshot.authorName.startsWith("AI");
+                    return (
+                      <motion.div
+                        key={snapshot.id}
+                        initial={{ opacity: 0, y: 4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: i * 0.03 }}
+                        className="rounded p-2"
+                        style={{
+                          background: isActive ? "rgba(88,166,255,0.08)" : "#0D1117",
+                          border: `1px solid ${isActive ? "rgba(88,166,255,0.4)" : "#30363D"}`,
+                          cursor: "pointer",
+                        }}
+                        onClick={() => {
+                          if (isActive) {
+                            setPreviewSnapshotId(null);
+                            onClearAiDiff?.();
+                          } else {
+                            setPreviewSnapshotId(snapshot.id);
+                            onShowAiDiff?.(snapshot.content, fileContent);
+                          }
+                        }}
+                      >
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="w-4 h-4 rounded flex items-center justify-center text-xs font-bold flex-shrink-0"
+                            style={{
+                              background: isAI ? "linear-gradient(135deg, #58A6FF, #3FB950)" : "#30363D",
+                              color: isAI ? "#0D1117" : "#8B949E",
+                              fontSize: 7,
+                            }}
+                          >
+                            {isAI ? "AI" : snapshot.authorName.slice(0, 2).toUpperCase()}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1 justify-between">
+                              <span className="text-xs font-medium truncate" style={{ color: "#E6EDF3" }}>
+                                {snapshot.authorName}
+                              </span>
+                              <span className="text-xs flex-shrink-0" style={{ color: "#8B949E" }}>
+                                {relativeTime(snapshot.createdAt)}
+                              </span>
+                            </div>
+                            <p className="text-xs truncate mt-0.5" style={{ color: "#8B949E", fontFamily: "JetBrains Mono, monospace" }}>
+                              {snapshot.content.slice(0, 60).replace(/\n/g, " ↵ ")}…
+                            </p>
+                          </div>
+                          <ChevronDown
+                            size={12}
+                            style={{ color: "#8B949E", flexShrink: 0, transform: isActive ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}
+                          />
+                        </div>
+
+                        {isActive && (
+                          <div className="mt-2" onClick={(e) => e.stopPropagation()}>
+                            <pre
+                              className="text-xs rounded p-2 overflow-x-auto"
+                              style={{
+                                background: "#0D1117",
+                                border: "1px solid #30363D",
+                                color: "#8B949E",
+                                fontFamily: "JetBrains Mono, monospace",
+                                maxHeight: 200,
+                                overflowY: "auto",
+                                whiteSpace: "pre-wrap",
+                                wordBreak: "break-all",
+                              }}
+                            >
+                              {snapshot.content.slice(0, 500)}{snapshot.content.length > 500 ? "…" : ""}
+                            </pre>
+                            <Button
+                              size="sm"
+                              className="w-full mt-2"
+                              onClick={() => { void restoreSnapshot(snapshot.id); }}
+                              disabled={isRestoring}
+                              style={{ background: "#3FB950", color: "#0D1117", fontWeight: 600, fontSize: 11 }}
+                            >
+                              <RotateCcw size={11} className="mr-1" />
+                              {isRestoring ? "Восстановление..." : "Восстановить эту версию"}
+                            </Button>
+                          </div>
+                        )}
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </motion.div>
         )}

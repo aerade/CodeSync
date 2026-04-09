@@ -231,6 +231,12 @@
   background: #58A6FF;
 }
 
+/* AI diff decorations in Monaco editor */
+.ai-diff-added {
+  background: rgba(63, 185, 80, 0.12) !important;
+  border-left: 3px solid #3FB950 !important;
+}
+
 /* Fix Clerk password toggle eye button — browser outline/ring can appear and stick */
 .cl-formFieldInputShowPasswordButton,
 .cl-formFieldInputShowPasswordButton:focus,

@@ -7,6 +7,7 @@ import eventsRouter from "./events";
 import executeRouter from "./execute";
 import aiRouter from "./ai";
 import collabRouter from "./collab";
+import snapshotsRouter from "./snapshots";
 
 const router: IRouter = Router();
 
@@ -18,5 +19,6 @@ router.use(eventsRouter);
 router.use(executeRouter);
 router.use(aiRouter);
 router.use(collabRouter);
+router.use(snapshotsRouter);
 
 export default router;

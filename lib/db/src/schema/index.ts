@@ -4,3 +4,4 @@ export * from "./roomMembers";
 export * from "./files";
 export * from "./events";
 export * from "./yjsSnapshots";
+export * from "./fileSnapshots";
