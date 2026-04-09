@@ -3,6 +3,7 @@ import { getAuth } from "@clerk/express";
 import { db } from "@workspace/db";
 import { fileSnapshotsTable, filesTable, usersTable, roomsTable, roomMembersTable, yjsSnapshotsTable } from "@workspace/db";
 import { eq, and, desc } from "drizzle-orm";
+import { v4 as uuidv4 } from "uuid";
 import * as Y from "yjs";
 import { broadcastFileContent } from "../ws/collaborationServer";
 
@@ -17,11 +18,31 @@ interface ResolvedUser {
 async function resolveUser(req: Request): Promise<ResolvedUser | null> {
   const auth = getAuth(req);
   if (auth?.userId) {
-    const user = await db.query.usersTable.findFirst({
+    const sessionClaims = auth.sessionClaims as Record<string, string> | undefined;
+
+    let user = await db.query.usersTable.findFirst({
       where: eq(usersTable.clerkId, auth.userId),
     });
+
+    if (!user) {
+      const newId = uuidv4();
+      const username =
+        sessionClaims?.["username"] ??
+        sessionClaims?.["email"]?.split("@")[0] ??
+        `user_${newId.slice(0, 8)}`;
+      const [created] = await db.insert(usersTable).values({
+        id: newId,
+        clerkId: auth.userId,
+        username,
+        email: sessionClaims?.["email"],
+        isGuest: false,
+      }).returning();
+      user = created;
+    }
+
     if (user) return { userId: user.id, username: user.username, isGuest: false };
   }
+
   const guestToken = req.headers["x-guest-token"];
   if (typeof guestToken === "string" && guestToken) {
     const user = await db.query.usersTable.findFirst({
@@ -29,6 +50,7 @@ async function resolveUser(req: Request): Promise<ResolvedUser | null> {
     });
     if (user) return { userId: user.id, username: user.username, isGuest: true };
   }
+
   return null;
 }
 

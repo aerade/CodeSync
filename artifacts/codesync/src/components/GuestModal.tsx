@@ -1,7 +1,5 @@
 import { useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -16,8 +14,6 @@ export function GuestModal({ open, onClose, onSuccess }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // Track whether mousedown started on the backdrop (not on the modal card)
-  // to avoid closing when the user drags from inside the modal out to the backdrop
   const mousedownOnBackdrop = useRef(false);
 
   async function handleGuest() {
@@ -64,13 +60,11 @@ export function GuestModal({ open, onClose, onSuccess }: Props) {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}
+          style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)" }}
           onMouseDown={(e) => {
-            // Record whether mousedown happened directly on the backdrop
             mousedownOnBackdrop.current = e.target === e.currentTarget;
           }}
           onMouseUp={(e) => {
-            // Only close if both mousedown AND mouseup happened on the backdrop
             if (mousedownOnBackdrop.current && e.target === e.currentTarget) {
               onClose();
             }
@@ -78,56 +72,87 @@ export function GuestModal({ open, onClose, onSuccess }: Props) {
           }}
         >
           <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            initial={{ opacity: 0, scale: 0.95, y: 16 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95 }}
-            className="rounded-xl p-6 w-full max-w-sm"
-            style={{ background: "#1C2128", border: "1px solid #30363D" }}
+            className="rounded-2xl p-6 w-full max-w-sm"
+            style={{
+              background: "rgba(8,8,8,0.9)",
+              border: "1px solid rgba(255,255,255,0.1)",
+              backdropFilter: "blur(32px)",
+              boxShadow: "0 32px 80px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.08)",
+            }}
             onMouseDown={(e) => e.stopPropagation()}
             onMouseUp={(e) => e.stopPropagation()}
           >
-            <h2 className="text-lg font-bold mb-1" style={{ color: "#E6EDF3" }}>
+            <h2 className="text-base font-bold mb-1" style={{ color: "#fff" }}>
               Войти как гость
             </h2>
-            <p className="text-sm mb-5" style={{ color: "#8B949E" }}>
-              Выберите имя для совместной работы. Ваш прогресс не сохраняется.
+            <p className="text-sm mb-5" style={{ color: "rgba(255,255,255,0.4)", lineHeight: 1.55 }}>
+              Выберите имя для совместной работы. Прогресс не сохраняется.
             </p>
 
-            <Input
+            <input
               autoFocus
               placeholder="Ваше имя"
               value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              onChange={(e) => { setUsername(e.target.value); setError(""); }}
               onKeyDown={(e) => e.key === "Enter" && handleGuest()}
               style={{
-                background: "#0D1117",
-                border: "1px solid #30363D",
-                color: "#E6EDF3",
+                width: "100%",
+                height: 42,
+                background: "rgba(255,255,255,0.04)",
+                border: "1px solid rgba(255,255,255,0.1)",
+                borderRadius: 10,
+                color: "#fff",
+                fontSize: 14,
+                padding: "0 14px",
+                outline: "none",
+                fontFamily: "'Inter', sans-serif",
                 marginBottom: 12,
               }}
               data-testid="input-guest-username"
             />
 
             {error && (
-              <p className="text-sm mb-3" style={{ color: "#FF7B72" }}>{error}</p>
+              <p className="text-sm mb-3" style={{ color: "#ef4444" }}>{error}</p>
             )}
 
             <div className="flex gap-2">
-              <Button
-                variant="ghost"
+              <button
                 onClick={onClose}
-                style={{ color: "#8B949E", flex: 1 }}
+                style={{
+                  flex: 1,
+                  height: 40,
+                  background: "rgba(255,255,255,0.05)",
+                  color: "rgba(255,255,255,0.45)",
+                  border: "1px solid rgba(255,255,255,0.08)",
+                  borderRadius: 10,
+                  cursor: "pointer",
+                  fontSize: 14,
+                }}
               >
                 Отмена
-              </Button>
-              <Button
+              </button>
+              <button
                 onClick={handleGuest}
                 disabled={loading || !username.trim()}
-                style={{ background: "#58A6FF", color: "#0D1117", fontWeight: 600, flex: 1 }}
+                style={{
+                  flex: 1,
+                  height: 40,
+                  background: username.trim() ? "#fff" : "rgba(255,255,255,0.08)",
+                  color: username.trim() ? "#000" : "rgba(255,255,255,0.3)",
+                  border: "none",
+                  borderRadius: 10,
+                  fontWeight: 600,
+                  fontSize: 14,
+                  cursor: username.trim() ? "pointer" : "not-allowed",
+                  transition: "all 0.15s",
+                }}
                 data-testid="btn-guest-continue"
               >
                 {loading ? "..." : "Продолжить"}
-              </Button>
+              </button>
             </div>
           </motion.div>
         </motion.div>

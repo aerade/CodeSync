@@ -9,9 +9,7 @@ import {
   useGetRoom,
   useGetRoomFiles,
   useGetRoomMembers,
-  useGetRoomEvents,
   useUpdateFile,
-  getGetRoomEventsQueryKey,
   getGetRoomMembersQueryKey,
   getGetRoomFilesQueryKey,
 } from "@workspace/api-client-react";
@@ -137,10 +135,6 @@ export default function RoomPage() {
   const { data: members = [] } = useGetRoomMembers(roomId, {
     query: { refetchInterval: 5000, queryKey: getGetRoomMembersQueryKey(roomId) },
   });
-  const { data: events = [] } = useGetRoomEvents(roomId, undefined, {
-    query: { refetchInterval: 5000, queryKey: getGetRoomEventsQueryKey(roomId) },
-  });
-
   const activeFile = files.find((f) => f.id === activeFileId) ?? null;
 
   useEffect(() => {
@@ -825,13 +819,6 @@ export default function RoomPage() {
                 username: m.username,
                 color: getColor(i),
                 isGuest: m.isGuest,
-              }))}
-              events={events.map((e) => ({
-                id: e.id,
-                username: e.username,
-                description: e.description,
-                type: e.type,
-                createdAt: e.createdAt,
               }))}
               activeMemberIds={activeMemberIds}
             />

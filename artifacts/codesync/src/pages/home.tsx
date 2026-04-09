@@ -3,18 +3,12 @@ import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { useUser, SignInButton, SignUpButton } from "@clerk/react";
 import { GridBackground } from "@/components/GridBackground";
+import { Logo } from "@/components/Logo";
 import { GuestModal } from "@/components/GuestModal";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-
-const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 export default function Home() {
   const { isSignedIn, isLoaded } = useUser();
   const [, setLocation] = useLocation();
-  const [inviteCode, setInviteCode] = useState("");
-  const [joinError, setJoinError] = useState("");
-  const [isJoining, setIsJoining] = useState(false);
   const [showGuestModal, setShowGuestModal] = useState(false);
   const [showAuthHint, setShowAuthHint] = useState(false);
 
@@ -25,25 +19,6 @@ export default function Home() {
   }, [isLoaded, isSignedIn, setLocation]);
 
   if (isLoaded && isSignedIn) return null;
-
-  async function handleJoin() {
-    if (!inviteCode.trim()) return;
-    setIsJoining(true);
-    setJoinError("");
-    try {
-      const headers: Record<string, string> = {};
-      const guestToken = localStorage.getItem("codesync_guest_token");
-      if (guestToken) headers["x-guest-token"] = guestToken;
-      const resp = await fetch(`${basePath}/api/rooms/join/${inviteCode.trim().toUpperCase()}`, { headers });
-      if (!resp.ok) { setJoinError("Комната не найдена. Проверьте код приглашения."); return; }
-      const room = await resp.json() as { id: string };
-      setLocation(`/room/${room.id}`);
-    } catch {
-      setJoinError("Ошибка подключения");
-    } finally {
-      setIsJoining(false);
-    }
-  }
 
   return (
     <div className="relative min-h-screen flex flex-col" style={{ background: "#030303", color: "#f0f0f0" }}>
@@ -62,14 +37,7 @@ export default function Home() {
           style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}
         >
           <motion.div initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} className="flex items-center gap-3">
-            <div
-              style={{
-                width: 30, height: 30,
-                background: "linear-gradient(135deg, #fff 0%, rgba(255,255,255,0.3) 100%)",
-                borderRadius: 8,
-                boxShadow: "0 0 20px rgba(255,255,255,0.15)",
-              }}
-            />
+            <Logo size={30} />
             <span style={{ fontSize: 19, fontWeight: 700, color: "#fff", letterSpacing: "-0.5px" }}>
               CodeSync
             </span>
@@ -219,7 +187,7 @@ export default function Home() {
             </div>
 
             {/* Feature cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-10">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               {[
                 { title: "Yjs CRDT", desc: "Синхронизация кода между участниками в реальном времени" },
                 { title: "Monaco Editor", desc: "Редактор с подсветкой синтаксиса и курсорами коллег" },
@@ -228,61 +196,11 @@ export default function Home() {
                 <div
                   key={title}
                   className="glass rounded-xl p-5 text-left"
-                  style={{ backdropFilter: "blur(20px)" }}
                 >
                   <div style={{ color: "#fff", fontWeight: 700, marginBottom: 8, fontSize: 15 }}>{title}</div>
                   <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 13, lineHeight: 1.55 }}>{desc}</div>
                 </div>
               ))}
-            </div>
-
-            {/* Join by invite */}
-            <div
-              className="max-w-xl mx-auto rounded-2xl p-4 glass"
-            >
-              <div className="flex flex-col sm:flex-row gap-3">
-                <input
-                  type="text"
-                  value={inviteCode}
-                  onChange={(e) => setInviteCode(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleJoin()}
-                  placeholder="Код приглашения"
-                  style={{
-                    flex: 1,
-                    height: 44,
-                    background: "rgba(255,255,255,0.04)",
-                    border: "1px solid rgba(255,255,255,0.1)",
-                    borderRadius: 12,
-                    color: "#fff",
-                    fontSize: 14,
-                    padding: "0 14px",
-                    outline: "none",
-                    fontFamily: "'JetBrains Mono', monospace",
-                    letterSpacing: "0.08em",
-                  }}
-                />
-                <button
-                  onClick={handleJoin}
-                  disabled={!inviteCode.trim() || isJoining}
-                  style={{
-                    height: 44,
-                    padding: "0 22px",
-                    background: inviteCode.trim() ? "#fff" : "rgba(255,255,255,0.08)",
-                    color: inviteCode.trim() ? "#000" : "rgba(255,255,255,0.3)",
-                    border: "none",
-                    borderRadius: 12,
-                    fontWeight: 600,
-                    fontSize: 14,
-                    cursor: inviteCode.trim() ? "pointer" : "not-allowed",
-                    transition: "all 0.2s",
-                    whiteSpace: "nowrap",
-                  }}
-                  data-testid="btn-join-room"
-                >
-                  {isJoining ? "Подключение..." : "Войти в комнату"}
-                </button>
-              </div>
-              {joinError && <p className="text-sm mt-3" style={{ color: "#ef4444" }}>{joinError}</p>}
             </div>
           </motion.div>
         </div>

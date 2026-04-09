@@ -10,6 +10,7 @@ import {
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { GridBackground } from "@/components/GridBackground";
+import { Logo } from "@/components/Logo";
 import {
   Dialog,
   DialogContent,
@@ -168,21 +169,23 @@ function RoomCard({ room, onOpen, onDelete }: { room: Room; onOpen: () => void; 
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.97 }}
-      className="room-card glass rounded-xl p-4"
+      className="room-card glass rounded-xl p-4 flex flex-col"
+      style={{ minHeight: 110 }}
       data-testid={`card-room-${room.id}`}
     >
-      <div className="flex items-start justify-between mb-2">
+      {/* Top: title + menu */}
+      <div className="flex items-start justify-between gap-2 mb-1">
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-0.5">
+          <div className="flex items-center gap-2 flex-wrap">
             <h3 className="text-sm font-semibold truncate" style={{ color: "#fff" }}>
               {room.title}
             </h3>
             {room.isPrivate && (
               <span
-                className="text-xs px-1.5 py-0.5 rounded-md"
+                className="text-xs px-1.5 py-0.5 rounded-md shrink-0"
                 style={{
                   background: "rgba(255,255,255,0.06)",
-                  color: "rgba(255,255,255,0.45)",
+                  color: "rgba(255,255,255,0.4)",
                   border: "1px solid rgba(255,255,255,0.1)",
                   fontSize: 10,
                 }}
@@ -192,13 +195,13 @@ function RoomCard({ room, onOpen, onDelete }: { room: Room; onOpen: () => void; 
             )}
           </div>
           {room.description && (
-            <p className="text-xs line-clamp-1" style={{ color: "rgba(255,255,255,0.38)" }}>{room.description}</p>
+            <p className="text-xs mt-0.5 line-clamp-2" style={{ color: "rgba(255,255,255,0.35)" }}>{room.description}</p>
           )}
         </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
-              className="p-1 rounded opacity-30 hover:opacity-70 transition-opacity"
+              className="p-1 rounded opacity-25 hover:opacity-60 transition-opacity shrink-0"
               style={{ color: "rgba(255,255,255,0.8)", background: "none", border: "none", cursor: "pointer" }}
             >
               <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
@@ -221,9 +224,13 @@ function RoomCard({ room, onOpen, onDelete }: { room: Room; onOpen: () => void; 
         </DropdownMenu>
       </div>
 
-      <div className="flex items-center justify-between mt-3">
+      {/* Spacer — pushes bottom row to the card bottom */}
+      <div className="flex-1" />
+
+      {/* Bottom: online count + invite code + open button — always at card bottom */}
+      <div className="flex items-center justify-between pt-3" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
         <div className="flex items-center gap-2">
-          <span className="flex items-center gap-1.5 text-xs" style={{ color: "rgba(255,255,255,0.38)" }}>
+          <span className="flex items-center gap-1.5 text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>
             <span className="online-dot" />
             {room.memberCount}
           </span>
@@ -231,8 +238,8 @@ function RoomCard({ room, onOpen, onDelete }: { room: Room; onOpen: () => void; 
             className="text-xs font-mono px-2 py-0.5 rounded-md"
             style={{
               background: "rgba(255,255,255,0.04)",
-              color: "rgba(255,255,255,0.35)",
-              border: "1px solid rgba(255,255,255,0.08)",
+              color: "rgba(255,255,255,0.3)",
+              border: "1px solid rgba(255,255,255,0.07)",
               letterSpacing: "0.08em",
             }}
           >
@@ -336,13 +343,7 @@ export default function Dashboard() {
           }}
         >
           <div className="flex items-center gap-3">
-            <div
-              style={{
-                width: 26, height: 26,
-                background: "linear-gradient(135deg, #fff 0%, rgba(255,255,255,0.3) 100%)",
-                borderRadius: 7,
-              }}
-            />
+            <Logo size={26} />
             <span style={{ fontSize: 17, fontWeight: 700, color: "#fff" }}>CodeSync</span>
           </div>
           <div className="flex items-center gap-3">
