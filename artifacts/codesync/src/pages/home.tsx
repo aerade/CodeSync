@@ -1,30 +1,13 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
-import { useUser, SignInButton } from "@clerk/react";
+import { useUser, SignInButton, SignUpButton } from "@clerk/react";
 import { ParticleBackground } from "@/components/ParticleBackground";
 import { GuestModal } from "@/components/GuestModal";
-import { useListRooms } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
-
-const LANG_COLORS: Record<string, string> = {
-  javascript: "#F2CC60",
-  typescript: "#58A6FF",
-  python: "#3FB950",
-  go: "#79C0FF",
-  rust: "#FFA657",
-  java: "#FF7B72",
-  cpp: "#D2A8FF",
-  default: "#8B949E",
-};
-
-function getLangColor(lang: string) {
-  return LANG_COLORS[lang.toLowerCase()] ?? LANG_COLORS.default;
-}
 
 export default function Home() {
   const { isSignedIn, isLoaded } = useUser();
@@ -33,8 +16,7 @@ export default function Home() {
   const [joinError, setJoinError] = useState("");
   const [isJoining, setIsJoining] = useState(false);
   const [showGuestModal, setShowGuestModal] = useState(false);
-
-  const { data: rooms, isLoading: roomsLoading } = useListRooms();
+  const [showAuthHint, setShowAuthHint] = useState(false);
 
   if (isLoaded && isSignedIn) {
     setLocation("/dashboard");
@@ -87,14 +69,15 @@ export default function Home() {
                 Войти
               </Button>
             </SignInButton>
-            <Button
-              size="sm"
-              style={{ background: "#58A6FF", color: "#0D1117", fontWeight: 600 }}
-              onClick={() => setLocation(`${basePath}/sign-up`)}
-              data-testid="btn-register"
-            >
-              Зарегистрироваться
-            </Button>
+            <SignUpButton mode="modal">
+              <Button
+                size="sm"
+                style={{ background: "#58A6FF", color: "#0D1117", fontWeight: 600 }}
+                data-testid="btn-register"
+              >
+                Зарегистрироваться
+              </Button>
+            </SignUpButton>
           </motion.div>
         </nav>
 
@@ -113,24 +96,48 @@ export default function Home() {
               Онлайн IDE для совместной работы над кодом с AI-ассистентом, запуском программ и гостевым доступом.
             </p>
 
-            <div className="flex items-center justify-center gap-3 mb-12">
-              <Button
-                size="lg"
-                onClick={() => setShowGuestModal(true)}
-                style={{ background: "#3FB950", color: "#0D1117", fontWeight: 700, boxShadow: "0 8px 24px rgba(63, 185, 80, 0.18)" }}
-                data-testid="btn-guest-mode"
-              >
-                Гостевой режим
-              </Button>
-              <Button
-                size="lg"
-                variant="outline"
-                onClick={() => setLocation(`${basePath}/dashboard`)}
-                style={{ background: "transparent", borderColor: "#30363D", color: "#E6EDF3" }}
-                data-testid="btn-dashboard"
-              >
-                Открыть комнаты
-              </Button>
+            <div className="flex flex-col items-center gap-3 mb-12">
+              <div className="flex items-center justify-center gap-3">
+                <Button
+                  size="lg"
+                  onClick={() => setShowGuestModal(true)}
+                  style={{ background: "#3FB950", color: "#0D1117", fontWeight: 700, boxShadow: "0 8px 24px rgba(63, 185, 80, 0.18)" }}
+                  data-testid="btn-guest-mode"
+                >
+                  Гостевой режим
+                </Button>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  onClick={() => setShowAuthHint(true)}
+                  style={{ background: "transparent", borderColor: "#30363D", color: "#E6EDF3" }}
+                  data-testid="btn-dashboard"
+                >
+                  Открыть комнаты
+                </Button>
+              </div>
+              <AnimatePresence>
+                {showAuthHint && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -6 }}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm"
+                    style={{ background: "rgba(88, 166, 255, 0.1)", border: "1px solid rgba(88, 166, 255, 0.3)", color: "#8B949E" }}
+                  >
+                    <span>Чтобы управлять комнатами, нужно</span>
+                    <SignInButton mode="modal">
+                      <button
+                        className="underline font-semibold"
+                        style={{ color: "#58A6FF", background: "none", border: "none", cursor: "pointer" }}
+                        onClick={() => setShowAuthHint(false)}
+                      >
+                        войти в аккаунт
+                      </button>
+                    </SignInButton>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
