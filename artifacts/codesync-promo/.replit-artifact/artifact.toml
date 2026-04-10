@@ -1,0 +1,31 @@
+kind = "video"
+previewPath = "/codesync-promo/"
+title = "CodeSync — Promo Video"
+version = "1.0.0"
+id = "artifacts/codesync-promo"
+router = "path"
+
+[[integratedSkills]]
+name = "video-js"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/codesync-promo/" ]
+localPort = 18437
+
+[services.development]
+run = "pnpm --filter @workspace/codesync-promo run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/codesync-promo", "run", "build" ]
+publicDir = "artifacts/codesync-promo/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "18437"
+BASE_PATH = "/codesync-promo/"
