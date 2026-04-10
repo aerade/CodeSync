@@ -83,6 +83,15 @@ export default function RoomPage() {
     () => localStorage.getItem("codesync_editor_theme") ?? "vs-dark"
   );
   const [themeMenuOpen, setThemeMenuOpen] = useState(false);
+  const [themeMenuPos, setThemeMenuPos] = useState<{ top: number; right: number } | null>(null);
+  const themeBtnRef = useRef<HTMLButtonElement>(null);
+
+  function openThemeMenu() {
+    if (!themeBtnRef.current) return;
+    const rect = themeBtnRef.current.getBoundingClientRect();
+    setThemeMenuPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
+    setThemeMenuOpen((o) => !o);
+  }
 
   function handleThemeChange(themeId: string) {
     setEditorTheme(themeId);
@@ -536,12 +545,12 @@ export default function RoomPage() {
 
         <div className="ml-auto flex items-center gap-1">
           {/* Theme selector */}
-          <div className="relative" data-theme-selector="">
-
+          <div data-theme-selector="">
             <button
+              ref={themeBtnRef}
               className="text-xs px-2 py-0.5 rounded hover:bg-white/5 transition-colors flex items-center gap-1"
               style={{ color: "#8B949E", border: "none", background: "transparent", cursor: "pointer" }}
-              onClick={() => setThemeMenuOpen((o) => !o)}
+              onClick={openThemeMenu}
               title="Тема редактора"
               data-testid="btn-theme-selector"
             >
@@ -550,14 +559,20 @@ export default function RoomPage() {
               </svg>
               <span className="hidden sm:inline">{EDITOR_THEMES.find((t) => t.id === editorTheme)?.label ?? "Тема"}</span>
             </button>
-            {themeMenuOpen && (
+            {themeMenuOpen && themeMenuPos && (
               <div
-                className="absolute right-0 top-full mt-1 z-50 rounded-lg overflow-hidden"
+                data-theme-selector=""
                 style={{
+                  position: "fixed",
+                  top: themeMenuPos.top,
+                  right: themeMenuPos.right,
+                  zIndex: 9999,
                   background: "rgba(13,17,23,0.97)",
                   border: "1px solid rgba(255,255,255,0.12)",
                   boxShadow: "0 16px 48px rgba(0,0,0,0.8)",
                   minWidth: 160,
+                  borderRadius: 8,
+                  overflow: "hidden",
                 }}
               >
                 {EDITOR_THEMES.map((theme) => (
