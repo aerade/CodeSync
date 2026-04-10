@@ -5,6 +5,7 @@ import Editor, { OnMount } from "@monaco-editor/react";
 import type * as MonacoType from "monaco-editor";
 import * as Y from "yjs";
 import { PreviewPanel } from "@/components/PreviewPanel";
+import { EDITOR_THEMES, registerCustomThemes } from "@/lib/editorThemes";
 import {
   useGetRoom,
   useGetRoomFiles,
@@ -77,6 +78,28 @@ export default function RoomPage() {
   const isGuest = clerkLoaded && !isSignedIn && !!localStorage.getItem("codesync_guest_token");
 
   const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
+
+  const [editorTheme, setEditorTheme] = useState<string>(
+    () => localStorage.getItem("codesync_editor_theme") ?? "vs-dark"
+  );
+  const [themeMenuOpen, setThemeMenuOpen] = useState(false);
+
+  function handleThemeChange(themeId: string) {
+    setEditorTheme(themeId);
+    localStorage.setItem("codesync_editor_theme", themeId);
+    setThemeMenuOpen(false);
+  }
+
+  // Close theme menu when clicking outside
+  useEffect(() => {
+    if (!themeMenuOpen) return;
+    function close(e: MouseEvent) {
+      const t = e.target as Element;
+      if (!t.closest("[data-theme-selector]")) setThemeMenuOpen(false);
+    }
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [themeMenuOpen]);
 
   const [activeFileId, setActiveFileId] = useState<string | null>(null);
   const [fileContent, setFileContent] = useState("");
@@ -320,6 +343,9 @@ export default function RoomPage() {
     editorRef.current = editor;
     monacoRef.current = monaco;
 
+    // Register all custom themes
+    registerCustomThemes(monaco);
+
     monaco.languages.typescript.javascriptDefaults.setDiagnosticsOptions({
       noSemanticValidation: false,
       noSyntaxValidation: false,
@@ -508,7 +534,58 @@ export default function RoomPage() {
           )}
         </div>
 
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex items-center gap-1">
+          {/* Theme selector */}
+          <div className="relative" data-theme-selector="">
+
+            <button
+              className="text-xs px-2 py-0.5 rounded hover:bg-white/5 transition-colors flex items-center gap-1"
+              style={{ color: "#8B949E", border: "none", background: "transparent", cursor: "pointer" }}
+              onClick={() => setThemeMenuOpen((o) => !o)}
+              title="Тема редактора"
+              data-testid="btn-theme-selector"
+            >
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+              </svg>
+              <span className="hidden sm:inline">{EDITOR_THEMES.find((t) => t.id === editorTheme)?.label ?? "Тема"}</span>
+            </button>
+            {themeMenuOpen && (
+              <div
+                className="absolute right-0 top-full mt-1 z-50 rounded-lg overflow-hidden"
+                style={{
+                  background: "rgba(13,17,23,0.97)",
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  boxShadow: "0 16px 48px rgba(0,0,0,0.8)",
+                  minWidth: 160,
+                }}
+              >
+                {EDITOR_THEMES.map((theme) => (
+                  <button
+                    key={theme.id}
+                    onClick={() => handleThemeChange(theme.id)}
+                    className="w-full text-left px-3 py-2 text-xs transition-colors hover:bg-white/8"
+                    style={{
+                      color: theme.id === editorTheme ? "#fff" : "#8B949E",
+                      background: theme.id === editorTheme ? "rgba(255,255,255,0.08)" : "transparent",
+                      border: "none",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                    }}
+                  >
+                    {theme.id === editorTheme && (
+                      <span style={{ color: "#3FB950", fontSize: 10 }}>✓</span>
+                    )}
+                    {theme.id !== editorTheme && <span style={{ width: 14 }} />}
+                    {theme.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
           <button
             className="text-xs px-2 py-0.5 rounded hover:bg-white/5 transition-colors"
             style={{ color: "#8B949E", border: "none", background: "transparent", cursor: "pointer" }}
@@ -586,7 +663,7 @@ export default function RoomPage() {
                 value={fileContent}
                 onChange={handleEditorChange}
                 onMount={handleEditorMount}
-                theme="vs-dark"
+                theme={editorTheme}
                 options={{
                   fontSize: 14,
                   fontFamily: "'JetBrains Mono', 'Cascadia Code', 'Fira Code', monospace",

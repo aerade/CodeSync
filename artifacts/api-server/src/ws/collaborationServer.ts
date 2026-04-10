@@ -75,6 +75,56 @@ function getRoomKey(roomId: string, fileId: string): string {
 }
 
 /**
+ * Collect all connected users across every file-room for a given roomId and
+ * broadcast the combined awareness state to every one of them.
+ * This ensures participants editing different files still see each other.
+ */
+function broadcastRoomAwareness(roomId: string) {
+  const states: Record<string, AwarenessState & { userId: string; username: string; color: string; isGuest: boolean }> = {};
+
+  for (const [key, fr] of fileRooms) {
+    if (!key.startsWith(`${roomId}:`)) continue;
+    for (const [ws, info] of fr.clients) {
+      const aware = fr.awareness.get(ws) ?? {};
+      states[info.userId] = {
+        ...aware,
+        userId: info.userId,
+        username: info.username,
+        color: info.color,
+        isGuest: info.isGuest,
+      };
+    }
+  }
+
+  const msg = JSON.stringify({ type: "awareness", states });
+
+  for (const [key, fr] of fileRooms) {
+    if (!key.startsWith(`${roomId}:`)) continue;
+    for (const [client] of fr.clients) {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(msg);
+      }
+    }
+  }
+}
+
+// Assign a stable color per userId within a room so it doesn't change across file switches
+const roomUserColors = new Map<string, string>(); // `${roomId}:${userId}` -> color
+
+function getStableColor(roomId: string, userId: string): string {
+  const key = `${roomId}:${userId}`;
+  if (!roomUserColors.has(key)) {
+    // Count distinct users in this room to pick the next color
+    let count = 0;
+    for (const k of roomUserColors.keys()) {
+      if (k.startsWith(`${roomId}:`)) count++;
+    }
+    roomUserColors.set(key, getColor(count));
+  }
+  return roomUserColors.get(key)!;
+}
+
+/**
  * Forcefully update the content of an active file room's Yjs doc and
  * broadcast the new state to all connected clients. Called by the restore
  * API endpoint so that live collaborators immediately see the restored content.
@@ -262,8 +312,7 @@ export function setupWebSocketServer(wss: WebSocketServer) {
       await loadYjsSnapshot(roomId, fileId, fileRoom.doc);
     }
 
-    const colorIndex = fileRoom.clients.size;
-    const color = getColor(colorIndex);
+    const color = getStableColor(roomId, userId);
     const isGuest = tokenData.userId.startsWith("guest_");
 
     const collaborator: CollaboratorInfo = {
@@ -292,8 +341,8 @@ export function setupWebSocketServer(wss: WebSocketServer) {
       update: btoa(String.fromCharCode(...initUpdate)),
     }));
 
-    // Broadcast updated awareness to all
-    fileRoom.broadcastAwareness();
+    // Broadcast updated awareness to all clients in the room (across all files)
+    broadcastRoomAwareness(roomId);
 
     ws.send(JSON.stringify({
       type: "joined",
@@ -324,7 +373,7 @@ export function setupWebSocketServer(wss: WebSocketServer) {
         scheduleSave(key, roomId, fileId, fileRoom.doc);
       } else if (msg.type === "awareness") {
         fileRoom.awareness.set(ws, msg.state ?? {});
-        fileRoom.broadcastAwareness();
+        broadcastRoomAwareness(roomId);
       } else if (msg.type === "cursor" && msg.position) {
         const info = fileRoom.clients.get(ws);
         if (info) {
@@ -343,9 +392,19 @@ export function setupWebSocketServer(wss: WebSocketServer) {
       if (!fileRoom) return;
       fileRoom.clients.delete(ws);
       fileRoom.awareness.delete(ws);
-      fileRoom.broadcastAwareness();
       // Remove the used token on disconnect
       collabTokens.delete(collabToken);
+
+      // Clean up stable color only if user has no more connections in the room
+      const userStillInRoom = [...fileRooms.entries()].some(
+        ([k, fr]) => k.startsWith(`${roomId}:`) && [...fr.clients.values()].some((i) => i.userId === userId)
+      );
+      if (!userStillInRoom) {
+        roomUserColors.delete(`${roomId}:${userId}`);
+      }
+
+      // Broadcast updated participant list to everyone remaining in the room
+      broadcastRoomAwareness(roomId);
 
       if (fileRoom.clients.size === 0) {
         await saveYjsSnapshot(roomId, fileId, fileRoom.doc);

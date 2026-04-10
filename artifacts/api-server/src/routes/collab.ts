@@ -1,5 +1,5 @@
 import { Router, Request, Response } from "express";
-import { getAuth } from "@clerk/express";
+import { getAuth, clerkClient } from "@clerk/express";
 import { db } from "@workspace/db";
 import { usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
@@ -21,30 +21,54 @@ setInterval(() => {
 }, 5 * 60 * 1000);
 
 async function issueCollabToken(req: Request, res: Response): Promise<void> {
-  // Always prefer Clerk auth — check it first to avoid treating signed-in users as guests
+  // Always prefer Clerk auth
   const auth = getAuth(req);
   if (auth?.userId) {
-    const user = await db.query.usersTable.findFirst({
+    let user = await db.query.usersTable.findFirst({
       where: eq(usersTable.clerkId, auth.userId),
     });
 
     if (!user) {
-      res.status(401).json({ error: "User not found" });
+      res.status(401).json({ error: "User not found — call /api/auth/me first" });
       return;
+    }
+
+    // Refresh the username from Clerk on each token issuance to ensure it's current
+    try {
+      const clerkUser = await clerkClient.users.getUser(auth.userId);
+      const firstName = clerkUser.firstName ?? "";
+      const lastName = clerkUser.lastName ?? "";
+      const fullName = [firstName, lastName].filter(Boolean).join(" ").trim();
+      const freshUsername =
+        clerkUser.username ??
+        (fullName || null) ??
+        clerkUser.emailAddresses[0]?.emailAddress.split("@")[0] ??
+        user.username;
+
+      if (freshUsername && freshUsername !== user.username) {
+        const [updated] = await db
+          .update(usersTable)
+          .set({ username: freshUsername })
+          .where(eq(usersTable.clerkId, auth.userId))
+          .returning();
+        if (updated) user = updated;
+      }
+    } catch {
+      // Non-fatal: keep existing username
     }
 
     const token = uuidv4();
     collabTokens.set(token, {
       userId: user.id,
       username: user.username,
-      expiresAt: Date.now() + 30 * 60 * 1000, // 30 min
+      expiresAt: Date.now() + 30 * 60 * 1000,
     });
 
     res.json({ token, userId: user.id, username: user.username });
     return;
   }
 
-  // Fall back to guest token only when there is no Clerk session
+  // Fall back to guest token
   const guestToken = req.headers["x-guest-token"];
   if (typeof guestToken === "string" && guestToken) {
     const user = await db.query.usersTable.findFirst({
@@ -55,7 +79,7 @@ async function issueCollabToken(req: Request, res: Response): Promise<void> {
       collabTokens.set(token, {
         userId: user.id,
         username: user.username,
-        expiresAt: Date.now() + 30 * 60 * 1000, // 30 min
+        expiresAt: Date.now() + 30 * 60 * 1000,
       });
       res.json({ token, userId: user.id, username: user.username });
       return;

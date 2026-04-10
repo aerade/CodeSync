@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getAuth } from "@clerk/express";
+import { getAuth, clerkClient } from "@clerk/express";
 import { db } from "@workspace/db";
 import { usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
@@ -7,12 +7,32 @@ import { v4 as uuidv4 } from "uuid";
 
 const authRouter = Router();
 
+async function getClerkUsername(clerkUserId: string): Promise<{ username: string; email?: string; avatarUrl?: string }> {
+  try {
+    const clerkUser = await clerkClient.users.getUser(clerkUserId);
+    const firstName = clerkUser.firstName ?? "";
+    const lastName = clerkUser.lastName ?? "";
+    const fullName = [firstName, lastName].filter(Boolean).join(" ").trim();
+    const email = clerkUser.emailAddresses[0]?.emailAddress;
+
+    const username =
+      clerkUser.username ??
+      (fullName || null) ??
+      email?.split("@")[0] ??
+      `user_${clerkUserId.slice(-8)}`;
+
+    return { username, email, avatarUrl: clerkUser.imageUrl ?? undefined };
+  } catch {
+    return { username: `user_${clerkUserId.slice(-8)}` };
+  }
+}
+
 authRouter.get("/auth/me", async (req, res) => {
   const auth = getAuth(req);
   const clerkUserId = auth?.userId;
 
   if (clerkUserId) {
-    const sessionClaims = auth.sessionClaims as Record<string, string> | undefined;
+    const { username, email, avatarUrl } = await getClerkUsername(clerkUserId);
 
     let user = await db.query.usersTable.findFirst({
       where: eq(usersTable.clerkId, clerkUserId),
@@ -20,20 +40,23 @@ authRouter.get("/auth/me", async (req, res) => {
 
     if (!user) {
       const newId = uuidv4();
-      const username =
-        sessionClaims?.["username"] ??
-        sessionClaims?.["email"]?.split("@")[0] ??
-        `user_${newId.slice(0, 8)}`;
-
       const [created] = await db.insert(usersTable).values({
         id: newId,
         clerkId: clerkUserId,
         username,
-        email: sessionClaims?.["email"],
-        avatarUrl: sessionClaims?.["image_url"],
+        email,
+        avatarUrl,
         isGuest: false,
       }).returning();
       user = created;
+    } else {
+      // Always update with fresh Clerk data to keep names in sync
+      const [updated] = await db
+        .update(usersTable)
+        .set({ username, email: email ?? user.email, avatarUrl: avatarUrl ?? user.avatarUrl })
+        .where(eq(usersTable.clerkId, clerkUserId))
+        .returning();
+      user = updated ?? user;
     }
 
     if (!user) {
