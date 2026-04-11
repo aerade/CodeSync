@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "export NODE_ENV=development && pnpm run build && pnpm run start",
+    "dev": "node -e \"process.env.NODE_ENV='development'; require('child_process').spawn(process.platform==='win32'?'pnpm.cmd':'pnpm',['run','build'],{stdio:'inherit',shell:false}).on('exit',c=>process.exit(c??1))\" && node -e \"process.env.NODE_ENV='development'; require('child_process').spawn(process.platform==='win32'?'pnpm.cmd':'pnpm',['run','start'],{stdio:'inherit',shell:false})\"",
     "build": "node ./build.mjs",
     "start": "node --enable-source-maps ./dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
