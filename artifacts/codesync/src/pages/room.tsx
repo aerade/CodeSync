@@ -520,17 +520,20 @@ export default function RoomPage() {
         </button>
 
         {/* Run code */}
-        <Button
-          size="sm"
+        <button
           onClick={() => {
             setIsBottomOpen(true);
             setTimeout(() => terminalRef.current?.run(), 100);
           }}
-          style={{ background: "#3FB950", color: "#0D1117", fontWeight: 600, fontSize: 11, height: 26 }}
           data-testid="btn-run-code-topbar"
+          className="flex items-center gap-1.5 px-3 py-1 rounded-md font-semibold transition-all hover:brightness-110 active:scale-95"
+          style={{ background: "#238636", color: "#fff", border: "1px solid #2ea043", fontSize: 12, cursor: "pointer" }}
         >
+          <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0zM1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0zm4.879-2.773 4.264 2.559a.25.25 0 0 1 0 .428l-4.264 2.559A.25.25 0 0 1 6 10.559V5.442a.25.25 0 0 1 .379-.215z"/>
+          </svg>
           Запустить
-        </Button>
+        </button>
 
         {/* Preview */}
         {files.some((f) => !f.isFolder && f.language === "html") && (
@@ -588,16 +591,26 @@ export default function RoomPage() {
           <div data-theme-selector="">
             <button
               ref={themeBtnRef}
-              className="text-xs px-2 py-0.5 rounded hover:bg-white/5 transition-colors flex items-center gap-1"
-              style={{ color: "#8B949E", border: "none", background: "transparent", cursor: "pointer" }}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-md transition-colors hover:bg-white/8"
+              style={{
+                color: "#8B949E",
+                border: "1px solid rgba(255,255,255,0.08)",
+                background: "rgba(255,255,255,0.03)",
+                cursor: "pointer",
+                fontSize: 11,
+              }}
               onClick={openThemeMenu}
               title="Тема редактора"
               data-testid="btn-theme-selector"
             >
-              <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
-                <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/>
               </svg>
-              <span className="hidden sm:inline">{EDITOR_THEMES.find((t) => t.id === editorTheme)?.label ?? "Тема"}</span>
+              <span>{EDITOR_THEMES.find((t) => t.id === editorTheme)?.label ?? "Тема"}</span>
+              <svg width="9" height="9" viewBox="0 0 16 16" fill="currentColor" style={{ opacity: 0.5 }}>
+                <path d="M8 10.94L2.53 5.47a.75.75 0 0 0-1.06 1.06l6 6a.75.75 0 0 0 1.06 0l6-6a.75.75 0 0 0-1.06-1.06L8 10.94z"/>
+              </svg>
             </button>
             {themeMenuOpen && themeMenuPos && (
               <div

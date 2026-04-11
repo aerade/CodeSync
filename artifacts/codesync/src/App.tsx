@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { ClerkProvider, SignIn, SignUp, useClerk, useUser } from "@clerk/react";
+import { ClerkProvider, SignIn, SignUp, useClerk, useUser, useAuth } from "@clerk/react";
 import { Switch, Route, useLocation, Router as WouterRouter } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider, useQueryClient } from "@tanstack/react-query";
@@ -9,7 +9,7 @@ import NotFound from "@/pages/not-found";
 import Home from "./pages/home";
 import Dashboard from "./pages/dashboard";
 import RoomPage from "./pages/room";
-import { setGuestTokenGetter } from "@workspace/api-client-react";
+import { setGuestTokenGetter, setAuthTokenGetter } from "@workspace/api-client-react";
 
 // Initialize guest token getter so all API calls include x-guest-token when present
 setGuestTokenGetter(() => localStorage.getItem("codesync_guest_token"));
@@ -79,8 +79,16 @@ function SignUpPage() {
 function ClerkQueryClientCacheInvalidator() {
   const { addListener } = useClerk();
   const { isLoaded, isSignedIn } = useUser();
+  const { getToken } = useAuth();
   const qc = useQueryClient();
   const prevUserIdRef = useRef<string | null | undefined>(undefined);
+
+  // Wire up Bearer token getter so all API calls include Clerk JWT after sign-in.
+  // This ensures private rooms and authenticated endpoints work cross-origin.
+  useEffect(() => {
+    setAuthTokenGetter(isSignedIn ? () => getToken() : null);
+    return () => setAuthTokenGetter(null);
+  }, [isSignedIn, getToken]);
 
   // Eagerly clear stale guest tokens as soon as Clerk confirms a signed-in user.
   // This covers page refreshes and OAuth redirects (Gmail etc.) where the listener
@@ -90,8 +98,10 @@ function ClerkQueryClientCacheInvalidator() {
       localStorage.removeItem("codesync_guest_token");
       localStorage.removeItem("codesync_guest_user_id");
       localStorage.removeItem("codesync_guest_username");
+      // Force a full refetch so private rooms appear immediately
+      qc.invalidateQueries();
     }
-  }, [isLoaded, isSignedIn]);
+  }, [isLoaded, isSignedIn, qc]);
 
   useEffect(() => {
     const unsubscribe = addListener(({ user }) => {

@@ -263,29 +263,26 @@ export default function Home() {
           >
             <button
               onClick={() => setShowGuestModal(true)}
-              className="text-sm px-4 py-2 rounded-lg transition-all hover:bg-white/5"
-              style={{ color: "rgba(255,255,255,0.5)", background: "transparent", border: "none", cursor: "pointer" }}
+              className="text-sm px-4 py-2 rounded-lg font-medium transition-all"
+              style={{
+                color: "rgba(255,255,255,0.65)",
+                background: "rgba(255,255,255,0.05)",
+                border: "1px solid rgba(255,255,255,0.1)",
+                cursor: "pointer",
+              }}
             >
               Гостевой режим
             </button>
-            <SignInButton mode="modal">
-              <button
-                className="text-sm px-4 py-2 rounded-lg transition-all hover:bg-white/5"
-                style={{ color: "rgba(255,255,255,0.6)", background: "transparent", border: "none", cursor: "pointer" }}
-              >
-                Войти
-              </button>
-            </SignInButton>
             <SignUpButton mode="modal">
               <button
-                className="text-sm px-4 py-2 rounded-lg font-semibold transition-all"
+                className="text-sm px-5 py-2 rounded-lg font-semibold transition-all hover:brightness-110"
                 style={{
                   background: "#fff", color: "#000",
                   border: "none", cursor: "pointer",
-                  boxShadow: "0 0 20px rgba(255,255,255,0.1)",
+                  boxShadow: "0 2px 16px rgba(255,255,255,0.15)",
                 }}
               >
-                Начать
+                Начать →
               </button>
             </SignUpButton>
           </motion.div>

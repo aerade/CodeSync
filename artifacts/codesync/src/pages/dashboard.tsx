@@ -355,7 +355,7 @@ function RoomCard({ room, onOpen, onDelete }: { room: Room; onOpen: () => void; 
           <div className="flex flex-col gap-1">
             <MemberDots count={room.memberCount} max={room.maxUsers} />
             <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 10 }}>
-              {room.memberCount}/{room.maxUsers} онлайн
+              {room.memberCount}/{room.maxUsers} участников
             </span>
           </div>
 
@@ -568,6 +568,29 @@ export default function Dashboard() {
                     Гость: {guestUsername}
                   </span>
                 </div>
+                {/* Exit guest mode */}
+                <button
+                  onClick={() => {
+                    localStorage.removeItem("codesync_guest_token");
+                    localStorage.removeItem("codesync_guest_user_id");
+                    localStorage.removeItem("codesync_guest_username");
+                    setLocation("/");
+                  }}
+                  title="Выйти из гостевого режима"
+                  style={{
+                    height: 32, padding: "0 12px",
+                    background: "transparent", color: "rgba(255,255,255,0.4)",
+                    border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8,
+                    fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 5,
+                  }}
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                    <polyline points="16 17 21 12 16 7"/>
+                    <line x1="21" y1="12" x2="9" y2="12"/>
+                  </svg>
+                  Выйти
+                </button>
                 <SignInButton mode="modal">
                   <button
                     style={{
