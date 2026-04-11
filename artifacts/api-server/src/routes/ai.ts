@@ -1,4 +1,5 @@
 import { Router, Request, Response } from "express";
+import { getAuth } from "@clerk/express";
 import { db } from "@workspace/db";
 import { usersTable, filesTable, eventsTable, roomsTable, roomMembersTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
@@ -7,9 +8,10 @@ import { saveFileSnapshot } from "./snapshots";
 
 const aiRouter = Router();
 
+// Simple in-memory rate limiter: userId -> { count, resetAt }
 const rateLimits = new Map<string, { count: number; resetAt: number }>();
-const RATE_LIMIT = 20;
-const RATE_WINDOW = 60 * 1000;
+const RATE_LIMIT = 20; // requests per window
+const RATE_WINDOW = 60 * 1000; // 1 minute
 
 function checkRateLimit(userId: string): boolean {
   const now = Date.now();
@@ -29,7 +31,13 @@ interface ResolvedAiUser {
 }
 
 async function resolveAiUser(req: Request): Promise<ResolvedAiUser | null> {
-  if (req.isAuthenticated()) return { userId: req.user.id, isGuest: false };
+  const auth = getAuth(req);
+  if (auth?.userId) {
+    const user = await db.query.usersTable.findFirst({
+      where: eq(usersTable.clerkId, auth.userId),
+    });
+    if (user) return { userId: user.id, isGuest: false };
+  }
 
   const guestToken = req.headers["x-guest-token"];
   if (typeof guestToken === "string" && guestToken) {

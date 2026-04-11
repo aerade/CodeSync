@@ -1,4 +1,5 @@
 import { Router, Request } from "express";
+import { getAuth } from "@clerk/express";
 import { db } from "@workspace/db";
 import { usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
@@ -29,7 +30,13 @@ function checkExecRateLimit(userId: string): boolean {
 }
 
 async function resolveExecUserId(req: Request): Promise<string | null> {
-  if (req.isAuthenticated()) return req.user.id;
+  const auth = getAuth(req);
+  if (auth?.userId) {
+    const user = await db.query.usersTable.findFirst({
+      where: eq(usersTable.clerkId, auth.userId),
+    });
+    if (user) return user.id;
+  }
   const guestToken = req.headers["x-guest-token"];
   if (typeof guestToken === "string" && guestToken) {
     const user = await db.query.usersTable.findFirst({

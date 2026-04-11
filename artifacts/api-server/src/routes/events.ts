@@ -1,4 +1,5 @@
 import { Router, Request } from "express";
+import { getAuth } from "@clerk/express";
 import { db } from "@workspace/db";
 import { eventsTable, roomsTable, roomMembersTable, usersTable } from "@workspace/db";
 import { eq, and, desc } from "drizzle-orm";
@@ -6,8 +7,16 @@ import { eq, and, desc } from "drizzle-orm";
 const eventsRouter = Router();
 
 async function resolveUserId(req: Request): Promise<string | null> {
-  if (req.isAuthenticated()) return req.user.id;
+  // Prefer Clerk auth — signed-in users must never be treated as guests
+  const auth = getAuth(req);
+  if (auth?.userId) {
+    const user = await db.query.usersTable.findFirst({
+      where: eq(usersTable.clerkId, auth.userId),
+    });
+    if (user) return user.id;
+  }
 
+  // Only fall back to guest token when there is no Clerk session
   const guestToken = req.headers["x-guest-token"];
   if (typeof guestToken === "string" && guestToken) {
     const user = await db.query.usersTable.findFirst({
