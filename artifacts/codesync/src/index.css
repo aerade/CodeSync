@@ -359,3 +359,53 @@
 .cl-formFieldInput:focus-visible {
   outline: none !important;
 }
+
+/* ============================================================
+   RANGE SLIDER — cross-browser styling
+   ============================================================ */
+
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+  height: 4px;
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+  background: rgba(255,255,255,0.1);
+  border-radius: 2px;
+  height: 4px;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  background: #fff;
+  border-radius: 50%;
+  margin-top: -6px;
+  box-shadow: 0 0 0 2px rgba(255,255,255,0.15);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+  box-shadow: 0 0 0 4px rgba(255,255,255,0.12);
+}
+
+input[type="range"]::-moz-range-track {
+  background: rgba(255,255,255,0.1);
+  border-radius: 2px;
+  height: 4px;
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  background: #fff;
+  border-radius: 50%;
+  border: none;
+  box-shadow: 0 0 0 2px rgba(255,255,255,0.15);
+}

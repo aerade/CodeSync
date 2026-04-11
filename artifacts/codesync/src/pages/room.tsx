@@ -18,7 +18,7 @@ import { AIPanel } from "@/components/AIPanel";
 import { Terminal, TerminalHandle } from "@/components/Terminal";
 import { SessionSidebar } from "@/components/SessionSidebar";
 import { Button } from "@/components/ui/button";
-import { useUser } from "@clerk/react";
+import { useUser, useAuth } from "@clerk/react";
 
 
 const LANG_LABELS: Record<string, string> = {
@@ -71,11 +71,21 @@ export default function RoomPage() {
   const roomId = params.roomId;
   const [, setLocation] = useLocation();
   const { user: clerkUser, isLoaded: clerkLoaded, isSignedIn } = useUser();
+  const { getToken } = useAuth();
   const qc = useQueryClient();
 
   // Only treat as guest when Clerk has fully loaded AND confirmed the user is NOT signed in.
   // During the OAuth redirect window (isLoaded=false), we must not decide yet.
   const isGuest = clerkLoaded && !isSignedIn && !!localStorage.getItem("codesync_guest_token");
+
+  // When the user signs in via Clerk (e.g. Google OAuth), clear any leftover guest data
+  useEffect(() => {
+    if (clerkLoaded && isSignedIn) {
+      localStorage.removeItem("codesync_guest_token");
+      localStorage.removeItem("codesync_guest_user_id");
+      localStorage.removeItem("codesync_guest_username");
+    }
+  }, [clerkLoaded, isSignedIn]);
 
   const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
 
@@ -215,13 +225,28 @@ export default function RoomPage() {
     let cancelled = false;
 
     void (async () => {
+      // Wait for Clerk to fully load before attempting any auth
+      if (!clerkLoaded) return;
+
       const guestToken = localStorage.getItem("codesync_guest_token") ?? "";
 
       // Request a collaboration token from the server (validates auth server-side)
       let collabToken = "";
       try {
         const headers: Record<string, string> = { "Content-Type": "application/json" };
-        if (guestToken) headers["x-guest-token"] = guestToken;
+
+        // Prefer Clerk JWT over guest token (handles OAuth redirects where cookies lag)
+        if (isSignedIn) {
+          try {
+            const clerkJwt = await getToken();
+            if (clerkJwt) headers["Authorization"] = `Bearer ${clerkJwt}`;
+          } catch {
+            // Non-fatal: fall back to cookie-based Clerk auth
+          }
+        } else if (guestToken) {
+          headers["x-guest-token"] = guestToken;
+        }
+
         const tokenResp = await fetch("/api/collab/token", { method: "POST", headers });
         if (tokenResp.ok) {
           const tokenData = await tokenResp.json() as { token: string };
@@ -313,7 +338,7 @@ export default function RoomPage() {
       ydocRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeFileId, roomId]);
+  }, [activeFileId, roomId, clerkLoaded, isSignedIn]);
 
   function handleEditorChange(value: string | undefined) {
     if (isRemoteUpdate.current) return;
@@ -526,21 +551,36 @@ export default function RoomPage() {
           </Button>
         )}
 
-        {/* Members */}
-        <div className="flex items-center gap-1 ml-2">
-          {connectedMembers.slice(0, 5).map((m) => (
-            <div
-              key={m.userId}
-              className="w-6 h-6 rounded flex items-center justify-center text-xs font-bold"
-              style={{ background: m.color, color: "#0D1117", fontSize: 9 }}
-              title={m.username}
-            >
-              {m.username.slice(0, 2).toUpperCase()}
-            </div>
-          ))}
-          {connectedMembers.length > 5 && (
-            <span className="text-xs" style={{ color: "#8B949E" }}>+{connectedMembers.length - 5}</span>
-          )}
+        {/* Members — live count from WebSocket awareness */}
+        <div
+          className="flex items-center gap-2 px-2.5 py-1 rounded-lg"
+          style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)" }}
+        >
+          {/* Avatar stack */}
+          <div className="flex items-center" style={{ gap: -2 }}>
+            {connectedMembers.slice(0, 4).map((m, i) => (
+              <div
+                key={m.userId}
+                className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold ring-1 ring-[#161B22]"
+                style={{ background: m.color, color: "#0D1117", zIndex: 4 - i, marginLeft: i > 0 ? -5 : 0 }}
+                title={m.username}
+              >
+                {m.username.slice(0, 1).toUpperCase()}
+              </div>
+            ))}
+          </div>
+          {/* Count */}
+          <span className="text-xs font-medium" style={{ color: "#8B949E" }}>
+            {connectedMembers.length}
+            {room?.maxUsers ? `/${room.maxUsers}` : ""}
+          </span>
+          {/* Online dot */}
+          <motion.div
+            className="w-1.5 h-1.5 rounded-full"
+            style={{ background: connectedMembers.length > 0 ? "#3FB950" : "#484F58" }}
+            animate={connectedMembers.length > 0 ? { opacity: [1, 0.4, 1] } : { opacity: 0.4 }}
+            transition={{ duration: 2, repeat: Infinity }}
+          />
         </div>
 
         <div className="ml-auto flex items-center gap-1">

@@ -24,11 +24,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+// ─── Create Room Modal ────────────────────────────────────────────────────────
+
 function CreateRoomModal({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const [title, setTitle] = useState("");
+  const [title, setTitle]           = useState("");
   const [description, setDescription] = useState("");
-  const [isPrivate, setIsPrivate] = useState(false);
-  const [maxUsers, setMaxUsers] = useState(5);
+  const [isPrivate, setIsPrivate]   = useState(false);
+  const [maxUsers, setMaxUsers]     = useState(5);
   const [createError, setCreateError] = useState("");
   const [, setLocation] = useLocation();
   const qc = useQueryClient();
@@ -43,6 +45,7 @@ function CreateRoomModal({ open, onClose }: { open: boolean; onClose: () => void
         onSuccess: (room) => {
           qc.invalidateQueries({ queryKey: getListRoomsQueryKey() });
           onClose();
+          setTitle(""); setDescription(""); setIsPrivate(false); setMaxUsers(5);
           setLocation(`/room/${room.id}`);
         },
         onError: (err) => {
@@ -60,15 +63,11 @@ function CreateRoomModal({ open, onClose }: { open: boolean; onClose: () => void
   }
 
   const inputStyle: React.CSSProperties = {
-    width: "100%",
-    height: 42,
+    width: "100%", height: 42,
     background: "rgba(255,255,255,0.04)",
     border: "1px solid rgba(255,255,255,0.1)",
-    borderRadius: 10,
-    color: "#fff",
-    fontSize: 14,
-    padding: "0 14px",
-    outline: "none",
+    borderRadius: 10, color: "#fff", fontSize: 14,
+    padding: "0 14px", outline: "none",
     fontFamily: "'Inter', sans-serif",
   };
 
@@ -76,7 +75,7 @@ function CreateRoomModal({ open, onClose }: { open: boolean; onClose: () => void
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent
         style={{
-          background: "rgba(10,10,10,0.92)",
+          background: "rgba(10,10,10,0.96)",
           backdropFilter: "blur(32px)",
           border: "1px solid rgba(255,255,255,0.1)",
           color: "#fff",
@@ -86,7 +85,9 @@ function CreateRoomModal({ open, onClose }: { open: boolean; onClose: () => void
         <DialogHeader>
           <DialogTitle style={{ color: "#fff", fontWeight: 700 }}>Создать комнату</DialogTitle>
         </DialogHeader>
-        <div className="flex flex-col gap-3 mt-1">
+
+        <div className="flex flex-col gap-4 mt-1">
+          {/* Title */}
           <input
             placeholder="Название комнаты"
             value={title}
@@ -94,7 +95,10 @@ function CreateRoomModal({ open, onClose }: { open: boolean; onClose: () => void
             onKeyDown={(e) => e.key === "Enter" && handleCreate()}
             style={inputStyle}
             data-testid="input-room-title"
+            autoFocus
           />
+
+          {/* Description */}
           <input
             placeholder="Описание (необязательно)"
             value={description}
@@ -102,56 +106,123 @@ function CreateRoomModal({ open, onClose }: { open: boolean; onClose: () => void
             style={inputStyle}
             data-testid="input-room-description"
           />
-          <label className="flex items-center gap-2 cursor-pointer" data-testid="toggle-private">
-            <input
-              type="checkbox"
-              checked={isPrivate}
-              onChange={(e) => setIsPrivate(e.target.checked)}
-              className="w-4 h-4"
-              style={{ accentColor: "#fff" }}
-            />
-            <span className="text-sm" style={{ color: "rgba(255,255,255,0.5)" }}>Приватная комната</span>
-          </label>
+
+          {/* Private toggle */}
+          <button
+            type="button"
+            onClick={() => setIsPrivate(p => !p)}
+            data-testid="toggle-private"
+            className="flex items-center gap-3 w-full px-4 py-3 rounded-xl transition-all text-left"
+            style={{
+              background: isPrivate ? "rgba(255,255,255,0.07)" : "rgba(255,255,255,0.03)",
+              border: `1px solid ${isPrivate ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.08)"}`,
+              cursor: "pointer",
+            }}
+          >
+            {/* Lock icon */}
+            <div
+              className="flex items-center justify-center rounded-lg shrink-0"
+              style={{
+                width: 34, height: 34,
+                background: isPrivate ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.04)",
+                transition: "all 0.2s",
+              }}
+            >
+              {isPrivate ? (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.9)" strokeWidth="2">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                </svg>
+              ) : (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="2">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                  <path d="M7 11V7a5 5 0 0 1 9.9-1"/>
+                </svg>
+              )}
+            </div>
+            <div className="flex-1">
+              <div style={{ color: isPrivate ? "#fff" : "rgba(255,255,255,0.5)", fontSize: 14, fontWeight: 600, transition: "color 0.2s" }}>
+                {isPrivate ? "Приватная комната" : "Публичная комната"}
+              </div>
+              <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 12, marginTop: 1 }}>
+                {isPrivate ? "Доступна только по коду приглашения" : "Видна всем пользователям"}
+              </div>
+            </div>
+            {/* Pill toggle indicator */}
+            <div
+              className="rounded-full transition-all shrink-0 flex items-center"
+              style={{
+                width: 38, height: 22,
+                background: isPrivate ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.12)",
+                padding: 3,
+              }}
+            >
+              <div
+                className="rounded-full transition-all"
+                style={{
+                  width: 16, height: 16,
+                  background: isPrivate ? "#000" : "rgba(255,255,255,0.5)",
+                  transform: isPrivate ? "translateX(16px)" : "translateX(0)",
+                }}
+              />
+            </div>
+          </button>
+
+          {/* Max users slider */}
           <div>
-            <p className="text-xs mb-2" style={{ color: "rgba(255,255,255,0.4)" }}>Макс. участников: <span style={{ color: "#fff", fontWeight: 600 }}>{maxUsers}</span></p>
-            <div className="flex gap-1.5">
-              {[1, 2, 3, 4, 5].map((n) => (
-                <button
-                  key={n}
-                  onClick={() => setMaxUsers(n)}
-                  style={{
-                    flex: 1,
-                    height: 34,
-                    borderRadius: 8,
-                    border: `1px solid ${maxUsers === n ? "rgba(255,255,255,0.5)" : "rgba(255,255,255,0.1)"}`,
-                    background: maxUsers === n ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.03)",
-                    color: maxUsers === n ? "#fff" : "rgba(255,255,255,0.45)",
-                    fontWeight: maxUsers === n ? 700 : 400,
-                    fontSize: 14,
-                    cursor: "pointer",
-                    transition: "all 0.15s",
-                  }}
-                >
-                  {n}
-                </button>
+            <div className="flex items-center justify-between mb-2">
+              <p style={{ color: "rgba(255,255,255,0.45)", fontSize: 13 }}>Максимум участников</p>
+              <div
+                className="font-mono font-bold px-2.5 py-0.5 rounded-md"
+                style={{
+                  background: "rgba(255,255,255,0.08)",
+                  color: "#fff",
+                  fontSize: 14,
+                  minWidth: 28,
+                  textAlign: "center",
+                }}
+              >
+                {maxUsers}
+              </div>
+            </div>
+            <div className="relative flex items-center gap-3">
+              <span style={{ color: "rgba(255,255,255,0.3)", fontSize: 12, width: 12, textAlign: "center" }}>1</span>
+              <input
+                type="range"
+                min={1} max={5} step={1}
+                value={maxUsers}
+                onChange={(e) => setMaxUsers(Number(e.target.value))}
+                className="flex-1 slider-track"
+                style={{ accentColor: "#fff", cursor: "pointer", height: 4 }}
+                data-testid="slider-max-users"
+              />
+              <span style={{ color: "rgba(255,255,255,0.3)", fontSize: 12, width: 12, textAlign: "center" }}>5</span>
+            </div>
+            {/* Tick marks */}
+            <div className="flex justify-between mt-1.5 px-4">
+              {[1,2,3,4,5].map(n => (
+                <div key={n} className="flex flex-col items-center gap-0.5">
+                  <div style={{ width: 1, height: 4, background: n === maxUsers ? "rgba(255,255,255,0.5)" : "rgba(255,255,255,0.12)" }} />
+                  <span style={{ fontSize: 10, color: n === maxUsers ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.2)" }}>{n}</span>
+                </div>
               ))}
             </div>
           </div>
+
           {createError && <p className="text-sm" style={{ color: "#ef4444" }}>{createError}</p>}
+
           <div className="flex gap-2 mt-1">
             <button
               onClick={handleCreate}
               disabled={!title.trim() || createRoom.isPending}
               style={{
-                flex: 1,
-                height: 40,
-                background: title.trim() ? "#fff" : "rgba(255,255,255,0.1)",
+                flex: 1, height: 42,
+                background: title.trim() ? "#fff" : "rgba(255,255,255,0.08)",
                 color: title.trim() ? "#000" : "rgba(255,255,255,0.3)",
-                border: "none",
-                borderRadius: 10,
-                fontWeight: 600,
-                fontSize: 14,
+                border: "none", borderRadius: 10,
+                fontWeight: 600, fontSize: 14,
                 cursor: title.trim() ? "pointer" : "not-allowed",
+                transition: "all 0.15s",
               }}
               data-testid="btn-confirm-create"
             >
@@ -160,14 +231,11 @@ function CreateRoomModal({ open, onClose }: { open: boolean; onClose: () => void
             <button
               onClick={onClose}
               style={{
-                height: 40,
-                padding: "0 16px",
+                height: 42, padding: "0 16px",
                 background: "rgba(255,255,255,0.05)",
                 color: "rgba(255,255,255,0.5)",
                 border: "1px solid rgba(255,255,255,0.08)",
-                borderRadius: 10,
-                cursor: "pointer",
-                fontSize: 14,
+                borderRadius: 10, cursor: "pointer", fontSize: 14,
               }}
             >
               Отмена
@@ -178,6 +246,8 @@ function CreateRoomModal({ open, onClose }: { open: boolean; onClose: () => void
     </Dialog>
   );
 }
+
+// ─── Room Card ────────────────────────────────────────────────────────────────
 
 interface Room {
   id: string;
@@ -190,45 +260,69 @@ interface Room {
   createdAt: string;
 }
 
+function MemberDots({ count, max }: { count: number; max: number }) {
+  return (
+    <div className="flex items-center gap-1">
+      {Array.from({ length: max }).map((_, i) => (
+        <div
+          key={i}
+          className="rounded-full"
+          style={{
+            width: 6, height: 6,
+            background: i < count ? "#3fb950" : "rgba(255,255,255,0.1)",
+            transition: "background 0.3s",
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
 function RoomCard({ room, onOpen, onDelete }: { room: Room; onOpen: () => void; onDelete: () => void }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.97 }}
-      className="room-card glass rounded-xl p-4 flex flex-col"
-      style={{ minHeight: 110 }}
+      className="glass rounded-xl p-4 flex flex-col transition-all hover:border-white/10"
+      style={{ minHeight: 120, cursor: "default", border: "1px solid transparent" }}
       data-testid={`card-room-${room.id}`}
+      whileHover={{ borderColor: "rgba(255,255,255,0.09)", background: "rgba(255,255,255,0.03)" }}
     >
-      {/* Top: title + menu */}
-      <div className="flex items-start justify-between gap-2 mb-1">
+      {/* Top: title + badge + menu */}
+      <div className="flex items-start justify-between gap-2 mb-2">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <h3 className="text-sm font-semibold truncate" style={{ color: "#fff" }}>
+            <h3 className="text-sm font-semibold truncate" style={{ color: "#e6edf3" }}>
               {room.title}
             </h3>
             {room.isPrivate && (
               <span
-                className="text-xs px-1.5 py-0.5 rounded-md shrink-0"
+                className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-md shrink-0"
                 style={{
-                  background: "rgba(255,255,255,0.06)",
+                  background: "rgba(255,255,255,0.05)",
                   color: "rgba(255,255,255,0.4)",
-                  border: "1px solid rgba(255,255,255,0.1)",
+                  border: "1px solid rgba(255,255,255,0.09)",
                   fontSize: 10,
                 }}
               >
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                </svg>
                 Приватная
               </span>
             )}
           </div>
           {room.description && (
-            <p className="text-xs mt-0.5 line-clamp-2" style={{ color: "rgba(255,255,255,0.35)" }}>{room.description}</p>
+            <p className="text-xs mt-0.5 line-clamp-1" style={{ color: "rgba(255,255,255,0.3)" }}>
+              {room.description}
+            </p>
           )}
         </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
-              className="p-1 rounded opacity-25 hover:opacity-60 transition-opacity shrink-0"
+              className="p-1 rounded opacity-20 hover:opacity-60 transition-opacity shrink-0"
               style={{ color: "rgba(255,255,255,0.8)", background: "none", border: "none", cursor: "pointer" }}
             >
               <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
@@ -238,10 +332,11 @@ function RoomCard({ room, onOpen, onDelete }: { room: Room; onOpen: () => void; 
           </DropdownMenuTrigger>
           <DropdownMenuContent
             style={{
-              background: "rgba(12,12,12,0.92)",
+              background: "rgba(12,12,12,0.96)",
               backdropFilter: "blur(20px)",
               border: "1px solid rgba(255,255,255,0.1)",
               boxShadow: "0 16px 48px rgba(0,0,0,0.7)",
+              zIndex: 9999,
             }}
           >
             <DropdownMenuItem style={{ color: "#ef4444" }} onClick={onDelete}>
@@ -251,22 +346,26 @@ function RoomCard({ room, onOpen, onDelete }: { room: Room; onOpen: () => void; 
         </DropdownMenu>
       </div>
 
-      {/* Spacer — pushes bottom row to the card bottom */}
       <div className="flex-1" />
 
-      {/* Bottom: online count + invite code + open button — always at card bottom */}
-      <div className="flex items-center justify-between pt-3" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-        <div className="flex items-center gap-2">
-          <span className="flex items-center gap-1.5 text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>
-            <span className="online-dot" />
-            {room.memberCount}/{room.maxUsers}
-          </span>
+      {/* Bottom */}
+      <div className="flex items-center justify-between pt-3" style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+        <div className="flex items-center gap-3">
+          {/* Live member dots */}
+          <div className="flex flex-col gap-1">
+            <MemberDots count={room.memberCount} max={room.maxUsers} />
+            <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 10 }}>
+              {room.memberCount}/{room.maxUsers} онлайн
+            </span>
+          </div>
+
+          {/* Invite code */}
           <span
             className="text-xs font-mono px-2 py-0.5 rounded-md"
             style={{
               background: "rgba(255,255,255,0.04)",
-              color: "rgba(255,255,255,0.3)",
-              border: "1px solid rgba(255,255,255,0.07)",
+              color: "rgba(255,255,255,0.28)",
+              border: "1px solid rgba(255,255,255,0.06)",
               letterSpacing: "0.08em",
             }}
           >
@@ -275,13 +374,8 @@ function RoomCard({ room, onOpen, onDelete }: { room: Room; onOpen: () => void; 
         </div>
         <button
           onClick={onOpen}
-          className="text-xs px-3 py-1.5 rounded-lg font-semibold transition-all hover:opacity-90"
-          style={{
-            background: "#fff",
-            color: "#000",
-            border: "none",
-            cursor: "pointer",
-          }}
+          className="text-xs px-3 py-1.5 rounded-lg font-semibold transition-all hover:opacity-90 active:scale-95"
+          style={{ background: "#fff", color: "#000", border: "none", cursor: "pointer" }}
           data-testid={`btn-open-room-${room.id}`}
         >
           Открыть
@@ -291,22 +385,131 @@ function RoomCard({ room, onOpen, onDelete }: { room: Room; onOpen: () => void; 
   );
 }
 
+// ─── Join by code bar ─────────────────────────────────────────────────────────
+
+function JoinBar({ isGuest, guestToken }: { isGuest: boolean; guestToken: string | null }) {
+  const [code, setCode]         = useState("");
+  const [error, setError]       = useState("");
+  const [isJoining, setJoining] = useState(false);
+  const [, setLocation] = useLocation();
+  const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+  async function handleJoin() {
+    if (!code.trim()) return;
+    setJoining(true); setError("");
+    try {
+      const headers: Record<string, string> = {};
+      if (guestToken) headers["x-guest-token"] = guestToken;
+      const resp = await fetch(`${basePath}/api/rooms/join/${code.trim().toUpperCase()}`, { headers });
+      if (!resp.ok) { setError("Комната не найдена или недоступна"); return; }
+      const room = await resp.json() as { id: string };
+      setLocation(`/room/${room.id}`);
+    } catch {
+      setError("Ошибка подключения");
+    } finally {
+      setJoining(false);
+    }
+  }
+
+  return (
+    <div
+      className="mb-6 rounded-xl overflow-hidden"
+      style={{
+        background: "rgba(255,255,255,0.02)",
+        border: "1px solid rgba(255,255,255,0.07)",
+      }}
+    >
+      <div
+        className="px-4 py-2.5 flex items-center gap-2"
+        style={{ borderBottom: "1px solid rgba(255,255,255,0.05)", background: "rgba(255,255,255,0.02)" }}
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="2">
+          <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+          <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+        </svg>
+        <span style={{ color: "rgba(255,255,255,0.4)", fontSize: 12, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+          Войти по коду приглашения
+        </span>
+      </div>
+      <div className="px-4 py-3 flex items-center gap-3 flex-wrap">
+        <div className="relative flex-1" style={{ minWidth: 160, maxWidth: 240 }}>
+          <input
+            placeholder="XXXXXXXX"
+            value={code}
+            onChange={(e) => { setCode(e.target.value.toUpperCase()); setError(""); }}
+            onKeyDown={(e) => e.key === "Enter" && handleJoin()}
+            style={{
+              width: "100%", height: 40,
+              background: "rgba(255,255,255,0.05)",
+              border: "1px solid rgba(255,255,255,0.1)",
+              borderRadius: 10,
+              color: "#fff",
+              fontSize: 14,
+              padding: "0 14px",
+              outline: "none",
+              fontFamily: "'JetBrains Mono', monospace",
+              letterSpacing: "0.14em",
+              textTransform: "uppercase",
+            }}
+            data-testid="input-join-code"
+          />
+        </div>
+        <button
+          onClick={handleJoin}
+          disabled={!code.trim() || isJoining}
+          style={{
+            height: 40, padding: "0 20px",
+            background: code.trim() ? "#fff" : "rgba(255,255,255,0.07)",
+            color: code.trim() ? "#000" : "rgba(255,255,255,0.3)",
+            border: "none", borderRadius: 10,
+            fontWeight: 600, fontSize: 14,
+            cursor: code.trim() ? "pointer" : "not-allowed",
+            transition: "all 0.15s",
+            whiteSpace: "nowrap",
+          }}
+          data-testid="btn-join-by-code"
+        >
+          {isJoining ? "Подключение..." : "Войти в комнату"}
+        </button>
+        <AnimatePresence>
+          {error && (
+            <motion.span
+              initial={{ opacity: 0, x: -8 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0 }}
+              style={{ color: "#ef4444", fontSize: 13 }}
+            >
+              {error}
+            </motion.span>
+          )}
+        </AnimatePresence>
+      </div>
+    </div>
+  );
+}
+
+// ─── Dashboard ────────────────────────────────────────────────────────────────
+
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 export default function Dashboard() {
   const { isSignedIn, isLoaded } = useUser();
   const [, setLocation] = useLocation();
   const [createOpen, setCreateOpen] = useState(false);
-  const [inviteCode, setInviteCode] = useState("");
-  const [joinError, setJoinError] = useState("");
-  const [isJoining, setIsJoining] = useState(false);
   const [search, setSearch] = useState("");
 
-  const guestToken = typeof window !== "undefined" ? localStorage.getItem("codesync_guest_token") : null;
+  const guestToken    = typeof window !== "undefined" ? localStorage.getItem("codesync_guest_token")    : null;
   const guestUsername = typeof window !== "undefined" ? localStorage.getItem("codesync_guest_username") : null;
-  // Only treat as guest when Clerk has fully loaded AND confirmed no signed-in user.
-  // Prevents Gmail/OAuth redirect window from briefly showing guest-mode UI.
   const isGuest = isLoaded && !isSignedIn && !!guestToken;
+
+  // Clear guest state when user signs in with Clerk
+  useEffect(() => {
+    if (isLoaded && isSignedIn) {
+      localStorage.removeItem("codesync_guest_token");
+      localStorage.removeItem("codesync_guest_user_id");
+      localStorage.removeItem("codesync_guest_username");
+    }
+  }, [isLoaded, isSignedIn]);
 
   useEffect(() => {
     if (isLoaded && !isSignedIn && !guestToken) setLocation("/");
@@ -315,47 +518,17 @@ export default function Dashboard() {
   const qc = useQueryClient();
   const searchParams = search ? { search } : undefined;
   const { data: rooms = [], isLoading } = useListRooms(searchParams, {
-    query: { queryKey: getListRoomsQueryKey(searchParams) },
+    query: { queryKey: getListRoomsQueryKey(searchParams), refetchInterval: 10_000 },
   });
   const deleteRoom = useDeleteRoom();
 
   if (isLoaded && !isSignedIn && !guestToken) return null;
-
-  async function handleJoinByCode() {
-    if (!inviteCode.trim()) return;
-    setIsJoining(true);
-    setJoinError("");
-    try {
-      const headers: Record<string, string> = {};
-      if (guestToken) headers["x-guest-token"] = guestToken;
-      const resp = await fetch(`${basePath}/api/rooms/join/${inviteCode.trim().toUpperCase()}`, { headers });
-      if (!resp.ok) { setJoinError("Комната не найдена"); return; }
-      const room = await resp.json() as { id: string };
-      setLocation(`/room/${room.id}`);
-    } catch {
-      setJoinError("Ошибка подключения");
-    } finally {
-      setIsJoining(false);
-    }
-  }
 
   function handleDelete(roomId: string) {
     deleteRoom.mutate({ roomId }, {
       onSuccess: () => { qc.invalidateQueries({ queryKey: getListRoomsQueryKey() }); },
     });
   }
-
-  const inputStyle: React.CSSProperties = {
-    background: "rgba(255,255,255,0.04)",
-    border: "1px solid rgba(255,255,255,0.09)",
-    borderRadius: 10,
-    color: "#fff",
-    fontSize: 13,
-    padding: "0 12px",
-    outline: "none",
-    height: 36,
-    fontFamily: "'Inter', sans-serif",
-  };
 
   return (
     <div className="min-h-screen flex flex-col" style={{ background: "#030303", color: "#f0f0f0", overflow: "auto" }}>
@@ -366,7 +539,7 @@ export default function Dashboard() {
         <header
           className="flex items-center justify-between px-6 py-3 sticky top-0 z-20"
           style={{
-            background: "rgba(3,3,3,0.7)",
+            background: "rgba(3,3,3,0.8)",
             borderBottom: "1px solid rgba(255,255,255,0.06)",
             backdropFilter: "blur(20px)",
           }}
@@ -375,34 +548,36 @@ export default function Dashboard() {
             <Logo size={26} />
             <span style={{ fontSize: 17, fontWeight: 700, color: "#fff" }}>CodeSync</span>
           </div>
+
           <div className="flex items-center gap-3">
             {isGuest ? (
               <>
-                <span
-                  className="text-xs px-3 py-1 rounded-full"
+                {/* Guest badge */}
+                <div
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-xl"
                   style={{
-                    background: "rgba(255,255,255,0.06)",
-                    border: "1px solid rgba(255,255,255,0.1)",
-                    color: "rgba(255,255,255,0.6)",
+                    background: "rgba(255,165,0,0.08)",
+                    border: "1px solid rgba(255,165,0,0.2)",
                   }}
                 >
-                  Гость: {guestUsername}
-                </span>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="rgba(255,165,0,0.8)" strokeWidth="2">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                    <circle cx="12" cy="7" r="4"/>
+                  </svg>
+                  <span style={{ color: "rgba(255,165,0,0.9)", fontSize: 12, fontWeight: 500 }}>
+                    Гость: {guestUsername}
+                  </span>
+                </div>
                 <SignInButton mode="modal">
                   <button
                     style={{
-                      height: 32,
-                      padding: "0 14px",
-                      background: "#fff",
-                      color: "#000",
-                      border: "none",
-                      borderRadius: 8,
-                      fontWeight: 600,
-                      fontSize: 13,
-                      cursor: "pointer",
+                      height: 32, padding: "0 16px",
+                      background: "#fff", color: "#000",
+                      border: "none", borderRadius: 8,
+                      fontWeight: 600, fontSize: 13, cursor: "pointer",
                     }}
                   >
-                    Войти
+                    Войти в аккаунт
                   </button>
                 </SignInButton>
               </>
@@ -411,15 +586,10 @@ export default function Dashboard() {
                 <button
                   onClick={() => setCreateOpen(true)}
                   style={{
-                    height: 32,
-                    padding: "0 14px",
-                    background: "#fff",
-                    color: "#000",
-                    border: "none",
-                    borderRadius: 8,
-                    fontWeight: 600,
-                    fontSize: 13,
-                    cursor: "pointer",
+                    height: 32, padding: "0 14px",
+                    background: "#fff", color: "#000",
+                    border: "none", borderRadius: 8,
+                    fontWeight: 600, fontSize: 13, cursor: "pointer",
                   }}
                   data-testid="btn-create-room"
                 >
@@ -432,72 +602,82 @@ export default function Dashboard() {
         </header>
 
         <main className="flex-1 max-w-5xl mx-auto w-full px-6 py-6">
-          {/* Join by code */}
-          <div
-            className="mb-6 p-4 rounded-xl glass flex items-center gap-3 flex-wrap dashboard-join-bar"
-          >
-            <span className="text-sm font-medium shrink-0" style={{ color: "rgba(255,255,255,0.4)" }}>
-              Войти в комнату:
-            </span>
-            <input
-              placeholder="Код приглашения"
-              value={inviteCode}
-              onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
-              onKeyDown={(e) => e.key === "Enter" && handleJoinByCode()}
-              style={{
-                ...inputStyle,
-                flex: 1,
-                maxWidth: 180,
-                fontFamily: "'JetBrains Mono', monospace",
-                letterSpacing: "0.1em",
-              }}
-              data-testid="input-join-code"
-            />
-            <button
-              onClick={handleJoinByCode}
-              disabled={!inviteCode.trim() || isJoining}
-              style={{
-                height: 36,
-                padding: "0 16px",
-                background: inviteCode.trim() ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.07)",
-                color: inviteCode.trim() ? "#000" : "rgba(255,255,255,0.3)",
-                border: "none",
-                borderRadius: 8,
-                fontWeight: 600,
-                fontSize: 13,
-                cursor: inviteCode.trim() ? "pointer" : "not-allowed",
-                transition: "all 0.15s",
-              }}
-              data-testid="btn-join-by-code"
-            >
-              {isJoining ? "..." : "Войти"}
-            </button>
-            {joinError && <span className="text-sm" style={{ color: "#ef4444" }}>{joinError}</span>}
-          </div>
+          {/* Guest mode banner */}
+          <AnimatePresence>
+            {isGuest && (
+              <motion.div
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                className="mb-5 p-4 rounded-xl flex items-center gap-4"
+                style={{
+                  background: "rgba(255,165,0,0.05)",
+                  border: "1px solid rgba(255,165,0,0.15)",
+                }}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,165,0,0.7)" strokeWidth="1.8" className="shrink-0">
+                  <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+                <div className="flex-1">
+                  <div style={{ color: "rgba(255,165,0,0.9)", fontSize: 13, fontWeight: 600 }}>Гостевой режим</div>
+                  <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 12, marginTop: 2 }}>
+                    Вы можете входить в комнаты по коду. Чтобы создавать комнаты и сохранять прогресс —
+                    <SignInButton mode="modal">
+                      <button style={{ color: "rgba(255,165,0,0.85)", background: "none", border: "none", cursor: "pointer", fontSize: 12, fontWeight: 600, marginLeft: 4 }}>
+                        войдите в аккаунт
+                      </button>
+                    </SignInButton>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-          {/* Rooms section header */}
+          {/* Join by code */}
+          <JoinBar isGuest={isGuest} guestToken={guestToken} />
+
+          {/* Rooms header */}
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold" style={{ color: "rgba(255,255,255,0.6)", letterSpacing: "0.05em", textTransform: "uppercase" }}>
-              Комнаты
-            </h2>
+            <div className="flex items-center gap-2">
+              <h2
+                style={{
+                  color: "rgba(255,255,255,0.5)",
+                  fontSize: 11,
+                  fontWeight: 600,
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                }}
+              >
+                Комнаты
+              </h2>
+              {rooms.length > 0 && (
+                <span
+                  className="px-1.5 py-0.5 rounded-md text-xs font-mono"
+                  style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.3)" }}
+                >
+                  {rooms.length}
+                </span>
+              )}
+            </div>
             <input
               placeholder="Поиск..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              style={{ ...inputStyle, width: 180 }}
+              style={{
+                height: 34, width: 180, padding: "0 12px",
+                background: "rgba(255,255,255,0.04)",
+                border: "1px solid rgba(255,255,255,0.08)",
+                borderRadius: 10, color: "#fff", fontSize: 13, outline: "none",
+              }}
               data-testid="input-search"
             />
           </div>
 
-          {/* Room list */}
+          {/* Room grid */}
           {isLoading ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {Array.from({ length: 6 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="h-28 rounded-xl animate-pulse"
-                  style={{ background: "rgba(255,255,255,0.03)" }}
-                />
+                <div key={i} className="h-28 rounded-xl animate-pulse" style={{ background: "rgba(255,255,255,0.03)" }} />
               ))}
             </div>
           ) : rooms.length > 0 ? (
@@ -519,24 +699,28 @@ export default function Dashboard() {
               </AnimatePresence>
             </motion.div>
           ) : (
-            <div className="text-center py-20" style={{ color: "rgba(255,255,255,0.25)" }}>
-              <p className="mb-4 text-sm">Нет публичных комнат</p>
-              <button
-                onClick={() => setCreateOpen(true)}
-                style={{
-                  height: 36,
-                  padding: "0 18px",
-                  background: "#fff",
-                  color: "#000",
-                  border: "none",
-                  borderRadius: 8,
-                  fontWeight: 600,
-                  fontSize: 13,
-                  cursor: "pointer",
-                }}
-              >
-                Создать первую
-              </button>
+            <div className="text-center py-20" style={{ color: "rgba(255,255,255,0.2)" }}>
+              <div className="mb-4">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ margin: "0 auto", opacity: 0.4 }}>
+                  <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/>
+                </svg>
+              </div>
+              <p className="mb-4 text-sm">
+                {isGuest ? "Нет публичных комнат. Войдите по коду приглашения." : "Нет публичных комнат"}
+              </p>
+              {!isGuest && (
+                <button
+                  onClick={() => setCreateOpen(true)}
+                  style={{
+                    height: 36, padding: "0 18px",
+                    background: "#fff", color: "#000",
+                    border: "none", borderRadius: 8,
+                    fontWeight: 600, fontSize: 13, cursor: "pointer",
+                  }}
+                >
+                  Создать первую
+                </button>
+              )}
             </div>
           )}
         </main>
