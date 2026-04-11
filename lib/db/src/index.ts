@@ -6,7 +6,7 @@ import path from "path";
 
 const { Pool } = pg;
 
-const envPath = path.resolve(__dirname, "..", "..", ".env");
+const envPath = path.resolve(process.cwd(), ".env");
 
 try {
   const envFile = readFileSync(envPath, "utf8");
