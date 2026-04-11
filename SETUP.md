@@ -43,7 +43,7 @@ pnpm install
 
 ### 2. Заполнить переменные окружения
 
-Создать файл `.env` в корне проекта (или выставить в Replit Secrets):
+Создать файл `.env` в корне проекта:
 
 ```env
 DATABASE_URL=postgresql://user:password@localhost:5432/codesync
@@ -51,8 +51,8 @@ CLERK_SECRET_KEY=sk_...
 CLERK_PUBLISHABLE_KEY=pk_...
 VITE_CLERK_PUBLISHABLE_KEY=pk_...
 VITE_CLERK_PROXY_URL=https://your-domain.com/clerk
-AI_INTEGRATIONS_OPENAI_BASE_URL=https://openai.replit.com
-AI_INTEGRATIONS_OPENAI_API_KEY=...
+AI_INTEGRATIONS_OPENAI_BASE_URL=https://api.openai.com
+AI_INTEGRATIONS_OPENAI_API_KEY=sk-...
 ```
 
 ### 3. Применить схему базы данных
@@ -103,15 +103,17 @@ Clerk обеспечивает авторизацию пользователей
 VITE_CLERK_PROXY_URL=https://your-domain.com/clerk
 ```
 
+Если proxy не нужен — переменную можно не задавать.
+
 ### Шаг 4. Настроить Redirect URLs
 
-В Clerk Dashboard → **Redirect URLs** добавить:
+В Clerk Dashboard → **Redirect URLs** добавить адреса вашего приложения:
 
 ```
 http://localhost:25034
 http://localhost:25034/dashboard
-https://your-domain.replit.app
-https://your-domain.replit.app/dashboard
+https://your-domain.com
+https://your-domain.com/dashboard
 ```
 
 ### Использование в проекте
@@ -128,33 +130,29 @@ https://your-domain.replit.app/dashboard
 - **Code Review** — анализ выбранного кода (SSE-стриминг)
 - **AI Chat** — диалог с ИИ, который может создавать/редактировать/удалять файлы в IDE через tool-calling
 
-### Вариант A — Replit AI Integrations (рекомендуется на Replit)
-
-Replit предоставляет проксированный доступ к OpenAI без необходимости иметь собственный API-ключ.
-
-1. В Replit открыть вкладку **Integrations**.
-2. Найти и подключить **OpenAI**.
-3. Переменные выставятся автоматически:
-
-```env
-AI_INTEGRATIONS_OPENAI_BASE_URL=https://openai.replit.com
-AI_INTEGRATIONS_OPENAI_API_KEY=<auto>
-```
-
-### Вариант B — Прямой ключ OpenAI
+### Получить API-ключ OpenAI
 
 1. Зайти на [platform.openai.com](https://platform.openai.com).
 2. Создать API-ключ в разделе **API keys**.
-3. Выставить переменные:
+3. Выставить переменные окружения:
 
 ```env
 AI_INTEGRATIONS_OPENAI_BASE_URL=https://api.openai.com
 AI_INTEGRATIONS_OPENAI_API_KEY=sk-...
 ```
 
+### Альтернативный провайдер (OpenAI-совместимый)
+
+Если используется прокси или другой OpenAI-совместимый провайдер (Azure, Together AI, Groq и др.), достаточно изменить `BASE_URL`:
+
+```env
+AI_INTEGRATIONS_OPENAI_BASE_URL=https://your-proxy.example.com
+AI_INTEGRATIONS_OPENAI_API_KEY=<ключ провайдера>
+```
+
 ### Использование в проекте
 
-- **Сервер OpenAI**: `lib/integrations-openai-ai-server/`
+- **Клиент OpenAI**: `lib/integrations-openai-ai-server/`
 - **AI-маршруты**: `artifacts/api-server/src/routes/ai.ts`
   - `POST /api/ai/chat` — чат с ИИ (SSE)
   - `POST /api/ai/review` — code review (SSE)
@@ -177,34 +175,31 @@ AI_INTEGRATIONS_OPENAI_API_KEY=sk-...
 | `yjs_snapshots` | Снапшоты Yjs-документов |
 | `file_snapshots` | История версий файлов |
 
-### Вариант A — Replit Database (рекомендуется на Replit)
-
-1. В Replit открыть **Database** (вкладка слева).
-2. Создать PostgreSQL базу.
-3. Переменная `DATABASE_URL` выставится автоматически.
-4. Применить схему:
-
-```bash
-pnpm --filter @workspace/db run push
-```
-
-### Вариант B — Локальный PostgreSQL
+### Локальный PostgreSQL
 
 ```bash
 # Создать базу данных
 createdb codesync
 
-# Выставить переменную
+# Задать переменную окружения
 DATABASE_URL=postgresql://postgres:password@localhost:5432/codesync
 
 # Применить схему
 pnpm --filter @workspace/db run push
 ```
 
-### Вариант C — Supabase / Neon / PlanetScale-compatible
+### Облачная БД (Supabase, Neon, Railway и др.)
+
+Создать базу данных в выбранном сервисе, скопировать строку подключения и задать переменную:
 
 ```env
-DATABASE_URL=postgresql://user:password@db.supabase.co:5432/postgres
+DATABASE_URL=postgresql://user:password@db.example.com:5432/codesync
+```
+
+Затем применить схему:
+
+```bash
+pnpm --filter @workspace/db run push
 ```
 
 ---
@@ -220,23 +215,11 @@ DATABASE_URL=postgresql://user:password@db.supabase.co:5432/postgres
 | `CLERK_PUBLISHABLE_KEY` | Да | Clerk публичный ключ (backend) |
 | `VITE_CLERK_PUBLISHABLE_KEY` | Да | Clerk публичный ключ (frontend Vite) |
 | `VITE_CLERK_PROXY_URL` | Нет | URL прокси Clerk (для production) |
-| `AI_INTEGRATIONS_OPENAI_BASE_URL` | Да | Базовый URL OpenAI или прокси |
+| `AI_INTEGRATIONS_OPENAI_BASE_URL` | Да | Базовый URL OpenAI или совместимого провайдера |
 | `AI_INTEGRATIONS_OPENAI_API_KEY` | Да | API-ключ OpenAI |
 | `PORT` | Нет | Порт API-сервера (по умолчанию 8080) |
 
-### На Replit
-
-Все секреты задаются через вкладку **Secrets** в Replit (никогда не коммитить в git):
-
-```
-DATABASE_URL         → автоматически из Replit Database
-CLERK_SECRET_KEY     → вручную
-CLERK_PUBLISHABLE_KEY → вручную
-VITE_CLERK_PUBLISHABLE_KEY → вручную
-VITE_CLERK_PROXY_URL → автоматически из Clerk Integration
-AI_INTEGRATIONS_OPENAI_BASE_URL → автоматически из OpenAI Integration
-AI_INTEGRATIONS_OPENAI_API_KEY  → автоматически из OpenAI Integration
-```
+> **Важно**: никогда не коммитить файл `.env` в git. Добавьте его в `.gitignore`.
 
 ---
 
@@ -397,16 +380,16 @@ pnpm run build
 ## Частые проблемы
 
 ### `CLERK_SECRET_KEY is not set`
-Убедитесь, что переменная задана в Replit Secrets или в `.env`. Проверьте, что backend перезапущен после изменения.
+Убедитесь, что переменная задана в `.env`. Проверьте, что backend перезапущен после изменения.
 
 ### `DATABASE_URL connection refused`
-Проверьте, что PostgreSQL запущен и строка подключения корректна. На Replit используйте встроенную базу данных.
+Проверьте, что PostgreSQL запущен и строка подключения корректна. Убедитесь, что база данных создана командой `createdb codesync`.
 
 ### `Cannot find module '@workspace/db'`
 Запустите `pnpm install` — возможно, зависимости не были установлены после клонирования.
 
 ### AI не отвечает
-Проверьте переменные `AI_INTEGRATIONS_OPENAI_BASE_URL` и `AI_INTEGRATIONS_OPENAI_API_KEY`. На Replit подключите OpenAI через Integrations.
+Проверьте переменные `AI_INTEGRATIONS_OPENAI_BASE_URL` и `AI_INTEGRATIONS_OPENAI_API_KEY`. Убедитесь, что API-ключ действителен и есть баланс на аккаунте OpenAI.
 
 ### Изменения в OpenAPI спеке не применяются
 После правок `lib/api-spec/openapi.yaml` запустите:
