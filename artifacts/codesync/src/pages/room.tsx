@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { useParams, useLocation } from "wouter";
 import { motion } from "framer-motion";
 import Editor, { OnMount } from "@monaco-editor/react";
@@ -18,7 +19,7 @@ import { AIPanel } from "@/components/AIPanel";
 import { Terminal, TerminalHandle } from "@/components/Terminal";
 import { SessionSidebar } from "@/components/SessionSidebar";
 import { Button } from "@/components/ui/button";
-import { useUser, useAuth } from "@clerk/react";
+import { useAuth } from "@workspace/replit-auth-web";
 
 
 const LANG_LABELS: Record<string, string> = {
@@ -70,22 +71,19 @@ export default function RoomPage() {
   const params = useParams<{ roomId: string }>();
   const roomId = params.roomId;
   const [, setLocation] = useLocation();
-  const { user: clerkUser, isLoaded: clerkLoaded, isSignedIn } = useUser();
-  const { getToken } = useAuth();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
   const qc = useQueryClient();
 
-  // Only treat as guest when Clerk has fully loaded AND confirmed the user is NOT signed in.
-  // During the OAuth redirect window (isLoaded=false), we must not decide yet.
-  const isGuest = clerkLoaded && !isSignedIn && !!localStorage.getItem("codesync_guest_token");
+  const isGuest = !authLoading && !isAuthenticated && !!localStorage.getItem("codesync_guest_token");
 
-  // When the user signs in via Clerk (e.g. Google OAuth), clear any leftover guest data
+  // When the user signs in, clear any leftover guest data
   useEffect(() => {
-    if (clerkLoaded && isSignedIn) {
+    if (!authLoading && isAuthenticated) {
       localStorage.removeItem("codesync_guest_token");
       localStorage.removeItem("codesync_guest_user_id");
       localStorage.removeItem("codesync_guest_username");
     }
-  }, [clerkLoaded, isSignedIn]);
+  }, [authLoading, isAuthenticated]);
 
   const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
 
@@ -225,29 +223,20 @@ export default function RoomPage() {
     let cancelled = false;
 
     void (async () => {
-      // Wait for Clerk to fully load before attempting any auth
-      if (!clerkLoaded) return;
+      // Wait for auth to load before connecting
+      if (authLoading) return;
 
       const guestToken = localStorage.getItem("codesync_guest_token") ?? "";
 
-      // Request a collaboration token from the server (validates auth server-side)
       let collabToken = "";
       try {
         const headers: Record<string, string> = { "Content-Type": "application/json" };
 
-        // Prefer Clerk JWT over guest token (handles OAuth redirects where cookies lag)
-        if (isSignedIn) {
-          try {
-            const clerkJwt = await getToken();
-            if (clerkJwt) headers["Authorization"] = `Bearer ${clerkJwt}`;
-          } catch {
-            // Non-fatal: fall back to cookie-based Clerk auth
-          }
-        } else if (guestToken) {
+        if (!isAuthenticated && guestToken) {
           headers["x-guest-token"] = guestToken;
         }
 
-        const tokenResp = await fetch("/api/collab/token", { method: "POST", headers });
+        const tokenResp = await fetch("/api/collab/token", { method: "POST", headers, credentials: "include" });
         if (tokenResp.ok) {
           const tokenData = await tokenResp.json() as { token: string };
           collabToken = tokenData.token;
@@ -338,7 +327,7 @@ export default function RoomPage() {
       ydocRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeFileId, roomId, clerkLoaded, isSignedIn]);
+  }, [activeFileId, roomId, authLoading, isAuthenticated]);
 
   function handleEditorChange(value: string | undefined) {
     if (isRemoteUpdate.current) return;
@@ -612,18 +601,18 @@ export default function RoomPage() {
                 <path d="M8 10.94L2.53 5.47a.75.75 0 0 0-1.06 1.06l6 6a.75.75 0 0 0 1.06 0l6-6a.75.75 0 0 0-1.06-1.06L8 10.94z"/>
               </svg>
             </button>
-            {themeMenuOpen && themeMenuPos && (
+            {themeMenuOpen && themeMenuPos && createPortal(
               <div
                 data-theme-selector=""
                 style={{
                   position: "fixed",
                   top: themeMenuPos.top,
                   right: themeMenuPos.right,
-                  zIndex: 9999,
-                  background: "rgba(13,17,23,0.97)",
-                  border: "1px solid rgba(255,255,255,0.12)",
-                  boxShadow: "0 16px 48px rgba(0,0,0,0.8)",
-                  minWidth: 160,
+                  zIndex: 2147483647,
+                  background: "rgba(13,17,23,0.98)",
+                  border: "1px solid rgba(255,255,255,0.14)",
+                  boxShadow: "0 20px 60px rgba(0,0,0,0.9)",
+                  minWidth: 180,
                   borderRadius: 8,
                   overflow: "hidden",
                 }}
@@ -632,6 +621,7 @@ export default function RoomPage() {
                   <button
                     key={theme.id}
                     onClick={() => handleThemeChange(theme.id)}
+                    data-theme-selector=""
                     className="w-full text-left px-3 py-2 text-xs transition-colors hover:bg-white/8"
                     style={{
                       color: theme.id === editorTheme ? "#fff" : "#8B949E",
@@ -643,14 +633,15 @@ export default function RoomPage() {
                       gap: 8,
                     }}
                   >
-                    {theme.id === editorTheme && (
-                      <span style={{ color: "#3FB950", fontSize: 10 }}>✓</span>
-                    )}
-                    {theme.id !== editorTheme && <span style={{ width: 14 }} />}
+                    {theme.id === editorTheme
+                      ? <span style={{ color: "#3FB950", fontSize: 10 }}>✓</span>
+                      : <span style={{ width: 14 }} />
+                    }
                     {theme.label}
                   </button>
                 ))}
-              </div>
+              </div>,
+              document.body
             )}
           </div>
 

@@ -1,26 +1,27 @@
 import { useGetMe, getGetMeQueryKey } from "@workspace/api-client-react";
-import { useUser } from "@clerk/react";
+import { useAuth } from "@workspace/replit-auth-web";
 
 export function useCurrentUser() {
-  const { isSignedIn, user: clerkUser, isLoaded } = useUser();
-  const { data: me, isLoading } = useGetMe({
-    query: { enabled: isLoaded, queryKey: getGetMeQueryKey() },
-  });
+  const { isAuthenticated: sessionAuth, isLoading: authLoading } = useAuth();
 
   const guestToken = typeof window !== "undefined" ? localStorage.getItem("codesync_guest_token") : null;
   const guestUsername = typeof window !== "undefined" ? localStorage.getItem("codesync_guest_username") : null;
 
-  const isGuest = !isSignedIn && !!guestToken;
-  const isAuthenticated = !!isSignedIn || isGuest;
+  const isGuest = !authLoading && !sessionAuth && !!guestToken;
+  const isSignedIn = !authLoading && sessionAuth;
+  const isAuthenticated = isSignedIn || isGuest;
+
+  const { data: me, isLoading: meLoading } = useGetMe({
+    query: { enabled: !authLoading, queryKey: getGetMeQueryKey() },
+  });
 
   return {
     user: me,
-    isLoading: !isLoaded || isLoading,
+    isLoading: authLoading || meLoading,
     isSignedIn,
     isGuest,
     isAuthenticated,
     guestToken,
     guestUsername,
-    clerkUser,
   };
 }

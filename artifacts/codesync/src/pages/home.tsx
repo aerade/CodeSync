@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
-import { motion, useInView, AnimatePresence } from "framer-motion";
-import { useUser, SignInButton, SignUpButton } from "@clerk/react";
+import { motion, useInView } from "framer-motion";
+import { useAuth } from "@workspace/replit-auth-web";
 import { Logo } from "@/components/Logo";
 import { GuestModal } from "@/components/GuestModal";
 
@@ -190,7 +190,7 @@ function hexToRgb(hex: string): string {
 }
 
 export default function Home() {
-  const { isSignedIn, isLoaded } = useUser();
+  const { isAuthenticated, isLoading, login } = useAuth();
   const [, setLocation] = useLocation();
   const [showGuestModal, setShowGuestModal] = useState(false);
   const heroRef = useRef<HTMLDivElement>(null);
@@ -198,10 +198,10 @@ export default function Home() {
   const stepsInView = useInView(useRef<HTMLDivElement>(null), { once: true });
 
   useEffect(() => {
-    if (isLoaded && isSignedIn) setLocation("/dashboard");
-  }, [isLoaded, isSignedIn, setLocation]);
+    if (!isLoading && isAuthenticated) setLocation("/dashboard");
+  }, [isLoading, isAuthenticated, setLocation]);
 
-  if (isLoaded && isSignedIn) return null;
+  if (!isLoading && isAuthenticated) return null;
 
   return (
     <div
@@ -273,18 +273,17 @@ export default function Home() {
             >
               Гостевой режим
             </button>
-            <SignUpButton mode="modal">
-              <button
-                className="text-sm px-5 py-2 rounded-lg font-semibold transition-all hover:brightness-110"
-                style={{
-                  background: "#fff", color: "#000",
-                  border: "none", cursor: "pointer",
-                  boxShadow: "0 2px 16px rgba(255,255,255,0.15)",
-                }}
-              >
-                Начать →
-              </button>
-            </SignUpButton>
+            <button
+              onClick={login}
+              className="text-sm px-5 py-2 rounded-lg font-semibold transition-all hover:brightness-110"
+              style={{
+                background: "#fff", color: "#000",
+                border: "none", cursor: "pointer",
+                boxShadow: "0 2px 16px rgba(255,255,255,0.15)",
+              }}
+            >
+              Начать →
+            </button>
           </motion.div>
         </nav>
 
@@ -363,18 +362,17 @@ export default function Home() {
                 transition={{ delay: 0.55, duration: 0.5 }}
                 className="flex items-center gap-3 flex-wrap"
               >
-                <SignUpButton mode="modal">
-                  <button
-                    className="px-6 py-3 rounded-xl text-sm font-semibold transition-all hover:opacity-90 active:scale-95"
-                    style={{
-                      background: "#fff", color: "#000",
-                      border: "none", cursor: "pointer",
-                      boxShadow: "0 0 40px rgba(255,255,255,0.1)",
-                    }}
-                  >
-                    Создать комнату
-                  </button>
-                </SignUpButton>
+                <button
+                  onClick={login}
+                  className="px-6 py-3 rounded-xl text-sm font-semibold transition-all hover:opacity-90 active:scale-95"
+                  style={{
+                    background: "#fff", color: "#000",
+                    border: "none", cursor: "pointer",
+                    boxShadow: "0 0 40px rgba(255,255,255,0.1)",
+                  }}
+                >
+                  Создать комнату
+                </button>
                 <button
                   onClick={() => setShowGuestModal(true)}
                   className="px-6 py-3 rounded-xl text-sm font-semibold transition-all hover:bg-white/6"
@@ -507,14 +505,13 @@ export default function Home() {
               Регистрация занимает 30 секунд. Или войдите как гость — без регистрации.
             </p>
             <div className="flex items-center justify-center gap-3 flex-wrap">
-              <SignUpButton mode="modal">
-                <button
-                  className="px-8 py-3.5 rounded-xl text-sm font-semibold transition-all hover:opacity-90 active:scale-95"
-                  style={{ background: "#fff", color: "#000", border: "none", cursor: "pointer", boxShadow: "0 0 40px rgba(255,255,255,0.12)" }}
-                >
-                  Зарегистрироваться
-                </button>
-              </SignUpButton>
+              <button
+                onClick={login}
+                className="px-8 py-3.5 rounded-xl text-sm font-semibold transition-all hover:opacity-90 active:scale-95"
+                style={{ background: "#fff", color: "#000", border: "none", cursor: "pointer", boxShadow: "0 0 40px rgba(255,255,255,0.12)" }}
+              >
+                Войти / Зарегистрироваться
+              </button>
               <button
                 onClick={() => setShowGuestModal(true)}
                 className="px-8 py-3.5 rounded-xl text-sm font-semibold transition-all hover:bg-white/6"

@@ -1,5 +1,4 @@
 import { Router, Request } from "express";
-import { getAuth } from "@clerk/express";
 import { db } from "@workspace/db";
 import { roomsTable, roomMembersTable, usersTable, filesTable } from "@workspace/db";
 import { eq, and, ilike, count, desc } from "drizzle-orm";
@@ -26,36 +25,17 @@ interface ResolvedUser {
 }
 
 async function resolveUser(req: Request): Promise<ResolvedUser | null> {
-  // Always prefer Clerk auth over guest token — a signed-in user should never
-  // be treated as guest even if they have a stale guest token in storage.
-  const auth = getAuth(req);
-  if (auth?.userId) {
-    const sessionClaims = auth.sessionClaims as Record<string, string> | undefined;
-
-    let user = await db.query.usersTable.findFirst({
-      where: eq(usersTable.clerkId, auth.userId),
-    });
-
-    if (!user) {
-      const newId = uuidv4();
-      const username =
-        sessionClaims?.["username"] ??
-        sessionClaims?.["email"]?.split("@")[0] ??
-        `user_${newId.slice(0, 8)}`;
-      const [created] = await db.insert(usersTable).values({
-        id: newId,
-        clerkId: auth.userId,
-        username,
-        email: sessionClaims?.["email"],
-        isGuest: false,
-      }).returning();
-      user = created;
-    }
-
-    if (user) return { userId: user.id, username: user.username, email: user.email, isGuest: false };
+  // Prefer session-based auth (set by authMiddleware)
+  if (req.isAuthenticated()) {
+    return {
+      userId: req.user.id,
+      username: req.user.username,
+      email: req.user.email,
+      isGuest: false,
+    };
   }
 
-  // Only fall back to guest token when there is no Clerk session
+  // Fall back to guest token
   const guestToken = req.headers["x-guest-token"];
   if (typeof guestToken === "string" && guestToken) {
     const user = await db.query.usersTable.findFirst({
@@ -216,7 +196,6 @@ roomsRouter.get("/rooms/join/:inviteCode", async (req, res) => {
     return res.status(404).json({ error: "Room not found" });
   }
 
-  // Add the requesting user to room_members if authenticated
   const user = await resolveUser(req);
   if (user) {
     const existingCount = await db
@@ -297,7 +276,6 @@ roomsRouter.delete("/rooms/:roomId", async (req, res) => {
   return res.status(204).send();
 });
 
-// Download a single file
 roomsRouter.get("/rooms/:roomId/files/:fileId/download", async (req, res) => {
   const { roomId, fileId } = req.params;
 
@@ -321,7 +299,6 @@ roomsRouter.get("/rooms/:roomId/files/:fileId/download", async (req, res) => {
   return res.send(file.content ?? "");
 });
 
-// Download all files as ZIP
 roomsRouter.get("/rooms/:roomId/download", async (req, res) => {
   const { roomId } = req.params;
 

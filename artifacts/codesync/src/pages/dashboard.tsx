@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
-import { useUser, UserButton, SignInButton } from "@clerk/react";
+import { useAuth } from "@workspace/replit-auth-web";
 import {
   useListRooms,
   useCreateRoom,
@@ -351,11 +351,18 @@ function RoomCard({ room, onOpen, onDelete }: { room: Room; onOpen: () => void; 
       {/* Bottom */}
       <div className="flex items-center justify-between pt-3" style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}>
         <div className="flex items-center gap-3">
-          {/* Live member dots */}
-          <div className="flex flex-col gap-1">
-            <MemberDots count={room.memberCount} max={room.maxUsers} />
-            <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 10 }}>
-              {room.memberCount}/{room.maxUsers} участников
+          {/* Member count — max capacity, not live count */}
+          <div
+            className="flex items-center gap-1.5 px-2 py-1 rounded-md"
+            style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}
+          >
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="2">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+              <circle cx="9" cy="7" r="4"/>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
+            </svg>
+            <span style={{ color: "rgba(255,255,255,0.3)", fontSize: 10 }}>
+              макс. {room.maxUsers}
             </span>
           </div>
 
@@ -493,27 +500,27 @@ function JoinBar({ isGuest, guestToken }: { isGuest: boolean; guestToken: string
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 export default function Dashboard() {
-  const { isSignedIn, isLoaded } = useUser();
+  const { isAuthenticated, isLoading: authLoading, user: authUser, logout } = useAuth();
   const [, setLocation] = useLocation();
   const [createOpen, setCreateOpen] = useState(false);
   const [search, setSearch] = useState("");
 
   const guestToken    = typeof window !== "undefined" ? localStorage.getItem("codesync_guest_token")    : null;
   const guestUsername = typeof window !== "undefined" ? localStorage.getItem("codesync_guest_username") : null;
-  const isGuest = isLoaded && !isSignedIn && !!guestToken;
+  const isGuest = !authLoading && !isAuthenticated && !!guestToken;
 
-  // Clear guest state when user signs in with Clerk
+  // Clear guest state when user signs in
   useEffect(() => {
-    if (isLoaded && isSignedIn) {
+    if (!authLoading && isAuthenticated) {
       localStorage.removeItem("codesync_guest_token");
       localStorage.removeItem("codesync_guest_user_id");
       localStorage.removeItem("codesync_guest_username");
     }
-  }, [isLoaded, isSignedIn]);
+  }, [authLoading, isAuthenticated]);
 
   useEffect(() => {
-    if (isLoaded && !isSignedIn && !guestToken) setLocation("/");
-  }, [isLoaded, isSignedIn, guestToken, setLocation]);
+    if (!authLoading && !isAuthenticated && !guestToken) setLocation("/");
+  }, [authLoading, isAuthenticated, guestToken, setLocation]);
 
   const qc = useQueryClient();
   const searchParams = search ? { search } : undefined;
@@ -522,7 +529,7 @@ export default function Dashboard() {
   });
   const deleteRoom = useDeleteRoom();
 
-  if (isLoaded && !isSignedIn && !guestToken) return null;
+  if (!authLoading && !isAuthenticated && !guestToken) return null;
 
   function handleDelete(roomId: string) {
     deleteRoom.mutate({ roomId }, {
@@ -591,18 +598,17 @@ export default function Dashboard() {
                   </svg>
                   Выйти
                 </button>
-                <SignInButton mode="modal">
-                  <button
-                    style={{
-                      height: 32, padding: "0 16px",
-                      background: "#fff", color: "#000",
-                      border: "none", borderRadius: 8,
-                      fontWeight: 600, fontSize: 13, cursor: "pointer",
-                    }}
-                  >
-                    Войти в аккаунт
-                  </button>
-                </SignInButton>
+                <button
+                  onClick={() => { window.location.href = "/api/login"; }}
+                  style={{
+                    height: 32, padding: "0 16px",
+                    background: "#fff", color: "#000",
+                    border: "none", borderRadius: 8,
+                    fontWeight: 600, fontSize: 13, cursor: "pointer",
+                  }}
+                >
+                  Войти в аккаунт
+                </button>
               </>
             ) : (
               <>
@@ -618,7 +624,20 @@ export default function Dashboard() {
                 >
                   + Создать комнату
                 </button>
-                <UserButton />
+                <button
+                  onClick={logout}
+                  title="Выйти из аккаунта"
+                  style={{
+                    height: 32, width: 32, borderRadius: "50%",
+                    background: "rgba(255,255,255,0.08)",
+                    border: "1px solid rgba(255,255,255,0.12)",
+                    color: "rgba(255,255,255,0.7)", fontSize: 12,
+                    fontWeight: 700, cursor: "pointer", display: "flex",
+                    alignItems: "center", justifyContent: "center",
+                  }}
+                >
+                  {authUser?.username?.charAt(0).toUpperCase() ?? "U"}
+                </button>
               </>
             )}
           </div>
@@ -645,11 +664,12 @@ export default function Dashboard() {
                   <div style={{ color: "rgba(255,165,0,0.9)", fontSize: 13, fontWeight: 600 }}>Гостевой режим</div>
                   <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 12, marginTop: 2 }}>
                     Вы можете входить в комнаты по коду. Чтобы создавать комнаты и сохранять прогресс —
-                    <SignInButton mode="modal">
-                      <button style={{ color: "rgba(255,165,0,0.85)", background: "none", border: "none", cursor: "pointer", fontSize: 12, fontWeight: 600, marginLeft: 4 }}>
-                        войдите в аккаунт
-                      </button>
-                    </SignInButton>
+                    <button
+                      onClick={() => { window.location.href = "/api/login"; }}
+                      style={{ color: "rgba(255,165,0,0.85)", background: "none", border: "none", cursor: "pointer", fontSize: 12, fontWeight: 600, marginLeft: 4 }}
+                    >
+                      войдите в аккаунт
+                    </button>
                   </div>
                 </div>
               </motion.div>
