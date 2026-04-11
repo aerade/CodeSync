@@ -26,7 +26,8 @@ const CLERK_FAPI = "https://frontend-api.clerk.dev";
 export const CLERK_PROXY_PATH = "/api/__clerk";
 
 export function clerkProxyMiddleware(): RequestHandler {
-  // Only run proxy in production — Clerk proxying doesn't work for dev instances
+  // Only run proxy in production — Clerk's dev-browser sync mechanism requires
+  // a direct browser ↔ Clerk connection and does NOT work through a proxy.
   if (process.env.NODE_ENV !== "production") {
     return (_req, _res, next) => next();
   }
