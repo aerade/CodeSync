@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node -e \"process.env.NODE_ENV='development'; require('child_process').spawn(process.platform==='win32'?'pnpm.cmd':'pnpm',['run','build'],{stdio:'inherit',shell:false}).on('exit',c=>process.exit(c??1))\" && node -e \"process.env.NODE_ENV='development'; require('child_process').spawn(process.platform==='win32'?'pnpm.cmd':'pnpm',['run','start'],{stdio:'inherit',shell:false})\"",
+    "dev": "node -e \"const cp=require('child_process'); const cmd=process.platform==='win32'?'pnpm.cmd':'pnpm'; const r=cp.spawnSync(cmd,['run','build'],{stdio:'inherit'}); process.exit(r.status??1)\" && node -e \"const cp=require('child_process'); const cmd=process.platform==='win32'?'pnpm.cmd':'pnpm'; const r=cp.spawnSync(cmd,['run','start'],{stdio:'inherit'}); process.exit(r.status??1)\"",
     "build": "node ./build.mjs",
     "start": "node --enable-source-maps ./dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
