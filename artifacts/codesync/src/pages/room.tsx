@@ -758,6 +758,13 @@ export default function RoomPage() {
               onFileSelect={(file) => {
                 setActiveFileId(file.id);
                 setFileContent(file.content ?? "");
+                // Clear AI stats badge for this file when it's opened
+                setFileStats((prev) => {
+                  if (!prev[file.id]) return prev;
+                  const next = { ...prev };
+                  delete next[file.id];
+                  return next;
+                });
               }}
               onFilesChange={() => { void refetchFiles(); }}
               isReadOnly={isGuest}

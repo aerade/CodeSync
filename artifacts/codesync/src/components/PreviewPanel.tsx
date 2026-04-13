@@ -102,6 +102,10 @@ export function PreviewPanel({ files, isOpen, onClose, defaultPage }: Props) {
   const [historyIdx, setHistoryIdx] = useState(-1);
   const [isLoading, setIsLoading] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const savedSizeRef = useRef<{ w: number; h: number } | null>(null);
+  const savedPosRef = useRef<{ x: number; y: number } | null>(null);
 
   const [size, setSize] = useState(getInitSize);
   const sizeRef = useRef(size);
@@ -178,6 +182,30 @@ export function PreviewPanel({ files, isOpen, onClose, defaultPage }: Props) {
   }
 
   const refresh = useCallback(() => { setIframeKey((k) => k + 1); setIsLoading(true); }, []);
+
+  function toggleMinimize() {
+    if (isFullscreen) return; // can't minimize while fullscreen
+    setIsMinimized((prev) => !prev);
+  }
+
+  function toggleFullscreen() {
+    if (isMinimized) setIsMinimized(false);
+    if (!isFullscreen) {
+      savedSizeRef.current = { ...sizeRef.current };
+      savedPosRef.current = { x: motionX.get(), y: motionY.get() };
+      setIsFullscreen(true);
+    } else {
+      setIsFullscreen(false);
+      if (savedSizeRef.current) {
+        setSize(savedSizeRef.current);
+        sizeRef.current = savedSizeRef.current;
+      }
+      if (savedPosRef.current) {
+        motionX.set(savedPosRef.current.x);
+        motionY.set(savedPosRef.current.y);
+      }
+    }
+  }
   const srcDoc = buildSrcDoc(files, currentPage || undefined);
   const canBack = historyIdx > 0;
   const canForward = historyIdx < history.length - 1;
@@ -277,25 +305,26 @@ export function PreviewPanel({ files, isOpen, onClose, defaultPage }: Props) {
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.96 }}
             transition={{ type: "spring", stiffness: 380, damping: 30 }}
-            drag={!isResizing}
+            drag={!isResizing && !isFullscreen}
             dragMomentum={false}
             dragElastic={0}
             style={{
-              x: motionX,
-              y: motionY,
+              x: isFullscreen ? 0 : motionX,
+              y: isFullscreen ? 0 : motionY,
               position: "fixed",
               top: 0,
               left: 0,
-              width: size.w,
-              height: size.h,
+              width: isFullscreen ? "100vw" : size.w,
+              height: isFullscreen ? "100vh" : isMinimized ? 40 : size.h,
               background: "#232529",
-              border: "1px solid rgba(255,255,255,0.12)",
-              borderRadius: 14,
-              boxShadow: "0 0 0 1px rgba(0,0,0,0.5), 0 32px 80px rgba(0,0,0,0.85)",
+              border: isFullscreen ? "none" : "1px solid rgba(255,255,255,0.12)",
+              borderRadius: isFullscreen ? 0 : 14,
+              boxShadow: isFullscreen ? "none" : "0 0 0 1px rgba(0,0,0,0.5), 0 32px 80px rgba(0,0,0,0.85)",
               display: "flex",
               flexDirection: "column",
               overflow: "hidden",
               zIndex: 9991,
+              transition: "width 0.25s, height 0.25s, border-radius 0.25s",
             }}
           >
             {/* Resize handles — 8 directions */}
@@ -326,8 +355,9 @@ export function PreviewPanel({ files, isOpen, onClose, defaultPage }: Props) {
               <div style={{ display: "flex", gap: 7, marginRight: 2, flexShrink: 0 }}>
                 <div onClick={onClose} title="Закрыть"
                   style={{ width: 13, height: 13, borderRadius: "50%", background: "#FF5F57", cursor: "pointer", boxShadow: "inset 0 0 0 0.5px rgba(0,0,0,0.25)" }} />
-                <div style={{ width: 13, height: 13, borderRadius: "50%", background: "#FEBC2E", boxShadow: "inset 0 0 0 0.5px rgba(0,0,0,0.25)" }} />
-                <div onClick={refresh} title="Обновить"
+                <div onClick={toggleMinimize} title={isMinimized ? "Развернуть" : "Свернуть"}
+                  style={{ width: 13, height: 13, borderRadius: "50%", background: "#FEBC2E", cursor: "pointer", boxShadow: "inset 0 0 0 0.5px rgba(0,0,0,0.25)" }} />
+                <div onClick={toggleFullscreen} title={isFullscreen ? "Восстановить" : "На весь экран"}
                   style={{ width: 13, height: 13, borderRadius: "50%", background: "#28C840", cursor: "pointer", boxShadow: "inset 0 0 0 0.5px rgba(0,0,0,0.25)" }} />
               </div>
 

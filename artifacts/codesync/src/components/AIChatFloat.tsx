@@ -623,17 +623,25 @@ export function AIChatFloat({
               {isChatLoading && (
                 <button
                   onClick={() => { abortControllerRef.current?.abort(); setIsChatLoading(false); }}
-                  title="Остановить"
+                  title="Остановить генерацию"
                   style={{
-                    width: 26, height: 26, borderRadius: 7,
-                    background: "rgba(255,123,114,0.12)",
-                    border: "1px solid rgba(255,123,114,0.3)",
+                    height: 26, padding: "0 10px", borderRadius: 13,
+                    background: "linear-gradient(90deg, rgba(255,123,114,0.18), rgba(255,100,90,0.1))",
+                    border: "1px solid rgba(255,123,114,0.45)",
                     cursor: "pointer", color: "#FF7B72",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    flexShrink: 0, padding: 0, fontSize: 10,
+                    display: "flex", alignItems: "center", gap: 5,
+                    flexShrink: 0, fontSize: 10, fontWeight: 600,
+                    letterSpacing: "0.02em",
+                    boxShadow: "0 0 8px rgba(255,123,114,0.15)",
+                    animation: "stopPulse 1.8s ease-in-out infinite",
                   }}
                 >
-                  ■
+                  <span style={{
+                    width: 7, height: 7, borderRadius: 2,
+                    background: "#FF7B72",
+                    display: "inline-block", flexShrink: 0,
+                  }} />
+                  Стоп
                 </button>
               )}
               <button

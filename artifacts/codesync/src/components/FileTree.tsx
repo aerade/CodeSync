@@ -86,7 +86,7 @@ export function FileTree({ roomId, files, activeFileId, fileStats = {}, onFileSe
   const updateFile = useUpdateFile();
 
   const prevFileIdsRef = useRef<Set<string>>(new Set());
-  const [newlyAddedIds, setNewlyAddedIds] = useState<Set<string>>(new Set());
+  const [newlyAddedCount, setNewlyAddedCount] = useState(0);
   const [recentDeletedCount, setRecentDeletedCount] = useState(0);
   const newlyAddedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const deletedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -100,9 +100,9 @@ export function FileTree({ roomId, files, activeFileId, fileStats = {}, onFileSe
       const deletedNum = [...prevIds].filter((id) => !currentIds.has(id)).length;
 
       if (added.length > 0) {
-        setNewlyAddedIds(new Set(added.map((f) => f.id)));
+        setNewlyAddedCount((prev) => prev + added.length);
         if (newlyAddedTimerRef.current) clearTimeout(newlyAddedTimerRef.current);
-        newlyAddedTimerRef.current = setTimeout(() => setNewlyAddedIds(new Set()), 3000);
+        newlyAddedTimerRef.current = setTimeout(() => setNewlyAddedCount(0), 3000);
       }
 
       if (deletedNum > 0) {
@@ -306,6 +306,7 @@ export function FileTree({ roomId, files, activeFileId, fileStats = {}, onFileSe
 
   const rootFiles = files.filter((f) => !f.parentId && !f.isFolder);
   const rootFolders = files.filter((f) => !f.parentId && f.isFolder);
+  const visItems = getVisibleItems();
 
   const inputStyle: React.CSSProperties = {
     background: "rgba(255,255,255,0.05)", border: "1px solid #58A6FF",
@@ -313,11 +314,20 @@ export function FileTree({ roomId, files, activeFileId, fileStats = {}, onFileSe
     fontSize: 11, outline: "none", width: "100%", padding: "4px 8px",
   };
 
-  function renderFileItem(file: FileItem, depth = 0) {
+  function renderFileItem(file: FileItem, depth = 0, visItems?: FileItem[]) {
     const icon = getLangIcon(file.language);
     const isActive = activeFileId === file.id;
     const isRenaming = renamingFileId === file.id;
     const isSelected = selectedFileIds.has(file.id);
+
+    // Block-selection: compute adjacent selection for unified rect look
+    const vi = visItems ?? [];
+    const visIdx = vi.findIndex((v) => v.id === file.id);
+    const prevSel = isSelected && visIdx > 0 && selectedFileIds.has(vi[visIdx - 1]?.id ?? "");
+    const nextSel = isSelected && visIdx >= 0 && visIdx < vi.length - 1 && selectedFileIds.has(vi[visIdx + 1]?.id ?? "");
+    const selRadius = isSelected
+      ? `${prevSel ? 0 : 6}px ${prevSel ? 0 : 6}px ${nextSel ? 0 : 6}px ${nextSel ? 0 : 6}px`
+      : "6px";
 
     const bg = isSelected && isActive
       ? "rgba(88,166,255,0.24)"
@@ -337,14 +347,15 @@ export function FileTree({ roomId, files, activeFileId, fileStats = {}, onFileSe
         onContextMenu={(e) => handleContextMenu(e, file.id, file.name, false)}
         draggable={!isReadOnly && !isRenaming}
         onDragStart={(e) => handleDragStart(e, file.id)}
+        className="file-tree-item"
         style={{
           display: "flex", alignItems: "center", gap: 7,
           padding: "4px 10px", paddingLeft: (10 + depth * 14) + (isActive ? 8 : 10),
-          cursor: "pointer", borderRadius: 6,
+          cursor: "pointer", borderRadius: selRadius,
           background: bg,
           borderLeft: isActive ? "2px solid rgba(88,166,255,0.7)" : "2px solid transparent",
           transition: "background 0.1s",
-          marginBottom: 1,
+          marginBottom: nextSel ? 0 : 1,
         }}
         onMouseEnter={(e) => { if (!isSelected && !isActive) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)"; }}
         onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = bg; }}
@@ -368,17 +379,6 @@ export function FileTree({ roomId, files, activeFileId, fileStats = {}, onFileSe
           <span className="text-xs truncate flex-1" style={{ color: isActive ? "#E6EDF3" : "rgba(255,255,255,0.65)" }}>
             {file.name}
           </span>
-        )}
-        {/* Newly added indicator */}
-        {!isRenaming && newlyAddedIds.has(file.id) && (
-          <motion.span
-            initial={{ opacity: 0, scale: 0.7 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.7 }}
-            style={{ fontSize: 9, color: "#3FB950", fontFamily: "JetBrains Mono, monospace", fontWeight: 700, flexShrink: 0 }}
-          >
-            +1
-          </motion.span>
         )}
         {/* AI edit stats indicator */}
         {!isRenaming && fileStats[file.id] && (
@@ -404,10 +404,10 @@ export function FileTree({ roomId, files, activeFileId, fileStats = {}, onFileSe
           <a
             href={`${basePath}/api/rooms/${roomId}/files/${file.id}/download`}
             download={file.name}
-            style={{ color: "rgba(255,255,255,0.2)", lineHeight: 0, display: "flex", alignItems: "center", flexShrink: 0, padding: "2px" }}
+            style={{ color: "rgba(255,255,255,0.18)", lineHeight: 0, display: "flex", alignItems: "center", flexShrink: 0, padding: "2px" }}
             title={`Скачать ${file.name}`}
             onClick={(e) => e.stopPropagation()}
-            className="opacity-0 group-hover:opacity-100 hover:!text-white/60 transition-opacity"
+            className="file-download-btn"
           >
             <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor">
               <path d="M7.47 10.78a.75.75 0 0 0 1.06 0l3.75-3.75a.75.75 0 0 0-1.06-1.06L8.75 8.44V1.75a.75.75 0 0 0-1.5 0v6.69L4.78 5.97a.75.75 0 0 0-1.06 1.06l3.75 3.75zM3.75 13a.75.75 0 0 0 0 1.5h8.5a.75.75 0 0 0 0-1.5h-8.5z"/>
@@ -451,6 +451,17 @@ export function FileTree({ roomId, files, activeFileId, fileStats = {}, onFileSe
               Файлы
             </span>
             <AnimatePresence>
+              {newlyAddedCount > 0 && (
+                <motion.span
+                  key="added-badge"
+                  initial={{ opacity: 0, scale: 0.7 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.7 }}
+                  style={{ fontSize: 9, color: "#3FB950", fontFamily: "JetBrains Mono, monospace", fontWeight: 700 }}
+                >
+                  +{newlyAddedCount}
+                </motion.span>
+              )}
               {recentDeletedCount > 0 && (
                 <motion.span
                   key="deleted-badge"
@@ -572,10 +583,17 @@ export function FileTree({ roomId, files, activeFileId, fileStats = {}, onFileSe
         onDrop={(e) => handleDrop(e, null)}
       >
         <AnimatePresence>
-          {rootFolders.map((folder) => {
+          {rootFolders.map((folder, fi) => {
             const children = files.filter((f) => f.parentId === folder.id && !f.isFolder);
             const isExpanded = expandedFolders.has(folder.id);
             const isDragOver = dragOverFolderId === folder.id;
+            const isFolSel = selectedFileIds.has(folder.id);
+            // Block-selection for folder row
+            const fvi = visItems.findIndex((v) => v.id === folder.id);
+            const fPrevSel = isFolSel && fvi > 0 && selectedFileIds.has(visItems[fvi - 1]?.id ?? "");
+            const fNextSel = isFolSel && fvi >= 0 && fvi < visItems.length - 1 && selectedFileIds.has(visItems[fvi + 1]?.id ?? "");
+            const folRadius = isFolSel ? `${fPrevSel ? 0 : 6}px ${fPrevSel ? 0 : 6}px ${fNextSel ? 0 : 6}px ${fNextSel ? 0 : 6}px` : "6px";
+            void fi;
             return (
               <motion.div key={folder.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                 <div
@@ -586,19 +604,19 @@ export function FileTree({ roomId, files, activeFileId, fileStats = {}, onFileSe
                   onDrop={(e) => { e.stopPropagation(); handleDrop(e, folder.id); }}
                   style={{
                     display: "flex", alignItems: "center", gap: 7,
-                    padding: "4px 10px", paddingLeft: selectedFileIds.has(folder.id) ? 10 : 12,
-                    borderRadius: 6, cursor: "pointer",
+                    padding: "4px 10px", paddingLeft: isFolSel ? 10 : 12,
+                    borderRadius: folRadius, cursor: "pointer",
                     background: isDragOver
                       ? "rgba(88,166,255,0.12)"
-                      : selectedFileIds.has(folder.id)
+                      : isFolSel
                         ? "rgba(88,166,255,0.16)"
                         : "transparent",
-                    borderLeft: selectedFileIds.has(folder.id) ? "2px solid rgba(88,166,255,0.4)" : "2px solid transparent",
-                    marginBottom: 1,
+                    borderLeft: isFolSel ? "2px solid rgba(88,166,255,0.4)" : "2px solid transparent",
+                    marginBottom: fNextSel ? 0 : 1,
                     transition: "background 0.1s",
                   }}
-                  onMouseEnter={(e) => { if (!selectedFileIds.has(folder.id) && !isDragOver) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)"; }}
-                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = isDragOver ? "rgba(88,166,255,0.12)" : selectedFileIds.has(folder.id) ? "rgba(88,166,255,0.16)" : "transparent"; }}
+                  onMouseEnter={(e) => { if (!isFolSel && !isDragOver) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)"; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = isDragOver ? "rgba(88,166,255,0.12)" : isFolSel ? "rgba(88,166,255,0.16)" : "transparent"; }}
                 >
                   <svg width="8" height="8" viewBox="0 0 10 10" fill="rgba(255,255,255,0.4)"
                     style={{ transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.15s", flexShrink: 0 }}>
@@ -612,7 +630,7 @@ export function FileTree({ roomId, files, activeFileId, fileStats = {}, onFileSe
                 </div>
                 {isExpanded && (
                   <AnimatePresence>
-                    {children.map((child) => renderFileItem(child, 1))}
+                    {children.map((child) => renderFileItem(child, 1, visItems))}
                     {isCreatingFile && creatingInFolderId === folder.id && renderNewFileInput(folder.id)}
                   </AnimatePresence>
                 )}
@@ -620,7 +638,7 @@ export function FileTree({ roomId, files, activeFileId, fileStats = {}, onFileSe
             );
           })}
 
-          {rootFiles.map((file) => renderFileItem(file))}
+          {rootFiles.map((file) => renderFileItem(file, 0, visItems))}
         </AnimatePresence>
 
         {isCreatingFile && !creatingInFolderId && renderNewFileInput(null)}
