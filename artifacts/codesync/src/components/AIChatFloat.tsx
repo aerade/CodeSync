@@ -499,11 +499,12 @@ export function AIChatFloat({
                   border: "1px solid rgba(255,255,255,0.09)",
                   cursor: "pointer", color: "rgba(255,255,255,0.55)",
                   display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: 16, lineHeight: 1,
-                  flexShrink: 0,
+                  flexShrink: 0, padding: 0,
                 }}
               >
-                ×
+                <svg width="9" height="9" viewBox="0 0 10 10" fill="none">
+                  <path d="M1 1l8 8M9 1L1 9" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+                </svg>
               </button>
             </div>
           </div>
@@ -717,7 +718,7 @@ export function AIChatFloat({
                   </motion.button>
                 </div>
                 <p style={{ fontSize: 10, color: "rgba(255,255,255,0.2)", marginTop: 6 }}>
-                  Изображения от Unsplash · Нажмите + чтобы добавить в проект
+                  Поиск через DuckDuckGo · Нажмите + чтобы добавить в проект
                 </p>
               </div>
 
@@ -827,7 +828,7 @@ export function AIChatFloat({
         letterSpacing: "0.01em",
       }}
     >
-      <span style={{ fontSize: 14 }}>✦</span>
+      <span style={{ display: "inline-flex", alignItems: "center", lineHeight: 0, fontSize: 14 }}>✦</span>
       Чат с AI
     </motion.button>
   );

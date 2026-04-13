@@ -32,7 +32,6 @@ function buildSrcDoc(files: FileEntry[], entryName?: string): string | null {
       if (re.test(html)) html = html.replace(re, `<style>\n${f.content}\n</style>`);
     }
   }
-
   for (const f of files) {
     if (f.language === "javascript") {
       const re = new RegExp(`<script[^>]+src=["'](?:\\.\\/)?(${f.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})["'][^>]*><\\/script>`, "gi");
@@ -81,33 +80,47 @@ function buildSrcDoc(files: FileEntry[], entryName?: string): string | null {
 
 const MIN_W = 480;
 const MIN_H = 320;
-const INIT_W = Math.min(1100, typeof window !== "undefined" ? window.innerWidth * 0.82 : 1100);
-const INIT_H = typeof window !== "undefined" ? Math.min(window.innerHeight * 0.85, 820) : 700;
+
+function getInitSize() {
+  return {
+    w: Math.min(1100, window.innerWidth * 0.82),
+    h: Math.min(window.innerHeight * 0.85, 820),
+  };
+}
+
+function getInitPos(w: number, h: number) {
+  return {
+    x: Math.max(0, (window.innerWidth - w) / 2),
+    y: Math.max(0, (window.innerHeight - h) / 2 - 20),
+  };
+}
 
 export function PreviewPanel({ files, isOpen, onClose, defaultPage }: Props) {
-  const [key, setKey] = useState(0);
+  const [iframeKey, setIframeKey] = useState(0);
   const [currentPage, setCurrentPage] = useState<string>("");
   const [history, setHistory] = useState<string[]>([]);
   const [historyIdx, setHistoryIdx] = useState(-1);
   const [isLoading, setIsLoading] = useState(false);
-  const [size, setSize] = useState({ w: INIT_W, h: INIT_H });
-  const sizeRef = useRef(size);
+  const [isResizing, setIsResizing] = useState(false);
 
-  // Motion values for drag position — initialized to center
-  const centerX = typeof window !== "undefined" ? (window.innerWidth - INIT_W) / 2 : 0;
-  const centerY = typeof window !== "undefined" ? (window.innerHeight - INIT_H) / 2 - 20 : 0;
-  const motionX = useMotionValue(centerX);
-  const motionY = useMotionValue(centerY);
+  const [size, setSize] = useState(getInitSize);
+  const sizeRef = useRef(size);
+  useEffect(() => { sizeRef.current = size; }, [size]);
+
+  const motionX = useMotionValue(getInitPos(size.w, size.h).x);
+  const motionY = useMotionValue(getInitPos(size.w, size.h).y);
 
   // Re-center when opened
   useEffect(() => {
     if (isOpen) {
-      const cx = (window.innerWidth - sizeRef.current.w) / 2;
-      const cy = (window.innerHeight - sizeRef.current.h) / 2 - 20;
-      motionX.set(cx);
-      motionY.set(cy);
+      const s = getInitSize();
+      const p = getInitPos(s.w, s.h);
+      setSize(s);
+      sizeRef.current = s;
+      motionX.set(p.x);
+      motionY.set(p.y);
     }
-  }, [isOpen, motionX, motionY]);
+  }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const htmlFiles = useMemo(() => files.filter((f) => f.language === "html"), [files]);
 
@@ -121,7 +134,7 @@ export function PreviewPanel({ files, isOpen, onClose, defaultPage }: Props) {
       setCurrentPage(startPage);
       setHistory([startPage]);
       setHistoryIdx(0);
-      setKey((k) => k + 1);
+      setIframeKey((k) => k + 1);
     }
   }, [isOpen, startPage]);
 
@@ -142,7 +155,7 @@ export function PreviewPanel({ files, isOpen, onClose, defaultPage }: Props) {
       setHistoryIdx(next.length - 1);
       return next;
     });
-    setKey((k) => k + 1);
+    setIframeKey((k) => k + 1);
     setIsLoading(true);
   }
 
@@ -151,7 +164,7 @@ export function PreviewPanel({ files, isOpen, onClose, defaultPage }: Props) {
     const idx = historyIdx - 1;
     setHistoryIdx(idx);
     setCurrentPage(history[idx] ?? "");
-    setKey((k) => k + 1);
+    setIframeKey((k) => k + 1);
     setIsLoading(true);
   }
 
@@ -160,66 +173,88 @@ export function PreviewPanel({ files, isOpen, onClose, defaultPage }: Props) {
     const idx = historyIdx + 1;
     setHistoryIdx(idx);
     setCurrentPage(history[idx] ?? "");
-    setKey((k) => k + 1);
+    setIframeKey((k) => k + 1);
     setIsLoading(true);
   }
 
-  const refresh = useCallback(() => { setKey((k) => k + 1); setIsLoading(true); }, []);
+  const refresh = useCallback(() => { setIframeKey((k) => k + 1); setIsLoading(true); }, []);
   const srcDoc = buildSrcDoc(files, currentPage || undefined);
   const canBack = historyIdx > 0;
   const canForward = historyIdx < history.length - 1;
 
-  // Resize state
-  const resizeRef = useRef<{
-    startX: number; startY: number;
+  // Resize logic — disables Framer drag while active
+  const resizeState = useRef<{
+    startMX: number; startMY: number;
     startW: number; startH: number;
+    startPX: number; startPY: number;
     dir: string;
   } | null>(null);
 
-  function startResize(e: React.MouseEvent, dir: string) {
+  function startResize(e: React.PointerEvent, dir: string) {
     e.preventDefault();
     e.stopPropagation();
-    resizeRef.current = {
-      startX: e.clientX,
-      startY: e.clientY,
+    setIsResizing(true);
+    resizeState.current = {
+      startMX: e.clientX,
+      startMY: e.clientY,
       startW: sizeRef.current.w,
       startH: sizeRef.current.h,
+      startPX: motionX.get(),
+      startPY: motionY.get(),
       dir,
     };
-    const onMove = (me: MouseEvent) => {
-      if (!resizeRef.current) return;
-      const { startX, startY, startW, startH, dir } = resizeRef.current;
-      const dx = me.clientX - startX;
-      const dy = me.clientY - startY;
-      let nw = startW, nh = startH;
-      if (dir.includes("e")) nw = Math.max(MIN_W, startW + dx);
-      if (dir.includes("s")) nh = Math.max(MIN_H, startH + dy);
-      if (dir.includes("w")) {
-        nw = Math.max(MIN_W, startW - dx);
-        motionX.set(motionX.get() + dx);
+
+    function onMove(me: PointerEvent) {
+      if (!resizeState.current) return;
+      const { startMX, startMY, startW, startH, startPX, startPY, dir: d } = resizeState.current;
+      const dx = me.clientX - startMX;
+      const dy = me.clientY - startMY;
+      let nw = startW, nh = startH, nx = startPX, ny = startPY;
+
+      if (d.includes("e")) nw = Math.max(MIN_W, startW + dx);
+      if (d.includes("s")) nh = Math.max(MIN_H, startH + dy);
+      if (d.includes("w")) {
+        const delta = Math.min(dx, startW - MIN_W);
+        nw = startW - delta;
+        nx = startPX + delta;
       }
-      if (dir.includes("n")) {
-        nh = Math.max(MIN_H, startH - dy);
-        motionY.set(motionY.get() + dy);
+      if (d.includes("n")) {
+        const delta = Math.min(dy, startH - MIN_H);
+        nh = startH - delta;
+        ny = startPY + delta;
       }
+
       sizeRef.current = { w: nw, h: nh };
       setSize({ w: nw, h: nh });
-    };
-    const onUp = () => {
-      resizeRef.current = null;
-      document.removeEventListener("mousemove", onMove);
-      document.removeEventListener("mouseup", onUp);
+      motionX.set(nx);
+      motionY.set(ny);
+    }
+
+    function onUp() {
+      resizeState.current = null;
+      setIsResizing(false);
       document.body.style.cursor = "";
       document.body.style.userSelect = "";
-    };
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    }
+
     document.body.style.userSelect = "none";
-    document.addEventListener("mousemove", onMove);
-    document.addEventListener("mouseup", onUp);
+    const cursors: Record<string, string> = {
+      e: "ew-resize", w: "ew-resize", n: "ns-resize", s: "ns-resize",
+      ne: "nesw-resize", sw: "nesw-resize", nw: "nwse-resize", se: "nwse-resize",
+    };
+    document.body.style.cursor = cursors[dir] ?? "nwse-resize";
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
   }
 
-  const resizeHandleStyle = (cursor: string, style: React.CSSProperties): React.CSSProperties => ({
-    position: "absolute", zIndex: 10, cursor, ...style,
-  });
+  const rh = (cursor: string, style: React.CSSProperties, dir: string) => (
+    <div
+      onPointerDown={(e) => startResize(e, dir)}
+      style={{ position: "absolute", zIndex: 20, cursor, ...style }}
+    />
+  );
 
   const popup = (
     <AnimatePresence>
@@ -235,22 +270,16 @@ export function PreviewPanel({ files, isOpen, onClose, defaultPage }: Props) {
             style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 9990, backdropFilter: "blur(4px)" }}
           />
 
-          {/* Browser window — draggable + resizable */}
+          {/* Browser window */}
           <motion.div
             key="preview-window"
             initial={{ opacity: 0, scale: 0.96 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.96 }}
             transition={{ type: "spring", stiffness: 380, damping: 30 }}
-            drag
+            drag={!isResizing}
             dragMomentum={false}
             dragElastic={0}
-            dragConstraints={{
-              top: -centerY + 8,
-              left: -centerX + 8,
-              right: typeof window !== "undefined" ? window.innerWidth - centerX - size.w - 8 : 800,
-              bottom: typeof window !== "undefined" ? window.innerHeight - centerY - size.h - 8 : 600,
-            }}
             style={{
               x: motionX,
               y: motionY,
@@ -267,20 +296,19 @@ export function PreviewPanel({ files, isOpen, onClose, defaultPage }: Props) {
               flexDirection: "column",
               overflow: "hidden",
               zIndex: 9991,
-              cursor: "default",
             }}
           >
-            {/* Resize handles */}
-            <div onMouseDown={(e) => startResize(e, "e")} style={resizeHandleStyle("ew-resize", { top: 20, right: -4, bottom: 20, width: 8 })} />
-            <div onMouseDown={(e) => startResize(e, "w")} style={resizeHandleStyle("ew-resize", { top: 20, left: -4, bottom: 20, width: 8 })} />
-            <div onMouseDown={(e) => startResize(e, "s")} style={resizeHandleStyle("ns-resize", { bottom: -4, left: 20, right: 20, height: 8 })} />
-            <div onMouseDown={(e) => startResize(e, "n")} style={resizeHandleStyle("ns-resize", { top: -4, left: 20, right: 20, height: 8 })} />
-            <div onMouseDown={(e) => startResize(e, "se")} style={resizeHandleStyle("nwse-resize", { bottom: -4, right: -4, width: 16, height: 16 })} />
-            <div onMouseDown={(e) => startResize(e, "sw")} style={resizeHandleStyle("nesw-resize", { bottom: -4, left: -4, width: 16, height: 16 })} />
-            <div onMouseDown={(e) => startResize(e, "ne")} style={resizeHandleStyle("nesw-resize", { top: -4, right: -4, width: 16, height: 16 })} />
-            <div onMouseDown={(e) => startResize(e, "nw")} style={resizeHandleStyle("nwse-resize", { top: -4, left: -4, width: 16, height: 16 })} />
+            {/* Resize handles — 8 directions */}
+            {rh("ew-resize",   { top: 16, right: -5, bottom: 16, width: 10 }, "e")}
+            {rh("ew-resize",   { top: 16, left: -5, bottom: 16, width: 10 }, "w")}
+            {rh("ns-resize",   { bottom: -5, left: 16, right: 16, height: 10 }, "s")}
+            {rh("ns-resize",   { top: -5, left: 16, right: 16, height: 10 }, "n")}
+            {rh("nwse-resize", { bottom: -5, right: -5, width: 18, height: 18 }, "se")}
+            {rh("nesw-resize", { bottom: -5, left: -5, width: 18, height: 18 }, "sw")}
+            {rh("nesw-resize", { top: -5, right: -5, width: 18, height: 18 }, "ne")}
+            {rh("nwse-resize", { top: -5, left: -5, width: 18, height: 18 }, "nw")}
 
-            {/* Title bar — drag handle */}
+            {/* Title bar (drag handle) */}
             <div
               style={{
                 display: "flex", alignItems: "center",
@@ -291,10 +319,10 @@ export function PreviewPanel({ files, isOpen, onClose, defaultPage }: Props) {
                 gap: 10,
                 flexShrink: 0,
                 userSelect: "none",
-                cursor: "grab",
+                cursor: isResizing ? "default" : "grab",
               }}
-              onPointerDown={() => {}}
             >
+              {/* Traffic lights */}
               <div style={{ display: "flex", gap: 7, marginRight: 2, flexShrink: 0 }}>
                 <div onClick={onClose} title="Закрыть"
                   style={{ width: 13, height: 13, borderRadius: "50%", background: "#FF5F57", cursor: "pointer", boxShadow: "inset 0 0 0 0.5px rgba(0,0,0,0.25)" }} />
@@ -303,30 +331,24 @@ export function PreviewPanel({ files, isOpen, onClose, defaultPage }: Props) {
                   style={{ width: 13, height: 13, borderRadius: "50%", background: "#28C840", cursor: "pointer", boxShadow: "inset 0 0 0 0.5px rgba(0,0,0,0.25)" }} />
               </div>
 
+              {/* Navigation */}
               <div style={{ display: "flex", gap: 2, flexShrink: 0 }}>
                 <button onClick={goBack} disabled={!canBack}
-                  style={{ background: "none", border: "none", cursor: canBack ? "pointer" : "default", color: canBack ? "rgba(255,255,255,0.75)" : "rgba(255,255,255,0.22)", width: 26, height: 26, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, lineHeight: 1 }}>
+                  style={{ background: "none", border: "none", cursor: canBack ? "pointer" : "default", color: canBack ? "rgba(255,255,255,0.75)" : "rgba(255,255,255,0.22)", width: 26, height: 26, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>
                   ‹
                 </button>
                 <button onClick={goForward} disabled={!canForward}
-                  style={{ background: "none", border: "none", cursor: canForward ? "pointer" : "default", color: canForward ? "rgba(255,255,255,0.75)" : "rgba(255,255,255,0.22)", width: 26, height: 26, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, lineHeight: 1 }}>
+                  style={{ background: "none", border: "none", cursor: canForward ? "pointer" : "default", color: canForward ? "rgba(255,255,255,0.75)" : "rgba(255,255,255,0.22)", width: 26, height: 26, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>
                   ›
                 </button>
                 <button onClick={refresh}
-                  style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.6)", width: 26, height: 26, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, transition: "transform 0.3s", transform: isLoading ? "rotate(360deg)" : "rotate(0deg)" }}>
+                  style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.6)", width: 26, height: 26, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15 }}>
                   ↺
                 </button>
               </div>
 
               {/* URL bar */}
-              <div style={{
-                flex: 1,
-                background: "rgba(0,0,0,0.35)",
-                border: "1px solid rgba(255,255,255,0.1)",
-                borderRadius: 7, height: 26,
-                display: "flex", alignItems: "center",
-                padding: "0 10px", gap: 7,
-              }}>
+              <div style={{ flex: 1, background: "rgba(0,0,0,0.35)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 7, height: 26, display: "flex", alignItems: "center", padding: "0 10px", gap: 7 }}>
                 <svg width="10" height="10" viewBox="0 0 16 16" fill="rgba(255,255,255,0.35)">
                   <path d="M8 1a3.5 3.5 0 0 0-3.5 3.5V6H3a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1h-1.5V4.5A3.5 3.5 0 0 0 8 1zM6 4.5a2 2 0 1 1 4 0V6H6V4.5z"/>
                 </svg>
@@ -336,19 +358,16 @@ export function PreviewPanel({ files, isOpen, onClose, defaultPage }: Props) {
               </div>
 
               <button onClick={onClose}
-                style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.08)", cursor: "pointer", color: "rgba(255,255,255,0.5)", width: 22, height: 22, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, flexShrink: 0, lineHeight: 1 }}>
-                ×
+                style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.08)", cursor: "pointer", color: "rgba(255,255,255,0.5)", width: 22, height: 22, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <svg width="9" height="9" viewBox="0 0 10 10" fill="currentColor">
+                  <path d="M1 1l8 8M9 1L1 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                </svg>
               </button>
             </div>
 
-            {/* Page tabs bar */}
+            {/* Page tabs (only if multiple HTML files) */}
             {htmlFiles.length > 1 && (
-              <div style={{
-                height: 28, background: "#26292e",
-                borderBottom: "1px solid rgba(0,0,0,0.3)",
-                display: "flex", alignItems: "center",
-                padding: "0 10px", gap: 3, flexShrink: 0,
-              }}>
+              <div style={{ height: 28, background: "#26292e", borderBottom: "1px solid rgba(0,0,0,0.3)", display: "flex", alignItems: "center", padding: "0 10px", gap: 3, flexShrink: 0 }}>
                 {htmlFiles.map((f) => (
                   <button key={f.id} onClick={() => navigateTo(f.name)}
                     style={{
@@ -356,7 +375,7 @@ export function PreviewPanel({ files, isOpen, onClose, defaultPage }: Props) {
                       background: currentPage === f.name ? "rgba(255,255,255,0.12)" : "transparent",
                       color: currentPage === f.name ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.4)",
                       border: currentPage === f.name ? "1px solid rgba(255,255,255,0.1)" : "1px solid transparent",
-                      cursor: "pointer", fontFamily: "JetBrains Mono, monospace", transition: "all 0.12s",
+                      cursor: "pointer", fontFamily: "JetBrains Mono, monospace",
                     }}>
                     {f.name}
                   </button>
@@ -368,8 +387,8 @@ export function PreviewPanel({ files, isOpen, onClose, defaultPage }: Props) {
             {isLoading && (
               <div style={{ height: 2, background: "#161B22", flexShrink: 0 }}>
                 <motion.div
-                  initial={{ width: "0%", opacity: 1 }}
-                  animate={{ width: "85%", opacity: 1 }}
+                  initial={{ width: "0%" }}
+                  animate={{ width: "85%" }}
                   transition={{ duration: 0.6, ease: "easeOut" }}
                   style={{ height: "100%", background: "linear-gradient(90deg, #58A6FF, #3FB950)" }}
                 />
@@ -386,7 +405,7 @@ export function PreviewPanel({ files, isOpen, onClose, defaultPage }: Props) {
                 </div>
               ) : (
                 <iframe
-                  key={key}
+                  key={iframeKey}
                   srcDoc={srcDoc}
                   title="Preview"
                   sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
