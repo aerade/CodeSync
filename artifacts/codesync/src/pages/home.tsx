@@ -1,23 +1,21 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
-import { motion, useInView } from "framer-motion";
-import { useUser, useClerk, SignUpButton } from "@clerk/react";
+import { motion, useInView, AnimatePresence } from "framer-motion";
+import { useUser, SignInButton, SignUpButton } from "@clerk/react";
 import { Logo } from "@/components/Logo";
 import { GuestModal } from "@/components/GuestModal";
-import { HeroBackground } from "@/components/HeroBackground";
-import { TransitionOverlay } from "@/components/TransitionOverlay";
 
-function usePrefersReducedMotion() {
-  const [reduced, setReduced] = useState(false);
-  useEffect(() => {
-    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    setReduced(mq.matches);
-    const handler = (e: MediaQueryListEvent) => setReduced(e.matches);
-    mq.addEventListener("change", handler);
-    return () => mq.removeEventListener("change", handler);
-  }, []);
-  return reduced;
-}
+const CODE_LINES = [
+  { text: "import { Server } from 'socket.io';",        color: "#79c0ff", delay: 0    },
+  { text: "",                                            color: "",        delay: 0    },
+  { text: "const io = new Server(3000);",                color: "#e6edf3", delay: 160  },
+  { text: "",                                            color: "",        delay: 0    },
+  { text: "io.on('connection', (socket) => {",           color: "#e6edf3", delay: 320  },
+  { text: "  socket.on('code-change', (data) => {",     color: "#e6edf3", delay: 480  },
+  { text: "    socket.broadcast.emit('update', data);", color: "#d2a8ff", delay: 640  },
+  { text: "  });",                                       color: "#e6edf3", delay: 800  },
+  { text: "});",                                         color: "#e6edf3", delay: 960  },
+];
 
 const FEATURES = [
   {
@@ -89,10 +87,72 @@ const STEPS = [
   { n: "03", title: "Пишите код вместе", desc: "Изменения синхронизируются мгновенно через Yjs CRDT" },
 ];
 
-function hexToRgb(hex: string): string {
-  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-  if (!result) return "255,255,255";
-  return `${parseInt(result[1], 16)},${parseInt(result[2], 16)},${parseInt(result[3], 16)}`;
+function AnimatedCode() {
+  const [visible, setVisible] = useState(0);
+
+  useEffect(() => {
+    let i = 0;
+    const interval = setInterval(() => {
+      i++;
+      setVisible(i);
+      if (i >= CODE_LINES.filter(l => l.text).length) clearInterval(interval);
+    }, 220);
+    return () => clearInterval(interval);
+  }, []);
+
+  let lineCount = 0;
+  return (
+    <div
+      className="rounded-xl overflow-hidden font-mono text-sm"
+      style={{
+        background: "rgba(13,17,23,0.9)",
+        border: "1px solid rgba(255,255,255,0.08)",
+        boxShadow: "0 32px 80px rgba(0,0,0,0.6)",
+      }}
+    >
+      {/* Title bar */}
+      <div className="flex items-center gap-2 px-4 py-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)" }}>
+        <div className="flex gap-1.5">
+          <div className="w-3 h-3 rounded-full" style={{ background: "rgba(255,96,96,0.5)" }} />
+          <div className="w-3 h-3 rounded-full" style={{ background: "rgba(255,189,68,0.5)" }} />
+          <div className="w-3 h-3 rounded-full" style={{ background: "rgba(68,189,84,0.5)" }} />
+        </div>
+        <span style={{ color: "rgba(255,255,255,0.35)", fontSize: 12, marginLeft: 8 }}>server.ts</span>
+        {/* Fake online users */}
+        <div className="ml-auto flex items-center gap-1.5">
+          {["#3B82F6", "#10B981", "#F59E0B"].map((c, i) => (
+            <div key={i} className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold" style={{ background: c, color: "#0D1117" }}>
+              {["AX", "MR", "IK"][i]}
+            </div>
+          ))}
+        </div>
+      </div>
+      {/* Code */}
+      <div className="p-5" style={{ lineHeight: "1.8", minHeight: 220 }}>
+        {CODE_LINES.map((line, idx) => {
+          if (line.text) lineCount++;
+          const show = line.text === "" || lineCount <= visible;
+          return (
+            <motion.div
+              key={idx}
+              initial={{ opacity: 0, x: -6 }}
+              animate={show ? { opacity: 1, x: 0 } : { opacity: 0, x: -6 }}
+              transition={{ duration: 0.18 }}
+              style={{ color: line.color || "transparent", minHeight: "1.8em" }}
+            >
+              {line.text || "\u00A0"}
+            </motion.div>
+          );
+        })}
+        {/* Blinking cursor */}
+        <motion.span
+          animate={{ opacity: [1, 0] }}
+          transition={{ duration: 0.6, repeat: Infinity, repeatType: "reverse" }}
+          style={{ color: "#58a6ff" }}
+        >▌</motion.span>
+      </div>
+    </div>
+  );
 }
 
 function FeatureCard({ feature, index }: { feature: typeof FEATURES[0]; index: number }) {
@@ -123,46 +183,23 @@ function FeatureCard({ feature, index }: { feature: typeof FEATURES[0]; index: n
   );
 }
 
+function hexToRgb(hex: string): string {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  if (!result) return "255,255,255";
+  return `${parseInt(result[1], 16)},${parseInt(result[2], 16)},${parseInt(result[3], 16)}`;
+}
+
 export default function Home() {
   const { isSignedIn, isLoaded } = useUser();
-  const clerk = useClerk();
   const [, setLocation] = useLocation();
   const [showGuestModal, setShowGuestModal] = useState(false);
-  const [transitioning, setTransitioning] = useState(false);
-  const [transitionOrigin, setTransitionOrigin] = useState({ x: 0, y: 0 });
-  const stepsRef = useRef<HTMLDivElement>(null);
-  const stepsInView = useInView(stepsRef, { once: true, margin: "-60px" });
-  const reducedMotion = usePrefersReducedMotion();
+  const heroRef = useRef<HTMLDivElement>(null);
+  const featuresRef = useRef<HTMLDivElement>(null);
+  const stepsInView = useInView(useRef<HTMLDivElement>(null), { once: true });
 
   useEffect(() => {
     if (isLoaded && isSignedIn) setLocation("/dashboard");
   }, [isLoaded, isSignedIn, setLocation]);
-
-  const handleStart = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
-    if (reducedMotion) {
-      if (isSignedIn) {
-        setLocation("/dashboard");
-      } else {
-        clerk.openSignUp({});
-      }
-      return;
-    }
-    const rect = e.currentTarget.getBoundingClientRect();
-    setTransitionOrigin({
-      x: rect.left + rect.width / 2,
-      y: rect.top + rect.height / 2,
-    });
-    setTransitioning(true);
-  }, [reducedMotion, isSignedIn, setLocation, clerk]);
-
-  const handleTransitionComplete = useCallback(() => {
-    setTransitioning(false);
-    if (isSignedIn) {
-      setLocation("/dashboard");
-    } else {
-      clerk.openSignUp({});
-    }
-  }, [isSignedIn, setLocation, clerk]);
 
   if (isLoaded && isSignedIn) return null;
 
@@ -177,19 +214,34 @@ export default function Home() {
         onSuccess={() => { setShowGuestModal(false); setLocation("/dashboard"); }}
       />
 
-      <TransitionOverlay
-        active={transitioning}
-        originX={transitionOrigin.x}
-        originY={transitionOrigin.y}
-        onComplete={handleTransitionComplete}
+      {/* Subtle grid background */}
+      <div
+        className="fixed inset-0 pointer-events-none"
+        style={{
+          backgroundImage: "linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px)",
+          backgroundSize: "48px 48px",
+          zIndex: 0,
+        }}
+      />
+
+      {/* Radial glow */}
+      <div
+        className="fixed pointer-events-none"
+        style={{
+          width: "60vw", height: "60vw",
+          background: "radial-gradient(circle, rgba(255,255,255,0.025) 0%, transparent 70%)",
+          top: "-20vh", left: "20vw",
+          zIndex: 0,
+        }}
       />
 
       <div className="relative z-10 flex flex-col min-h-screen">
+        {/* NAV */}
         <nav
           className="flex items-center justify-between px-6 sm:px-12 py-4 sticky top-0 z-20"
           style={{
             borderBottom: "1px solid rgba(255,255,255,0.05)",
-            background: "rgba(3,3,3,0.6)",
+            background: "rgba(3,3,3,0.8)",
             backdropFilter: "blur(20px)",
           }}
         >
@@ -230,148 +282,159 @@ export default function Home() {
                   boxShadow: "0 2px 16px rgba(255,255,255,0.15)",
                 }}
               >
-                Регистрация
+                Начать →
               </button>
             </SignUpButton>
           </motion.div>
         </nav>
 
-        <section className="relative flex-1 flex flex-col items-center justify-center px-6 min-h-[90vh] overflow-hidden">
-          {!reducedMotion && <HeroBackground />}
-          <div className="flex flex-col items-center text-center max-w-3xl mx-auto">
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              className="mb-6 inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs"
-              style={{
-                background: "rgba(255,255,255,0.04)",
-                border: "1px solid rgba(255,255,255,0.09)",
-                color: "rgba(255,255,255,0.5)",
-              }}
-            >
-              <motion.span
-                animate={{ opacity: [1, 0.3, 1] }}
-                transition={{ duration: 2, repeat: Infinity }}
-                style={{ width: 6, height: 6, borderRadius: "50%", background: "#3fb950", display: "inline-block", flexShrink: 0 }}
-              />
-              Реальное время · Yjs CRDT · WebSocket
-            </motion.div>
-
-            <div style={{ overflow: "hidden" }}>
-              <motion.h1
-                initial={{ y: "110%" }}
-                animate={{ y: "0%" }}
-                transition={{ duration: 0.7, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
+        {/* ── HERO ── */}
+        <section ref={heroRef} className="flex-1 flex flex-col items-center justify-center px-6 pt-16 pb-10">
+          <div className="max-w-6xl w-full mx-auto grid lg:grid-cols-2 gap-12 items-center">
+            {/* Left — text */}
+            <div className="flex flex-col items-start">
+              {/* Badge */}
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+                className="mb-5 inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs"
                 style={{
-                  fontSize: "clamp(52px, 8vw, 96px)",
-                  fontWeight: 800,
-                  lineHeight: 1.0,
-                  letterSpacing: "-3px",
-                  color: "#fff",
-                  marginBottom: 0,
+                  background: "rgba(255,255,255,0.04)",
+                  border: "1px solid rgba(255,255,255,0.09)",
+                  color: "rgba(255,255,255,0.5)",
                 }}
               >
-                Code<span style={{ color: "rgba(255,255,255,0.25)" }}>Sync</span>
-              </motion.h1>
+                <motion.span
+                  animate={{ opacity: [1, 0.3, 1] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                  style={{ width: 6, height: 6, borderRadius: "50%", background: "#3fb950", display: "inline-block", flexShrink: 0 }}
+                />
+                Реальное время · Yjs CRDT · WebSocket
+              </motion.div>
+
+              {/* Title — per-char reveal */}
+              <div style={{ overflow: "hidden" }}>
+                <motion.h1
+                  initial={{ y: "110%" }}
+                  animate={{ y: "0%" }}
+                  transition={{ duration: 0.7, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
+                  style={{
+                    fontSize: "clamp(44px, 6vw, 72px)",
+                    fontWeight: 800,
+                    lineHeight: 1.0,
+                    letterSpacing: "-2.5px",
+                    color: "#fff",
+                    marginBottom: 0,
+                  }}
+                >
+                  Code<span style={{ color: "rgba(255,255,255,0.3)" }}>Sync</span>
+                </motion.h1>
+              </div>
+
+              <motion.h2
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.35, duration: 0.6 }}
+                style={{
+                  fontSize: "clamp(20px, 3vw, 28px)",
+                  fontWeight: 700,
+                  color: "rgba(255,255,255,0.35)",
+                  letterSpacing: "-0.5px",
+                  marginTop: 6,
+                  marginBottom: 20,
+                }}
+              >
+                Совместная IDE онлайн
+              </motion.h2>
+
+              <motion.p
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.45, duration: 0.6 }}
+                style={{ fontSize: 16, lineHeight: 1.7, color: "rgba(255,255,255,0.4)", maxWidth: 460, marginBottom: 36 }}
+              >
+                Пишите код вместе с командой в реальном времени. Monaco Editor, AI-ассистент, встроенный терминал и гостевой доступ — всё в браузере без установки.
+              </motion.p>
+
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.55, duration: 0.5 }}
+                className="flex items-center gap-3 flex-wrap"
+              >
+                <SignUpButton mode="modal">
+                  <button
+                    className="px-6 py-3 rounded-xl text-sm font-semibold transition-all hover:opacity-90 active:scale-95"
+                    style={{
+                      background: "#fff", color: "#000",
+                      border: "none", cursor: "pointer",
+                      boxShadow: "0 0 40px rgba(255,255,255,0.1)",
+                    }}
+                  >
+                    Создать комнату
+                  </button>
+                </SignUpButton>
+                <button
+                  onClick={() => setShowGuestModal(true)}
+                  className="px-6 py-3 rounded-xl text-sm font-semibold transition-all hover:bg-white/6"
+                  style={{
+                    background: "rgba(255,255,255,0.05)",
+                    color: "rgba(255,255,255,0.7)",
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    cursor: "pointer",
+                    backdropFilter: "blur(12px)",
+                  }}
+                >
+                  Войти как гость
+                </button>
+              </motion.div>
+
+              {/* Mini stats */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.75, duration: 0.6 }}
+                className="flex items-center gap-6 mt-8"
+              >
+                {[
+                  { n: "5", label: "участников" },
+                  { n: "8", label: "тем редактора" },
+                  { n: "∞", label: "комнат" },
+                ].map(({ n, label }) => (
+                  <div key={label}>
+                    <div style={{ fontSize: 22, fontWeight: 800, color: "#fff" }}>{n}</div>
+                    <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: "0.08em" }}>{label}</div>
+                  </div>
+                ))}
+              </motion.div>
             </div>
 
-            <motion.p
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4, duration: 0.6 }}
-              style={{
-                fontSize: "clamp(16px, 2.5vw, 22px)",
-                lineHeight: 1.6,
-                color: "rgba(255,255,255,0.4)",
-                maxWidth: 560,
-                marginTop: 16,
-                marginBottom: 48,
-              }}
-            >
-              Совместная IDE в браузере. Пишите код с командой в реальном времени — Monaco, AI, терминал и гостевой доступ.
-            </motion.p>
-
+            {/* Right — animated code mockup */}
             <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.55, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+              initial={{ opacity: 0, x: 40, scale: 0.96 }}
+              animate={{ opacity: 1, x: 0, scale: 1 }}
+              transition={{ delay: 0.3, duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
             >
-              <button
-                onClick={handleStart}
-                className="group relative px-12 py-4 rounded-2xl text-lg font-bold transition-all active:scale-95"
-                style={{
-                  background: "#fff",
-                  color: "#000",
-                  border: "none",
-                  cursor: "pointer",
-                  boxShadow: "0 0 60px rgba(255,255,255,0.15), 0 0 120px rgba(88,166,255,0.1)",
-                  letterSpacing: "-0.3px",
-                }}
-              >
-                <span className="relative z-10">Начать</span>
-                <motion.div
-                  className="absolute inset-0 rounded-2xl"
-                  style={{
-                    background: "linear-gradient(135deg, rgba(88,166,255,0.3), rgba(210,168,255,0.3), rgba(63,185,80,0.3))",
-                    opacity: 0,
-                  }}
-                  whileHover={{ opacity: 1 }}
-                  transition={{ duration: 0.3 }}
-                />
-              </button>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.75, duration: 0.6 }}
-              className="flex items-center gap-8 mt-12"
-            >
-              {[
-                { n: "5", label: "участников" },
-                { n: "8", label: "тем редактора" },
-                { n: "∞", label: "комнат" },
-              ].map(({ n, label }) => (
-                <div key={label} className="text-center">
-                  <div style={{ fontSize: 26, fontWeight: 800, color: "#fff" }}>{n}</div>
-                  <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: "0.08em" }}>{label}</div>
-                </div>
-              ))}
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 1.2, duration: 1 }}
-              className="mt-16"
-            >
-              <motion.div
-                animate={{ y: [0, 8, 0] }}
-                transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-                style={{ color: "rgba(255,255,255,0.2)" }}
-              >
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  <polyline points="6 9 12 15 18 9"/>
-                </svg>
-              </motion.div>
+              <AnimatedCode />
             </motion.div>
           </div>
         </section>
 
-        <section className="px-6 py-20" style={{ borderTop: "1px solid rgba(255,255,255,0.05)", background: "rgba(3,3,3,0.8)" }}>
-          <div className="max-w-4xl mx-auto" ref={stepsRef}>
+        {/* ── HOW IT WORKS ── */}
+        <section className="px-6 py-16" style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+          <div className="max-w-4xl mx-auto">
             <motion.div
               initial={{ opacity: 0, y: 16 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5 }}
-              className="text-center mb-14"
+              className="text-center mb-12"
             >
               <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 12, textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 10 }}>
                 Как это работает
               </div>
-              <h2 style={{ fontSize: "clamp(24px, 4vw, 40px)", fontWeight: 800, color: "#fff", letterSpacing: "-1px" }}>
+              <h2 style={{ fontSize: "clamp(24px, 4vw, 36px)", fontWeight: 800, color: "#fff", letterSpacing: "-1px" }}>
                 Три шага до совместной работы
               </h2>
             </motion.div>
@@ -381,23 +444,17 @@ export default function Home() {
                 <motion.div
                   key={step.n}
                   initial={{ opacity: 0, y: 24 }}
-                  animate={stepsInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 24 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
                   transition={{ delay: i * 0.12, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-                  className="flex flex-col gap-3 p-6 rounded-xl relative overflow-hidden"
+                  className="flex flex-col gap-3 p-5 rounded-xl"
                   style={{
                     background: "rgba(255,255,255,0.02)",
                     border: "1px solid rgba(255,255,255,0.06)",
                   }}
                 >
-                  <div
-                    className="absolute top-0 right-0 w-24 h-24 rounded-full"
-                    style={{
-                      background: `radial-gradient(circle, ${["rgba(88,166,255,0.08)", "rgba(63,185,80,0.08)", "rgba(210,168,255,0.08)"][i]} 0%, transparent 70%)`,
-                      transform: "translate(30%, -30%)",
-                    }}
-                  />
-                  <div style={{ fontFamily: "monospace", fontSize: 28, color: "rgba(255,255,255,0.08)", fontWeight: 800 }}>{step.n}</div>
-                  <div style={{ fontSize: 17, fontWeight: 700, color: "#fff" }}>{step.title}</div>
+                  <div style={{ fontFamily: "monospace", fontSize: 13, color: "rgba(255,255,255,0.2)", fontWeight: 700 }}>{step.n}</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: "#fff" }}>{step.title}</div>
                   <div style={{ fontSize: 13, color: "rgba(255,255,255,0.38)", lineHeight: 1.6 }}>{step.desc}</div>
                 </motion.div>
               ))}
@@ -405,19 +462,20 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="px-6 py-20" style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+        {/* ── FEATURES ── */}
+        <section ref={featuresRef} className="px-6 py-16" style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}>
           <div className="max-w-5xl mx-auto">
             <motion.div
               initial={{ opacity: 0, y: 16 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5 }}
-              className="text-center mb-14"
+              className="text-center mb-12"
             >
               <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 12, textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 10 }}>
                 Возможности
               </div>
-              <h2 style={{ fontSize: "clamp(24px, 4vw, 40px)", fontWeight: 800, color: "#fff", letterSpacing: "-1px" }}>
+              <h2 style={{ fontSize: "clamp(24px, 4vw, 36px)", fontWeight: 800, color: "#fff", letterSpacing: "-1px" }}>
                 Всё для командной разработки
               </h2>
             </motion.div>
@@ -430,27 +488,22 @@ export default function Home() {
           </div>
         </section>
 
+        {/* ── CTA BOTTOM ── */}
         <section
-          className="px-6 py-24 text-center relative overflow-hidden"
+          className="px-6 py-20 text-center"
           style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}
         >
-          <div
-            className="absolute inset-0"
-            style={{
-              background: "radial-gradient(ellipse 80% 60% at 50% 50%, rgba(88,166,255,0.04) 0%, transparent 70%)",
-            }}
-          />
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
-            className="max-w-xl mx-auto relative z-10"
+            className="max-w-xl mx-auto"
           >
             <h2 style={{ fontSize: "clamp(28px, 5vw, 48px)", fontWeight: 800, color: "#fff", letterSpacing: "-1.5px", marginBottom: 16 }}>
               Начните прямо сейчас
             </h2>
-            <p style={{ fontSize: 16, color: "rgba(255,255,255,0.38)", marginBottom: 36, lineHeight: 1.6 }}>
+            <p style={{ fontSize: 16, color: "rgba(255,255,255,0.38)", marginBottom: 32, lineHeight: 1.6 }}>
               Регистрация занимает 30 секунд. Или войдите как гость — без регистрации.
             </p>
             <div className="flex items-center justify-center gap-3 flex-wrap">
@@ -478,6 +531,7 @@ export default function Home() {
           </motion.div>
         </section>
 
+        {/* Footer */}
         <footer
           className="px-6 py-5 text-center"
           style={{ borderTop: "1px solid rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.18)", fontSize: 12 }}
@@ -488,4 +542,3 @@ export default function Home() {
     </div>
   );
 }
-
