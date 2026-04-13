@@ -2,10 +2,11 @@ import { Router, Request } from "express";
 import { getAuth } from "@clerk/express";
 import { db } from "@workspace/db";
 import { roomsTable, roomMembersTable, usersTable, filesTable } from "@workspace/db";
-import { eq, and, ilike, count, desc } from "drizzle-orm";
+import { eq, and, ilike, desc, count } from "drizzle-orm";
 import { v4 as uuidv4 } from "uuid";
 import { nanoid } from "nanoid";
 import archiver from "archiver";
+import { getActiveUserCountForRoom } from "../ws/collaborationServer";
 
 const roomsRouter = Router();
 
@@ -127,21 +128,12 @@ roomsRouter.get("/rooms", async (req, res) => {
     return true;
   });
 
-  const roomsWithCounts = await Promise.all(
-    uniqueRooms.map(async (room) => {
-      const [memberCountResult] = await db
-        .select({ count: count() })
-        .from(roomMembersTable)
-        .where(eq(roomMembersTable.roomId, room.id));
-
-      return {
-        ...room,
-        memberCount: Number(memberCountResult?.count ?? 0),
-        createdAt: room.createdAt.toISOString(),
-        updatedAt: room.updatedAt.toISOString(),
-      };
-    })
-  );
+  const roomsWithCounts = uniqueRooms.map((room) => ({
+    ...room,
+    memberCount: getActiveUserCountForRoom(room.id),
+    createdAt: room.createdAt.toISOString(),
+    updatedAt: room.updatedAt.toISOString(),
+  }));
 
   return res.json(roomsWithCounts);
 });

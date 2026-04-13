@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useLocation } from "wouter";
 import { motion } from "framer-motion";
+import ReactDOM from "react-dom";
 import Editor, { OnMount } from "@monaco-editor/react";
 import type * as MonacoType from "monaco-editor";
 import * as Y from "yjs";
@@ -15,6 +16,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { FileTree } from "@/components/FileTree";
 import { AIPanel } from "@/components/AIPanel";
+import { AIChatFloat } from "@/components/AIChatFloat";
 import { Terminal, TerminalHandle } from "@/components/Terminal";
 import { SessionSidebar } from "@/components/SessionSidebar";
 import { Button } from "@/components/ui/button";
@@ -121,6 +123,8 @@ export default function RoomPage() {
   }, [themeMenuOpen]);
 
   const [activeFileId, setActiveFileId] = useState<string | null>(null);
+  const activeFileIdRef = useRef<string | null>(null);
+  useEffect(() => { activeFileIdRef.current = activeFileId; }, [activeFileId]);
   const [fileContent, setFileContent] = useState("");
   const [isBottomOpen, setIsBottomOpen] = useState(!isMobile);
   const terminalRef = useRef<TerminalHandle>(null);
@@ -487,7 +491,57 @@ export default function RoomPage() {
     );
   }
 
+  const themeMenuPortal = themeMenuOpen && themeMenuPos
+    ? ReactDOM.createPortal(
+        <div
+          data-theme-selector=""
+          style={{
+            position: "fixed",
+            top: themeMenuPos.top,
+            right: themeMenuPos.right,
+            zIndex: 99999,
+            background: "rgba(10,10,10,0.97)",
+            border: "1px solid rgba(255,255,255,0.12)",
+            boxShadow: "0 16px 48px rgba(0,0,0,0.8)",
+            minWidth: 170,
+            borderRadius: 10,
+            overflow: "hidden",
+            backdropFilter: "blur(16px)",
+          }}
+        >
+          {EDITOR_THEMES.map((theme) => (
+            <button
+              key={theme.id}
+              onClick={() => handleThemeChange(theme.id)}
+              style={{
+                width: "100%",
+                textAlign: "left",
+                padding: "8px 12px",
+                fontSize: 12,
+                color: theme.id === editorTheme ? "#fff" : "rgba(255,255,255,0.5)",
+                background: theme.id === editorTheme ? "rgba(255,255,255,0.08)" : "transparent",
+                border: "none",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                transition: "background 0.12s",
+              }}
+            >
+              {theme.id === editorTheme
+                ? <span style={{ color: "#3FB950", fontSize: 10 }}>✓</span>
+                : <span style={{ width: 14, display: "inline-block" }} />
+              }
+              {theme.label}
+            </button>
+          ))}
+        </div>,
+        document.body
+      )
+    : null;
+
   return (
+    <>
     <div className="ide-layout">
       {/* TOP BAR */}
       <div className="ide-topbar">
@@ -612,47 +666,7 @@ export default function RoomPage() {
                 <path d="M8 10.94L2.53 5.47a.75.75 0 0 0-1.06 1.06l6 6a.75.75 0 0 0 1.06 0l6-6a.75.75 0 0 0-1.06-1.06L8 10.94z"/>
               </svg>
             </button>
-            {themeMenuOpen && themeMenuPos && (
-              <div
-                data-theme-selector=""
-                style={{
-                  position: "fixed",
-                  top: themeMenuPos.top,
-                  right: themeMenuPos.right,
-                  zIndex: 9999,
-                  background: "rgba(13,17,23,0.97)",
-                  border: "1px solid rgba(255,255,255,0.12)",
-                  boxShadow: "0 16px 48px rgba(0,0,0,0.8)",
-                  minWidth: 160,
-                  borderRadius: 8,
-                  overflow: "hidden",
-                }}
-              >
-                {EDITOR_THEMES.map((theme) => (
-                  <button
-                    key={theme.id}
-                    onClick={() => handleThemeChange(theme.id)}
-                    className="w-full text-left px-3 py-2 text-xs transition-colors hover:bg-white/8"
-                    style={{
-                      color: theme.id === editorTheme ? "#fff" : "#8B949E",
-                      background: theme.id === editorTheme ? "rgba(255,255,255,0.08)" : "transparent",
-                      border: "none",
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8,
-                    }}
-                  >
-                    {theme.id === editorTheme && (
-                      <span style={{ color: "#3FB950", fontSize: 10 }}>✓</span>
-                    )}
-                    {theme.id !== editorTheme && <span style={{ width: 14 }} />}
-                    {theme.label}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+            </div>
 
           <button
             className="text-xs px-2 py-0.5 rounded hover:bg-white/5 transition-colors"
@@ -839,9 +853,6 @@ export default function RoomPage() {
                 fileContent={fileContent}
                 language={activeFile?.language ?? "javascript"}
                 fileName={activeFile?.name ?? ""}
-                onFilesChanged={() => {
-                  void qc.invalidateQueries({ queryKey: getGetRoomFilesQueryKey(roomId) });
-                }}
                 onContentRestored={(content: string) => {
                   isRemoteUpdate.current = true;
                   setFileContent(content);
@@ -873,9 +884,7 @@ export default function RoomPage() {
                   const newLines = newContent.split("\n");
                   const decorations: MonacoType.editor.IModelDeltaDecoration[] = [];
                   for (let i = 0; i < newLines.length; i++) {
-                    const oldLine = oldLines[i];
-                    const newLine = newLines[i];
-                    if (oldLine !== newLine) {
+                    if (oldLines[i] !== newLines[i]) {
                       decorations.push({
                         range: new monaco.Range(i + 1, 1, i + 1, 1),
                         options: {
@@ -885,18 +894,6 @@ export default function RoomPage() {
                         },
                       });
                     }
-                  }
-                  for (let i = newLines.length; i < oldLines.length; i++) {
-                    const lineNum = Math.max(1, newLines.length);
-                    decorations.push({
-                      range: new monaco.Range(lineNum, 1, lineNum, 1),
-                      options: {
-                        isWholeLine: true,
-                        className: "ai-diff-deleted",
-                        overviewRuler: { color: "rgba(255,123,114,0.7)", position: monaco.editor.OverviewRulerLane.Right },
-                      },
-                    });
-                    break;
                   }
                   aiDiffDecorationsRef.current = editor.deltaDecorations(aiDiffDecorationsRef.current, decorations);
                   setTimeout(() => {
@@ -909,21 +906,6 @@ export default function RoomPage() {
                   const editor = editorRef.current;
                   if (!editor) return;
                   aiDiffDecorationsRef.current = editor.deltaDecorations(aiDiffDecorationsRef.current, []);
-                }}
-                onFileStream={(streamFileId, streamFileName, content) => {
-                  const matchById = streamFileId && streamFileId === activeFileId;
-                  const matchByName = !streamFileId && streamFileName &&
-                    files.some((f) => f.name === streamFileName && f.id === activeFileId);
-                  const isNewFile = !streamFileId;
-                  if (!matchById && !matchByName && !isNewFile) return;
-                  isRemoteUpdate.current = true;
-                  setFileContent(content);
-                  if (editorRef.current) {
-                    const pos = editorRef.current.getPosition();
-                    editorRef.current.setValue(content);
-                    if (pos) editorRef.current.setPosition(pos);
-                  }
-                  isRemoteUpdate.current = false;
                 }}
               />
             </div>
@@ -958,5 +940,93 @@ export default function RoomPage() {
         )}
       </div>
     </div>
+
+    {themeMenuPortal}
+
+    <AIChatFloat
+      roomId={roomId}
+      fileId={activeFileId}
+      fileContent={fileContent}
+      language={activeFile?.language ?? "javascript"}
+      fileName={activeFile?.name ?? ""}
+      onFilesChanged={() => {
+        void qc.invalidateQueries({ queryKey: getGetRoomFilesQueryKey(roomId) });
+      }}
+      onContentRestored={(content: string) => {
+        isRemoteUpdate.current = true;
+        setFileContent(content);
+        if (editorRef.current) {
+          const pos = editorRef.current.getPosition();
+          editorRef.current.setValue(content);
+          if (pos) editorRef.current.setPosition(pos);
+        }
+        if (ydocRef.current && wsRef.current?.readyState === WebSocket.OPEN) {
+          const ydoc = ydocRef.current;
+          const yText = ydoc.getText("content");
+          ydoc.transact(() => {
+            yText.delete(0, yText.length);
+            yText.insert(0, content);
+          });
+          const update = Y.encodeStateAsUpdate(ydoc);
+          wsRef.current.send(JSON.stringify({
+            type: "yjs-update",
+            update: btoa(String.fromCharCode(...update)),
+          }));
+        }
+        isRemoteUpdate.current = false;
+      }}
+      onShowAiDiff={(oldContent: string, newContent: string) => {
+        const editor = editorRef.current;
+        const monaco = monacoRef.current;
+        if (!editor || !monaco) return;
+        const oldLines = oldContent.split("\n");
+        const newLines = newContent.split("\n");
+        const decorations: MonacoType.editor.IModelDeltaDecoration[] = [];
+        for (let i = 0; i < newLines.length; i++) {
+          if (oldLines[i] !== newLines[i]) {
+            decorations.push({
+              range: new monaco.Range(i + 1, 1, i + 1, 1),
+              options: {
+                isWholeLine: true,
+                className: "ai-diff-added",
+                overviewRuler: { color: "rgba(63,185,80,0.7)", position: monaco.editor.OverviewRulerLane.Right },
+              },
+            });
+          }
+        }
+        aiDiffDecorationsRef.current = editor.deltaDecorations(aiDiffDecorationsRef.current, decorations);
+        setTimeout(() => {
+          if (editorRef.current) {
+            aiDiffDecorationsRef.current = editorRef.current.deltaDecorations(aiDiffDecorationsRef.current, []);
+          }
+        }, 2000);
+      }}
+      onClearAiDiff={() => {
+        const editor = editorRef.current;
+        if (!editor) return;
+        aiDiffDecorationsRef.current = editor.deltaDecorations(aiDiffDecorationsRef.current, []);
+      }}
+      onFileStream={(streamFileId, streamFileName, content) => {
+        const currentActiveFileId = activeFileIdRef.current;
+
+        if (streamFileId && streamFileId !== currentActiveFileId) {
+          const targetFile = files.find((f) => f.id === streamFileId);
+          if (targetFile) {
+            setActiveFileId(streamFileId);
+            activeFileIdRef.current = streamFileId;
+          }
+        }
+
+        isRemoteUpdate.current = true;
+        setFileContent(content);
+        if (editorRef.current) {
+          const pos = editorRef.current.getPosition();
+          editorRef.current.setValue(content);
+          if (pos) editorRef.current.setPosition(pos);
+        }
+        isRemoteUpdate.current = false;
+      }}
+    />
+    </>
   );
 }

@@ -74,6 +74,17 @@ function getRoomKey(roomId: string, fileId: string): string {
   return `${roomId}:${fileId}`;
 }
 
+export function getActiveUserCountForRoom(roomId: string): number {
+  const users = new Set<string>();
+  for (const [key, fr] of fileRooms) {
+    if (!key.startsWith(`${roomId}:`)) continue;
+    for (const info of fr.clients.values()) {
+      users.add(info.userId);
+    }
+  }
+  return users.size;
+}
+
 /**
  * Collect all connected users across every file-room for a given roomId and
  * broadcast the combined awareness state to every one of them.
