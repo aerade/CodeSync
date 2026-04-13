@@ -14,8 +14,8 @@ interface ChatMessage {
 
 interface ToolCallInfo {
   name: string;
-  args: Record<string, string>;
-  result: { success?: boolean; name?: string; error?: string };
+  args: Record<string, unknown>;
+  result: { success?: boolean; name?: string; error?: string; fileId?: string };
 }
 
 interface ImageResult {
@@ -230,13 +230,21 @@ export function AIChatFloat({
                 create_file: "Создал файл",
                 edit_file: "Отредактировал файл",
                 delete_file: "Удалил файл",
+                search_images: "Нашёл изображения",
+                download_image: "Скачал изображение",
               };
               const label = `${labels[tc.name] ?? tc.name}${tc.result?.name ? `: ${tc.result.name}` : ""}`;
               showFlash(label, !!tc.result?.success);
               onFilesChanged?.();
+
+              // After create_file succeeds, switch editor to the new file
+              if (tc.name === "create_file" && tc.result?.success && tc.result?.fileId) {
+                onFileStream?.(tc.result.fileId, tc.result.name ?? null, (tc.args.content as string | undefined) ?? "");
+              }
+
               if (tc.name === "edit_file" && tc.result?.success && tc.args?.fileId === fileId) {
-                editedFileId = tc.args.fileId;
-                editedNewContent = tc.args.content ?? null;
+                editedFileId = tc.args.fileId as string;
+                editedNewContent = (tc.args.content as string | undefined) ?? null;
               }
             }
 
@@ -361,12 +369,22 @@ export function AIChatFloat({
             flexShrink: 0,
           }}>
             <div style={{
-              width: 28, height: 28, borderRadius: 9,
-              background: "linear-gradient(135deg, #58A6FF, #3FB950)",
+              width: 30, height: 30, borderRadius: 10, flexShrink: 0,
+              background: "linear-gradient(135deg, #1a1d29 0%, #0d1117 100%)",
+              border: "1px solid rgba(88,166,255,0.35)",
+              boxShadow: "0 0 14px rgba(88,166,255,0.2), inset 0 1px 0 rgba(255,255,255,0.06)",
               display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 10, fontWeight: 800, color: "#0D1117", flexShrink: 0,
+              position: "relative", overflow: "hidden",
             }}>
-              AI
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M8 1L9.5 5.5L14 7L9.5 8.5L8 13L6.5 8.5L2 7L6.5 5.5L8 1Z" fill="url(#ai-star)" />
+                <defs>
+                  <linearGradient id="ai-star" x1="2" y1="1" x2="14" y2="13">
+                    <stop offset="0%" stopColor="#79C0FF"/>
+                    <stop offset="100%" stopColor="#56D364"/>
+                  </linearGradient>
+                </defs>
+              </svg>
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 13, fontWeight: 600, color: "#E6EDF3" }}>CodeSync AI</div>
@@ -454,12 +472,22 @@ export function AIChatFloat({
                     <div style={{ display: "flex", justifyContent: msg.role === "user" ? "flex-end" : "flex-start", alignItems: "flex-start", gap: 8 }}>
                       {msg.role === "assistant" && (
                         <div style={{
-                          width: 20, height: 20, borderRadius: 6,
-                          background: "linear-gradient(135deg, #58A6FF, #3FB950)",
-                          color: "#0D1117", fontSize: 7, fontWeight: 800,
+                          width: 22, height: 22, borderRadius: 7, flexShrink: 0, marginTop: 2,
+                          background: "#0D1117",
+                          border: "1px solid rgba(88,166,255,0.4)",
+                          boxShadow: "0 0 8px rgba(88,166,255,0.18)",
                           display: "flex", alignItems: "center", justifyContent: "center",
-                          flexShrink: 0, marginTop: 2,
-                        }}>AI</div>
+                        }}>
+                          <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+                            <path d="M8 1L9.5 5.5L14 7L9.5 8.5L8 13L6.5 8.5L2 7L6.5 5.5L8 1Z" fill="url(#ai-star-sm)" />
+                            <defs>
+                              <linearGradient id="ai-star-sm" x1="2" y1="1" x2="14" y2="13">
+                                <stop offset="0%" stopColor="#79C0FF"/>
+                                <stop offset="100%" stopColor="#56D364"/>
+                              </linearGradient>
+                            </defs>
+                          </svg>
+                        </div>
                       )}
                       <div
                         className="ai-prose"
@@ -483,12 +511,22 @@ export function AIChatFloat({
                 {isChatLoading && (
                   <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
                     <div style={{
-                      width: 20, height: 20, borderRadius: 6,
-                      background: "linear-gradient(135deg, #58A6FF, #3FB950)",
-                      color: "#0D1117", fontSize: 7, fontWeight: 800,
+                      width: 22, height: 22, borderRadius: 7, flexShrink: 0, marginTop: 2,
+                      background: "#0D1117",
+                      border: "1px solid rgba(88,166,255,0.4)",
+                      boxShadow: "0 0 8px rgba(88,166,255,0.18)",
                       display: "flex", alignItems: "center", justifyContent: "center",
-                      flexShrink: 0, marginTop: 2,
-                    }}>AI</div>
+                    }}>
+                      <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+                        <path d="M8 1L9.5 5.5L14 7L9.5 8.5L8 13L6.5 8.5L2 7L6.5 5.5L8 1Z" fill="url(#ai-star-ld)" />
+                        <defs>
+                          <linearGradient id="ai-star-ld" x1="2" y1="1" x2="14" y2="13">
+                            <stop offset="0%" stopColor="#79C0FF"/>
+                            <stop offset="100%" stopColor="#56D364"/>
+                          </linearGradient>
+                        </defs>
+                      </svg>
+                    </div>
                     <div style={{
                       background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)",
                       borderRadius: "4px 12px 12px 12px", padding: "8px 12px",

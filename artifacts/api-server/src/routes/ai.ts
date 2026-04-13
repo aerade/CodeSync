@@ -137,6 +137,35 @@ const FILE_TOOLS: Array<{
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "search_images",
+      description: "Найти изображения на Unsplash по ключевым словам. Возвращает список изображений с URL для скачивания.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: { type: "string", description: "Поисковый запрос (можно на английском для лучших результатов)" },
+        },
+        required: ["query"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "download_image",
+      description: "Скачать изображение по URL и добавить в комнату как файл. Используй после search_images.",
+      parameters: {
+        type: "object",
+        properties: {
+          url: { type: "string", description: "URL изображения для скачивания" },
+          name: { type: "string", description: "Имя файла (например, hero.jpg, logo.png)" },
+        },
+        required: ["url", "name"],
+      },
+    },
+  },
 ];
 
 async function executeFileTool(
@@ -212,6 +241,42 @@ async function executeFileTool(
       return JSON.stringify({ success: true, name: file.name });
     }
 
+    if (toolName === "search_images") {
+      const query = args.query ?? "";
+      if (!query) return JSON.stringify({ error: "Параметр query обязателен" });
+      const url = `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=8&client_id=IFuWF4PGPadUVMDTXOxJVk7VJbp1EeEUuHRpIVAy7Xw`;
+      const resp = await fetch(url, { headers: { "Accept-Version": "v1" } });
+      if (!resp.ok) return JSON.stringify({ error: `Unsplash ошибка: ${resp.status}` });
+      const data = await resp.json() as {
+        results?: Array<{ id: string; alt_description?: string; urls?: { regular?: string; thumb?: string }; user?: { name?: string } }>;
+      };
+      const results = (data.results ?? []).map((img) => ({
+        id: img.id,
+        url: img.urls?.regular ?? "",
+        thumb: img.urls?.thumb ?? "",
+        description: img.alt_description ?? "",
+        photographer: img.user?.name ?? "",
+      }));
+      return JSON.stringify({ success: true, results, count: results.length });
+    }
+
+    if (toolName === "download_image") {
+      const url = args.url ?? "";
+      const name = args.name ?? "image.jpg";
+      if (!url) return JSON.stringify({ error: "Параметр url обязателен" });
+      const imgResp = await fetch(url);
+      if (!imgResp.ok) return JSON.stringify({ error: `Не удалось скачать: ${imgResp.status}` });
+      const contentType = imgResp.headers.get("content-type") ?? "image/jpeg";
+      const buf = await imgResp.arrayBuffer();
+      const base64 = Buffer.from(buf).toString("base64");
+      const dataUrl = `data:${contentType};base64,${base64}`;
+      const [file] = await db.insert(filesTable).values({
+        roomId, name, path: `/${name}`, language: "image",
+        content: dataUrl, parentId: null, isFolder: false, createdBy: userId,
+      }).returning();
+      return JSON.stringify({ success: true, fileId: file.id, name: file.name });
+    }
+
     return JSON.stringify({ error: "Unknown tool" });
   } catch (err) {
     return JSON.stringify({ error: err instanceof Error ? err.message : "Tool execution failed" });
@@ -285,7 +350,12 @@ async function chatHandler(req: Request, res: Response): Promise<void> {
 Отвечай на русском языке. Помогай с написанием, объяснением и дебаггингом кода.
 Ты можешь создавать, редактировать и удалять файлы в комнате с помощью доступных инструментов.
 Если пользователь просит создать, изменить или удалить файл — используй соответствующий инструмент.
-${context ? `Контекст текущего файла (${language}):\n\`\`\`${language}\n${context}\n\`\`\`` : ""}${fileListContext}`;
+Ты можешь искать и скачивать изображения из интернета самостоятельно:
+- Используй search_images для поиска подходящих изображений (запросы лучше на английском)
+- Затем используй download_image для скачивания лучшего результата и добавления в комнату
+- Используй изображения в HTML-коде через имя файла: <img src="hero.jpg">
+- При создании сайтов с изображениями — сначала найди и скачай нужные картинки, потом пиши HTML с их именами
+${context ? `\nКонтекст текущего файла (${language}):\n\`\`\`${language}\n${context}\n\`\`\`` : ""}${fileListContext}`;
 
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
@@ -300,7 +370,7 @@ ${context ? `Контекст текущего файла (${language}):\n\`\`\`
     ];
 
     let attempts = 0;
-    const MAX_TOOL_ROUNDS = 5;
+    const MAX_TOOL_ROUNDS = 10;
     const tools = (roomId && hasWriteAccess) ? FILE_TOOLS : undefined;
 
     while (attempts < MAX_TOOL_ROUNDS) {
@@ -309,7 +379,7 @@ ${context ? `Контекст текущего файла (${language}):\n\`\`\`
       const stream = await openai.chat.completions.create({
         model: "gpt-4o",
         messages: allMessages as Parameters<typeof openai.chat.completions.create>[0]["messages"],
-        max_tokens: 2048,
+        max_tokens: 4096,
         tools,
         stream: true,
       });

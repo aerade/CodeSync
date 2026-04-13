@@ -999,12 +999,10 @@ export default function RoomPage() {
       onFileStream={(streamFileId, streamFileName, content) => {
         const currentActiveFileId = activeFileIdRef.current;
 
+        // Switch to any file being streamed - even if not yet in list (just created)
         if (streamFileId && streamFileId !== currentActiveFileId) {
-          const targetFile = files.find((f) => f.id === streamFileId);
-          if (targetFile) {
-            setActiveFileId(streamFileId);
-            activeFileIdRef.current = streamFileId;
-          }
+          setActiveFileId(streamFileId);
+          activeFileIdRef.current = streamFileId;
         }
 
         isRemoteUpdate.current = true;
