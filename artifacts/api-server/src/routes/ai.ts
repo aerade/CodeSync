@@ -4,7 +4,7 @@ import { db } from "@workspace/db";
 import { rooms, roomFiles } from "@workspace/db/schema";
 import { and, eq } from "drizzle-orm";
 import { randomUUID } from "crypto";
-import { getAiUser } from "@workspace/auth";
+import { getAuth } from "@clerk/express";
 
 export const aiRouter = Router();
 
@@ -25,8 +25,8 @@ function checkRateLimit(userId: string): boolean {
 }
 
 async function reviewHandler(req: Request, res: Response): Promise<void> {
-  const aiUser = await getAiUser(req);
-  const userId = aiUser?.userId ?? null;
+  const auth = getAuth(req);
+  const userId = auth.userId ?? null;
   if (!userId) {
     res.status(401).json({ error: "Authentication required to use AI review" });
     return;
@@ -103,4 +103,4 @@ async function reviewHandler(req: Request, res: Response): Promise<void> {
   }
 }
 
-export { reviewHandler };
+export default aiRouter;
