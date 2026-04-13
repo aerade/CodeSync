@@ -414,15 +414,13 @@ export default function RoomPage() {
       if (selection && !selection.isEmpty()) {
         const selectedText = editor.getModel()?.getValueInRange(selection) ?? "";
         if (selectedText.trim().length > 3) {
-          const scrollTop = editor.getScrollTop();
-          const scrollLeft = editor.getScrollLeft();
           const domNode = editor.getDomNode();
           if (!domNode) return;
           const rect = domNode.getBoundingClientRect();
           const startPos = editor.getScrolledVisiblePosition(selection.getStartPosition());
           if (startPos) {
-            const x = rect.left + startPos.left - scrollLeft;
-            const y = rect.top + startPos.top - scrollTop - 44;
+            const x = rect.left + startPos.left;
+            const y = rect.top + startPos.top - 44;
             setSelectionMenu({ x: Math.max(8, x), y: Math.max(8, y), text: selectedText });
           }
         } else {
@@ -755,9 +753,34 @@ export default function RoomPage() {
             )}
           </div>
 
-          {/* Monaco Editor */}
+          {/* Monaco Editor / Image Viewer */}
           <div className="flex-1 overflow-hidden" style={{ position: "relative" }}>
-            {activeFile ? (
+            {activeFile?.language === "image" && fileContent?.startsWith("data:") ? (
+              <div
+                style={{
+                  width: "100%", height: "100%",
+                  background: "#0D1117",
+                  display: "flex", flexDirection: "column",
+                  alignItems: "center", justifyContent: "center",
+                  overflow: "auto", gap: 12,
+                }}
+              >
+                <img
+                  src={fileContent}
+                  alt={activeFile.name}
+                  style={{
+                    maxWidth: "90%", maxHeight: "80%",
+                    objectFit: "contain",
+                    borderRadius: 10,
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    boxShadow: "0 8px 48px rgba(0,0,0,0.6)",
+                  }}
+                />
+                <span style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", fontFamily: "JetBrains Mono, monospace" }}>
+                  {activeFile.name}
+                </span>
+              </div>
+            ) : activeFile ? (
               <Editor
                 height="100%"
                 language={activeFile.language === "shell" ? "shell" : activeFile.language}

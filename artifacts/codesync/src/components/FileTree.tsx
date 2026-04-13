@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { FilePlus, FolderPlus, Archive } from "lucide-react";
 import { useCreateFile, useDeleteFile, useUpdateFile, getGetRoomFilesQueryKey } from "@workspace/api-client-react";
@@ -84,6 +84,43 @@ export function FileTree({ roomId, files, activeFileId, fileStats = {}, onFileSe
   const createFile = useCreateFile();
   const deleteFile = useDeleteFile();
   const updateFile = useUpdateFile();
+
+  const prevFileIdsRef = useRef<Set<string>>(new Set());
+  const [newlyAddedIds, setNewlyAddedIds] = useState<Set<string>>(new Set());
+  const [recentDeletedCount, setRecentDeletedCount] = useState(0);
+  const newlyAddedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const deletedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    const prevIds = prevFileIdsRef.current;
+    const currentIds = new Set(files.map((f) => f.id));
+
+    if (prevIds.size > 0) {
+      const added = files.filter((f) => !prevIds.has(f.id));
+      const deletedNum = [...prevIds].filter((id) => !currentIds.has(id)).length;
+
+      if (added.length > 0) {
+        setNewlyAddedIds(new Set(added.map((f) => f.id)));
+        if (newlyAddedTimerRef.current) clearTimeout(newlyAddedTimerRef.current);
+        newlyAddedTimerRef.current = setTimeout(() => setNewlyAddedIds(new Set()), 3000);
+      }
+
+      if (deletedNum > 0) {
+        setRecentDeletedCount((prev) => prev + deletedNum);
+        if (deletedTimerRef.current) clearTimeout(deletedTimerRef.current);
+        deletedTimerRef.current = setTimeout(() => setRecentDeletedCount(0), 3000);
+      }
+    }
+
+    prevFileIdsRef.current = currentIds;
+  }, [files]);
+
+  useEffect(() => {
+    return () => {
+      if (newlyAddedTimerRef.current) clearTimeout(newlyAddedTimerRef.current);
+      if (deletedTimerRef.current) clearTimeout(deletedTimerRef.current);
+    };
+  }, []);
 
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [isCreatingFile, setIsCreatingFile] = useState(false);
@@ -252,6 +289,17 @@ export function FileTree({ roomId, files, activeFileId, fileStats = {}, onFileSe
             {file.name}
           </span>
         )}
+        {/* Newly added indicator */}
+        {!isRenaming && newlyAddedIds.has(file.id) && (
+          <motion.span
+            initial={{ opacity: 0, scale: 0.7 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.7 }}
+            style={{ fontSize: 9, color: "#3FB950", fontFamily: "JetBrains Mono, monospace", fontWeight: 700, flexShrink: 0 }}
+          >
+            +1
+          </motion.span>
+        )}
         {/* AI edit stats indicator */}
         {!isRenaming && fileStats[file.id] && (
           <span style={{ display: "flex", gap: 3, alignItems: "center", flexShrink: 0, marginRight: 2 }}>
@@ -318,9 +366,24 @@ export function FileTree({ roomId, files, activeFileId, fileStats = {}, onFileSe
       {/* Section header */}
       <div style={{ padding: "10px 12px 6px", borderBottom: "1px solid rgba(255,255,255,0.07)", flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <span style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.1em", color: "rgba(255,255,255,0.35)" }}>
-            Файлы
-          </span>
+          <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+            <span style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.1em", color: "rgba(255,255,255,0.35)" }}>
+              Файлы
+            </span>
+            <AnimatePresence>
+              {recentDeletedCount > 0 && (
+                <motion.span
+                  key="deleted-badge"
+                  initial={{ opacity: 0, scale: 0.7 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.7 }}
+                  style={{ fontSize: 9, color: "#F78166", fontFamily: "JetBrains Mono, monospace", fontWeight: 700 }}
+                >
+                  -{recentDeletedCount}
+                </motion.span>
+              )}
+            </AnimatePresence>
+          </div>
           <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
             {!isReadOnly && (
               <>

@@ -321,12 +321,21 @@ export function AIChatFloat({
       // Show single grouped notification for all operations
       if (hadToolCalls) {
         const parts: string[] = [];
-        if (opCounts.search) parts.push(`🔍 нашёл изображения`);
-        if (opCounts.download) parts.push(`⬇ скачал ${opCounts.download}`);
-        if (opCounts.create) parts.push(`✚ создал ${opCounts.create}`);
-        if (opCounts.edit) parts.push(`✎ изменил ${opCounts.edit}`);
-        if (opCounts.delete) parts.push(`✕ удалил ${opCounts.delete}`);
-        if (parts.length > 0) showFlash(parts.join("  "), true);
+        if (opCounts.search) parts.push(`Нашёл изображения`);
+        if (opCounts.download) parts.push(`Скачал ${opCounts.download} изобр.`);
+        if (opCounts.create) {
+          const s = opCounts.create > 1 ? "а" : "";
+          parts.push(`Создал ${opCounts.create} файл${s}`);
+        }
+        if (opCounts.edit) {
+          const s = opCounts.edit > 1 ? "а" : "";
+          parts.push(`Изменил ${opCounts.edit} файл${s}`);
+        }
+        if (opCounts.delete) {
+          const s = opCounts.delete > 1 ? "а" : "";
+          parts.push(`Удалил ${opCounts.delete} файл${s}`);
+        }
+        if (parts.length > 0) showFlash(parts.join(" · "), true);
 
         // Insert compact activity card into chat
         const totalOps = opCounts.create + opCounts.edit + opCounts.delete + opCounts.download;
@@ -580,7 +589,7 @@ export function AIChatFloat({
                   </motion.div>
                 ))}
 
-                {isChatLoading && (
+                {isChatLoading && messages[messages.length - 1]?.role !== "assistant" && (
                   <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
                     <div style={{
                       width: 22, height: 22, borderRadius: 7, flexShrink: 0, marginTop: 2,
