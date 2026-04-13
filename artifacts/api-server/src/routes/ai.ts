@@ -495,7 +495,83 @@ async function reviewHandler(req: Request, res: Response): Promise<void> {
   }
 }
 
+async function imageSearchHandler(req: Request, res: Response): Promise<void> {
+  const aiUser = await resolveAiUser(req);
+  if (!aiUser) { res.status(401).json({ error: "Требуется авторизация" }); return; }
+
+  const q = typeof req.query["q"] === "string" ? req.query["q"].trim() : "";
+  if (!q) { res.status(400).json({ error: "Параметр q обязателен" }); return; }
+
+  try {
+    const url = `https://api.unsplash.com/search/photos?query=${encodeURIComponent(q)}&per_page=15&client_id=IFuWF4PGPadUVMDTXOxJVk7VJbp1EeEUuHRpIVAy7Xw`;
+    const resp = await fetch(url, { headers: { "Accept-Version": "v1" } });
+
+    if (!resp.ok) {
+      res.status(502).json({ error: "Ошибка поиска изображений. Попробуйте другой запрос." });
+      return;
+    }
+
+    const data = await resp.json() as {
+      results?: Array<{
+        id: string;
+        alt_description?: string;
+        description?: string;
+        urls?: { thumb?: string; regular?: string; full?: string };
+        user?: { name?: string };
+      }>;
+    };
+
+    const results = (data.results ?? []).map((img) => ({
+      id: img.id,
+      thumb: img.urls?.thumb ?? "",
+      full: img.urls?.regular ?? img.urls?.full ?? "",
+      description: img.alt_description ?? img.description ?? "",
+      photographer: img.user?.name ?? "Unknown",
+    }));
+
+    res.json({ results });
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Ошибка поиска" });
+  }
+}
+
+async function imageImportHandler(req: Request, res: Response): Promise<void> {
+  const aiUser = await resolveAiUser(req);
+  if (!aiUser) { res.status(401).json({ error: "Требуется авторизация" }); return; }
+
+  const body = req.body as { roomId?: string; url?: string; name?: string };
+  const roomId = typeof body.roomId === "string" ? body.roomId : "";
+  const url = typeof body.url === "string" ? body.url : "";
+  const name = typeof body.name === "string" ? body.name : "image.jpg";
+
+  if (!roomId || !url) { res.status(400).json({ error: "Параметры roomId и url обязательны" }); return; }
+
+  try {
+    const imgResp = await fetch(url);
+    if (!imgResp.ok) throw new Error(`Не удалось загрузить изображение: ${imgResp.status}`);
+
+    const contentType = imgResp.headers.get("content-type") ?? "image/jpeg";
+    const arrayBuffer = await imgResp.arrayBuffer();
+    const base64 = Buffer.from(arrayBuffer).toString("base64");
+    const dataUrl = `data:${contentType};base64,${base64}`;
+
+    const [file] = await db.insert(filesTable).values({
+      roomId, name, path: `/${name}`,
+      language: "image",
+      content: dataUrl,
+      parentId: null, isFolder: false,
+      createdBy: aiUser.userId,
+    }).returning();
+
+    res.json({ success: true, fileId: file.id, name: file.name });
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Ошибка импорта" });
+  }
+}
+
 aiRouter.post("/ai/chat", (req, res) => { void chatHandler(req, res); });
 aiRouter.post("/ai/review", (req, res) => { void reviewHandler(req, res); });
+aiRouter.get("/images/search", (req, res) => { void imageSearchHandler(req, res); });
+aiRouter.post("/images/import", (req, res) => { void imageImportHandler(req, res); });
 
 export default aiRouter;

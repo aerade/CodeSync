@@ -19,7 +19,6 @@ import { AIPanel } from "@/components/AIPanel";
 import { AIChatFloat } from "@/components/AIChatFloat";
 import { Terminal, TerminalHandle } from "@/components/Terminal";
 import { SessionSidebar } from "@/components/SessionSidebar";
-import { Button } from "@/components/ui/button";
 import { useUser, useAuth } from "@clerk/react";
 
 
@@ -573,39 +572,34 @@ export default function RoomPage() {
           {inviteCopied ? "Скопировано!" : room.inviteCode}
         </button>
 
-        {/* Run code */}
-        <button
-          onClick={() => {
-            setIsBottomOpen(true);
-            setTimeout(() => terminalRef.current?.run(), 100);
-          }}
-          data-testid="btn-run-code-topbar"
-          className="flex items-center gap-1.5 px-3 py-1 rounded-md font-semibold transition-all hover:brightness-110 active:scale-95"
-          style={{ background: "#238636", color: "#fff", border: "1px solid #2ea043", fontSize: 12, cursor: "pointer" }}
-        >
-          <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor">
-            <path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0zM1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0zm4.879-2.773 4.264 2.559a.25.25 0 0 1 0 .428l-4.264 2.559A.25.25 0 0 1 6 10.559V5.442a.25.25 0 0 1 .379-.215z"/>
-          </svg>
-          Запустить
-        </button>
-
-        {/* Preview */}
-        {files.some((f) => !f.isFolder && f.language === "html") && (
-          <Button
-            size="sm"
-            onClick={() => setIsPreviewOpen(!isPreviewOpen)}
-            style={{
-              background: isPreviewOpen ? "#58A6FF" : "transparent",
-              color: isPreviewOpen ? "#0D1117" : "#58A6FF",
-              fontWeight: 600,
-              fontSize: 11,
-              height: 26,
-              border: "1px solid #58A6FF",
-            }}
+        {/* Run code OR Preview for HTML */}
+        {activeFile?.language === "html" ? (
+          <button
+            onClick={() => setIsPreviewOpen(true)}
             data-testid="btn-toggle-preview"
+            className="flex items-center gap-1.5 px-3 py-1 rounded-md font-semibold transition-all hover:brightness-110 active:scale-95"
+            style={{ background: "#1158be", color: "#fff", border: "1px solid #2176d2", fontSize: 12, cursor: "pointer" }}
           >
+            <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M0 1.75A.75.75 0 0 1 .75 1h14.5a.75.75 0 0 1 .75.75v9.5A.75.75 0 0 1 15.25 12H9.5v2h2.25a.75.75 0 0 1 0 1.5h-7.5a.75.75 0 0 1 0-1.5H6.5v-2H.75a.75.75 0 0 1-.75-.75Zm1.5.75v8h13v-8Z"/>
+            </svg>
             Превью
-          </Button>
+          </button>
+        ) : (
+          <button
+            onClick={() => {
+              setIsBottomOpen(true);
+              setTimeout(() => terminalRef.current?.run(), 100);
+            }}
+            data-testid="btn-run-code-topbar"
+            className="flex items-center gap-1.5 px-3 py-1 rounded-md font-semibold transition-all hover:brightness-110 active:scale-95"
+            style={{ background: "#238636", color: "#fff", border: "1px solid #2ea043", fontSize: 12, cursor: "pointer" }}
+          >
+            <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0zM1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0zm4.879-2.773 4.264 2.559a.25.25 0 0 1 0 .428l-4.264 2.559A.25.25 0 0 1 6 10.559V5.442a.25.25 0 0 1 .379-.215z"/>
+            </svg>
+            Запустить
+          </button>
         )}
 
         {/* Members — live count from WebSocket awareness */}
@@ -853,6 +847,7 @@ export default function RoomPage() {
                 fileContent={fileContent}
                 language={activeFile?.language ?? "javascript"}
                 fileName={activeFile?.name ?? ""}
+                files={files.filter((f) => !f.isFolder).map((f) => ({ id: f.id, name: f.name, language: f.language, content: f.content }))}
                 onContentRestored={(content: string) => {
                   isRemoteUpdate.current = true;
                   setFileContent(content);
@@ -912,18 +907,12 @@ export default function RoomPage() {
           </div>
         )}
 
-        {/* Preview Panel */}
-        {isPreviewOpen && (
-          <div
-            className="flex-shrink-0"
-            style={{ width: 480, borderLeft: "1px solid #30363D" }}
-          >
-            <PreviewPanel
-              files={files.filter((f) => !f.isFolder)}
-              onClose={() => setIsPreviewOpen(false)}
-            />
-          </div>
-        )}
+        {/* Preview Popup (portal, rendered via PreviewPanel) */}
+        <PreviewPanel
+          files={files.filter((f) => !f.isFolder)}
+          isOpen={isPreviewOpen}
+          onClose={() => setIsPreviewOpen(false)}
+        />
 
         {/* Session sidebar */}
         {isSidebarOpen && (
@@ -949,6 +938,7 @@ export default function RoomPage() {
       fileContent={fileContent}
       language={activeFile?.language ?? "javascript"}
       fileName={activeFile?.name ?? ""}
+      files={files.filter((f) => !f.isFolder).map((f) => ({ id: f.id, name: f.name, language: f.language, content: f.content }))}
       onFilesChanged={() => {
         void qc.invalidateQueries({ queryKey: getGetRoomFilesQueryKey(roomId) });
       }}
