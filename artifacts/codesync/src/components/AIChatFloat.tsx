@@ -295,11 +295,26 @@ export function AIChatFloat({
           language,
           roomId,
           fileId,
-          allFiles: files.map((f) => ({ id: f.id, name: f.name, language: f.language, content: f.content })),
+          // Exclude image files (base64 is huge) and truncate content to keep payload small
+          allFiles: files
+            .filter((f) => f.language !== "image")
+            .map((f) => ({
+              id: f.id,
+              name: f.name,
+              language: f.language,
+              content: (f.content ?? "").slice(0, 4000),
+            })),
         }),
       });
 
-      if (!resp.ok) throw new Error("Chat failed");
+      if (!resp.ok) {
+        let errText = `Ошибка ${resp.status}`;
+        try {
+          const errData = await resp.json() as { error?: string };
+          if (errData.error) errText = errData.error;
+        } catch (_) {}
+        throw new Error(errText);
+      }
 
       const reader = resp.body!.getReader();
       const decoder = new TextDecoder();

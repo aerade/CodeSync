@@ -123,6 +123,7 @@ export function FileTree({ roomId, files, activeFileId, fileStats = {}, onFileSe
   }, []);
 
   const [selectedFileIds, setSelectedFileIds] = useState<Set<string>>(new Set());
+  const lastClickedIdRef = useRef<string | null>(null);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [isCreatingFile, setIsCreatingFile] = useState(false);
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
@@ -176,20 +177,56 @@ export function FileTree({ roomId, files, activeFileId, fileStats = {}, onFileSe
     }
   }
 
-  function handleFileClick(e: React.MouseEvent, file: FileItem) {
-    if (file.isFolder) return;
-    if (e.ctrlKey || e.metaKey) {
-      e.preventDefault();
+  // Returns all visible items in render order (for range selection)
+  function getVisibleItems(): FileItem[] {
+    const result: FileItem[] = [];
+    const rFolders = files.filter((f) => !f.parentId && f.isFolder);
+    const rFiles = files.filter((f) => !f.parentId && !f.isFolder);
+    for (const folder of rFolders) {
+      result.push(folder);
+      if (expandedFolders.has(folder.id)) {
+        const children = files.filter((f) => f.parentId === folder.id && !f.isFolder);
+        result.push(...children);
+      }
+    }
+    result.push(...rFiles);
+    return result;
+  }
+
+  function handleItemClick(e: React.MouseEvent, item: FileItem) {
+    e.preventDefault();
+    if (e.shiftKey && lastClickedIdRef.current) {
+      // Range selection from last clicked to current
+      const visibleItems = getVisibleItems();
+      const lastIdx = visibleItems.findIndex((f) => f.id === lastClickedIdRef.current);
+      const currentIdx = visibleItems.findIndex((f) => f.id === item.id);
+      if (lastIdx !== -1 && currentIdx !== -1) {
+        const from = Math.min(lastIdx, currentIdx);
+        const to = Math.max(lastIdx, currentIdx);
+        const rangeIds = new Set(visibleItems.slice(from, to + 1).map((f) => f.id));
+        setSelectedFileIds(rangeIds);
+      }
+    } else if (e.ctrlKey || e.metaKey) {
+      // Toggle individual item
+      lastClickedIdRef.current = item.id;
       setSelectedFileIds((prev) => {
         const next = new Set(prev);
-        if (next.has(file.id)) next.delete(file.id);
-        else next.add(file.id);
+        if (next.has(item.id)) next.delete(item.id);
+        else next.add(item.id);
         return next;
       });
     } else {
+      // Regular click
+      lastClickedIdRef.current = item.id;
       setSelectedFileIds(new Set());
-      onFileSelect(file);
+      if (!item.isFolder) onFileSelect(item);
+      else toggleFolder(item.id);
     }
+  }
+
+  // Kept for backward compat — used by renderFileItem
+  function handleFileClick(e: React.MouseEvent, file: FileItem) {
+    handleItemClick(e, file);
   }
 
   function startRename(fileId: string, currentName: string) {
@@ -282,6 +319,14 @@ export function FileTree({ roomId, files, activeFileId, fileStats = {}, onFileSe
     const isRenaming = renamingFileId === file.id;
     const isSelected = selectedFileIds.has(file.id);
 
+    const bg = isSelected && isActive
+      ? "rgba(88,166,255,0.24)"
+      : isSelected
+        ? "rgba(88,166,255,0.16)"
+        : isActive
+          ? "rgba(88,166,255,0.1)"
+          : "transparent";
+
     return (
       <motion.div
         key={file.id}
@@ -294,16 +339,15 @@ export function FileTree({ roomId, files, activeFileId, fileStats = {}, onFileSe
         onDragStart={(e) => handleDragStart(e, file.id)}
         style={{
           display: "flex", alignItems: "center", gap: 7,
-          padding: "5px 10px", paddingLeft: 10 + depth * 14,
-          cursor: "pointer", borderRadius: 7,
-          background: isSelected
-            ? "rgba(88,166,255,0.15)"
-            : isActive ? "rgba(88,166,255,0.1)" : "transparent",
-          border: `1px solid ${isSelected ? "rgba(88,166,255,0.35)" : isActive ? "rgba(88,166,255,0.2)" : "transparent"}`,
-          transition: "background 0.12s, border-color 0.12s",
+          padding: "4px 10px", paddingLeft: (10 + depth * 14) + (isActive ? 8 : 10),
+          cursor: "pointer", borderRadius: 6,
+          background: bg,
+          borderLeft: isActive ? "2px solid rgba(88,166,255,0.7)" : "2px solid transparent",
+          transition: "background 0.1s",
           marginBottom: 1,
         }}
-        className={isActive || isSelected ? "" : "hover:bg-white/4"}
+        onMouseEnter={(e) => { if (!isSelected && !isActive) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)"; }}
+        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = bg; }}
         data-testid={`file-item-${file.id}`}
       >
         <span style={{ fontSize: 9, fontWeight: 700, color: icon.color, fontFamily: "JetBrains Mono, monospace", minWidth: 20, textAlign: "center" }}>
@@ -535,20 +579,26 @@ export function FileTree({ roomId, files, activeFileId, fileStats = {}, onFileSe
             return (
               <motion.div key={folder.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                 <div
-                  onClick={() => toggleFolder(folder.id)}
+                  onClick={(e) => handleItemClick(e, folder)}
                   onContextMenu={(e) => handleContextMenu(e, folder.id, folder.name, true)}
                   onDragOver={(e) => { e.stopPropagation(); handleDragOver(e, folder.id); }}
                   onDragLeave={handleDragLeave}
                   onDrop={(e) => { e.stopPropagation(); handleDrop(e, folder.id); }}
                   style={{
                     display: "flex", alignItems: "center", gap: 7,
-                    padding: "5px 10px", borderRadius: 7, cursor: "pointer",
-                    background: isDragOver ? "rgba(88,166,255,0.12)" : "transparent",
-                    border: `1px solid ${isDragOver ? "rgba(88,166,255,0.3)" : "transparent"}`,
+                    padding: "4px 10px", paddingLeft: selectedFileIds.has(folder.id) ? 10 : 12,
+                    borderRadius: 6, cursor: "pointer",
+                    background: isDragOver
+                      ? "rgba(88,166,255,0.12)"
+                      : selectedFileIds.has(folder.id)
+                        ? "rgba(88,166,255,0.16)"
+                        : "transparent",
+                    borderLeft: selectedFileIds.has(folder.id) ? "2px solid rgba(88,166,255,0.4)" : "2px solid transparent",
                     marginBottom: 1,
-                    transition: "background 0.12s",
+                    transition: "background 0.1s",
                   }}
-                  className="hover:bg-white/4"
+                  onMouseEnter={(e) => { if (!selectedFileIds.has(folder.id) && !isDragOver) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)"; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = isDragOver ? "rgba(88,166,255,0.12)" : selectedFileIds.has(folder.id) ? "rgba(88,166,255,0.16)" : "transparent"; }}
                 >
                   <svg width="8" height="8" viewBox="0 0 10 10" fill="rgba(255,255,255,0.4)"
                     style={{ transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.15s", flexShrink: 0 }}>
