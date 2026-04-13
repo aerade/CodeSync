@@ -184,8 +184,6 @@ export default function Home() {
         onComplete={handleTransitionComplete}
       />
 
-      {!reducedMotion && <HeroBackground />}
-
       <div className="relative z-10 flex flex-col min-h-screen">
         <nav
           className="flex items-center justify-between px-6 sm:px-12 py-4 sticky top-0 z-20"
@@ -238,7 +236,8 @@ export default function Home() {
           </motion.div>
         </nav>
 
-        <section className="flex-1 flex flex-col items-center justify-center px-6 min-h-[90vh]">
+        <section className="relative flex-1 flex flex-col items-center justify-center px-6 min-h-[90vh] overflow-hidden">
+          {!reducedMotion && <HeroBackground />}
           <div className="flex flex-col items-center text-center max-w-3xl mx-auto">
             <motion.div
               initial={{ opacity: 0, y: 10 }}
