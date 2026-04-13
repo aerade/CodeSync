@@ -20,7 +20,7 @@ pnpm workspace monorepo using TypeScript.
 - **Real-time**: Yjs CRDT + WebSocket
 - **Frontend**: React + Vite, Tailwind v4, Framer Motion
 - **Editor**: Monaco Editor (@monaco-editor/react)
-- **AI**: OpenAI gpt-4o via Replit AI Integrations (streaming SSE)
+- **AI**: OpenAI gpt-4.1 via Replit AI Integrations (streaming SSE)
 - **Code execution**: Piston API (free, 50+ languages)
 
 ## Project Structure
@@ -55,9 +55,11 @@ lib/
 - **File History & Revert**: `file_snapshots` table stores content snapshots on every save or AI edit; History tab shows timeline with author/timestamp, inline preview, and one-click Restore
 - **AI Diff Display**: When AI edits a file via chat, Monaco editor highlights changed lines with green decorations (`ai-diff-added` CSS class) so users can see what changed
 - **Code execution**: Local execution (child_process) with auth + rate limiting, supports JS/TS/C/C++/Bash/HTML preview
-- **File tree**: Create/delete files and folders, drag-and-drop to move files between folders, context menus
+- **File tree**: Create/delete files and folders, drag-and-drop to move, context menus, Ctrl+click multi-select with bulk delete
 - **Guest mode**: Join rooms without account; can't create rooms. Proper error messages for restricted actions
-- **Session sidebar**: Online collaborators with pastel colors, event feed
+- **Session sidebar**: Online collaborators (240px panel), real-time room chat via WS `type:"chat"` with image attachment
+- **AI Chat panel**: Draggable + resizable (SE corner), AbortController streaming, paper-plane send button, no hint text, image folder auto-creation
+- **Selection menu scroll dismiss**: hides when user scrolls >150px from where selection was made
 - **Room management**: Duplicate room name prevention (409 error), private rooms visible to members on dashboard
 
 ## Color Palette "Deep Focus"

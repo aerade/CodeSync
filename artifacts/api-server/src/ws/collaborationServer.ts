@@ -223,6 +223,8 @@ interface WsMessage {
   update?: string;
   state?: AwarenessState;
   position?: { lineNumber: number; column: number };
+  message?: string;
+  imageDataUrl?: string;
 }
 
 export function setupWebSocketServer(wss: WebSocketServer) {
@@ -395,6 +397,28 @@ export function setupWebSocketServer(wss: WebSocketServer) {
             color: info.color,
             position: msg.position,
           }, ws);
+        }
+      } else if (msg.type === "chat" && msg.message) {
+        const info = fileRoom.clients.get(ws);
+        if (info) {
+          const chatMsg = {
+            type: "chat",
+            userId: info.userId,
+            username: info.username,
+            color: info.color,
+            message: msg.message,
+            imageDataUrl: msg.imageDataUrl,
+            timestamp: Date.now(),
+          };
+          // Broadcast to all clients in all file-rooms for this room (including sender)
+          for (const [rKey, fr] of fileRooms) {
+            if (!rKey.startsWith(`${roomId}:`)) continue;
+            for (const [client] of fr.clients) {
+              if (client.readyState === WebSocket.OPEN) {
+                client.send(JSON.stringify(chatMsg));
+              }
+            }
+          }
         }
       }
     });

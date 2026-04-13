@@ -18,7 +18,7 @@ import { FileTree } from "@/components/FileTree";
 import { AIPanel } from "@/components/AIPanel";
 import { AIChatFloat } from "@/components/AIChatFloat";
 import { Terminal, TerminalHandle } from "@/components/Terminal";
-import { SessionSidebar } from "@/components/SessionSidebar";
+import { SessionSidebar, RoomChatMessage } from "@/components/SessionSidebar";
 import { useUser, useAuth } from "@clerk/react";
 
 
@@ -51,6 +51,9 @@ interface WSMessage {
   username?: string;
   color?: string;
   position?: { lineNumber: number; column: number };
+  message?: string;
+  imageDataUrl?: string;
+  timestamp?: number;
 }
 
 interface RoomFile {
@@ -158,6 +161,8 @@ export default function RoomPage() {
     };
   }, []);
   const [connectedMembers, setConnectedMembers] = useState<{ userId: string; username: string; color: string; isGuest: boolean }[]>([]);
+  const [chatMessages, setChatMessages] = useState<RoomChatMessage[]>([]);
+  const myUserIdRef = useRef<string>("");
   const [inviteCopied, setInviteCopied] = useState(false);
   const [cursors, setCursors] = useState<CollabCursorInfo[]>([]);
 
@@ -311,6 +316,8 @@ export default function RoomPage() {
               isGuest: s.isGuest ?? false,
             }));
             setConnectedMembers(list);
+          } else if (msg.type === "joined" && msg.userId) {
+            myUserIdRef.current = msg.userId;
           } else if (msg.type === "cursor" && msg.userId && msg.position) {
             setCursors((prev) => {
               const next = prev.filter((c) => c.userId !== msg.userId);
@@ -325,6 +332,19 @@ export default function RoomPage() {
               }
               return next;
             });
+          } else if (msg.type === "chat" && msg.userId && msg.message) {
+            setChatMessages((prev) => [
+              ...prev,
+              {
+                id: `chat_${msg.timestamp ?? Date.now()}_${msg.userId}`,
+                userId: msg.userId!,
+                username: msg.username ?? "Аноним",
+                color: msg.color ?? "#58A6FF",
+                content: msg.message!,
+                imageDataUrl: msg.imageDataUrl,
+                timestamp: msg.timestamp ?? Date.now(),
+              },
+            ]);
           }
         } catch (err) {
           console.error("WS message error:", err);
@@ -409,7 +429,9 @@ export default function RoomPage() {
       }
     });
 
-    editor.onDidChangeCursorSelection((e) => {
+    let selectionScrollTop = 0;
+
+    editor.onDidChangeCursorSelection(() => {
       const selection = editor.getSelection();
       if (selection && !selection.isEmpty()) {
         const selectedText = editor.getModel()?.getValueInRange(selection) ?? "";
@@ -421,6 +443,7 @@ export default function RoomPage() {
           if (startPos) {
             const x = rect.left + startPos.left;
             const y = rect.top + startPos.top - 44;
+            selectionScrollTop = editor.getScrollTop();
             setSelectionMenu({ x: Math.max(8, x), y: Math.max(8, y), text: selectedText });
           }
         } else {
@@ -430,7 +453,21 @@ export default function RoomPage() {
         setSelectionMenu(null);
       }
     });
+
+    // Hide selection menu when editor scrolls more than 150px from where menu opened
+    editor.onDidScrollChange(() => {
+      const delta = Math.abs(editor.getScrollTop() - selectionScrollTop);
+      if (delta > 150) {
+        setSelectionMenu(null);
+      }
+    });
   };
+
+  function sendChatMessage(content: string, imageDataUrl?: string) {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: "chat", message: content, imageDataUrl }));
+    }
+  }
 
   function copyInviteCode() {
     if (room?.inviteCode) {
@@ -1020,12 +1057,15 @@ export default function RoomPage() {
         {isSidebarOpen && (
           <motion.div
             initial={{ width: 0 }}
-            animate={{ width: 180 }}
+            animate={{ width: 240 }}
             className="flex-shrink-0"
-            style={{ width: 180 }}
+            style={{ width: 240 }}
           >
             <SessionSidebar
               members={connectedMembers}
+              chatMessages={chatMessages}
+              myUserId={myUserIdRef.current}
+              onSendMessage={sendChatMessage}
             />
           </motion.div>
         )}

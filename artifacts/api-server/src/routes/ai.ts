@@ -40,25 +40,20 @@ async function resolveAiUser(req: Request): Promise<ResolvedAiUser | null> {
   return null;
 }
 
-async function canReadRoom(roomId: string, userId: string): Promise<boolean> {
+async function canAccessRoom(roomId: string, userId: string): Promise<{ canRead: boolean; canWrite: boolean; isGuest: boolean }> {
   const room = await db.query.roomsTable.findFirst({ where: eq(roomsTable.id, roomId) });
-  if (!room) return false;
-  if (!room.isPrivate) return true;
-  const member = await db.query.roomMembersTable.findFirst({
-    where: and(eq(roomMembersTable.roomId, roomId), eq(roomMembersTable.userId, userId)),
-  });
-  return !!member;
-}
+  if (!room) return { canRead: false, canWrite: false, isGuest: false };
 
-async function canWriteRoom(roomId: string, userId: string, isGuest: boolean): Promise<boolean> {
-  if (isGuest) return false;
-  const room = await db.query.roomsTable.findFirst({ where: eq(roomsTable.id, roomId) });
-  if (!room) return false;
-  if (!room.isPrivate) return true;
+  if (!room.isPrivate) {
+    return { canRead: true, canWrite: true, isGuest: false };
+  }
+
   const member = await db.query.roomMembersTable.findFirst({
     where: and(eq(roomMembersTable.roomId, roomId), eq(roomMembersTable.userId, userId)),
   });
-  return !!member;
+  const isMember = !!member;
+  const isGuest = member?.isGuest ?? false;
+  return { canRead: isMember, canWrite: isMember && !isGuest, isGuest };
 }
 
 interface ChatMessage { role: "user" | "assistant" | "system"; content: string; }
@@ -99,11 +94,11 @@ const FILE_TOOLS: Array<{
     type: "function",
     function: {
       name: "edit_file",
-      description: "Отредактировать существующий файл в комнате CodeSync. Перезаписывает содержимое целиком.",
+      description: "Отредактировать существующий файл. Перезаписывает содержимое целиком.",
       parameters: {
         type: "object",
         properties: {
-          fileId: { type: "string", description: "ID файла для редактирования" },
+          fileId: { type: "string", description: "ID файла" },
           content: { type: "string", description: "Новое содержимое файла" },
         },
         required: ["fileId", "content"],
@@ -114,11 +109,11 @@ const FILE_TOOLS: Array<{
     type: "function",
     function: {
       name: "delete_file",
-      description: "Удалить файл из комнаты CodeSync.",
+      description: "Удалить файл из комнаты.",
       parameters: {
         type: "object",
         properties: {
-          fileId: { type: "string", description: "ID файла для удаления" },
+          fileId: { type: "string", description: "ID файла" },
         },
         required: ["fileId"],
       },
@@ -128,11 +123,11 @@ const FILE_TOOLS: Array<{
     type: "function",
     function: {
       name: "search_images",
-      description: "Найти изображения по ключевым словам в интернете.",
+      description: "Найти изображения по ключевым словам. Запрос лучше на английском.",
       parameters: {
         type: "object",
         properties: {
-          query: { type: "string", description: "Поисковый запрос (на английском для лучших результатов)" },
+          query: { type: "string", description: "Поисковый запрос" },
         },
         required: ["query"],
       },
@@ -142,11 +137,11 @@ const FILE_TOOLS: Array<{
     type: "function",
     function: {
       name: "download_image",
-      description: "Скачать изображение по URL и добавить в комнату как файл. Используй после search_images.",
+      description: "Скачать изображение по URL и добавить в папку images/ комнаты. Используй после search_images.",
       parameters: {
         type: "object",
         properties: {
-          url: { type: "string", description: "URL изображения для скачивания" },
+          url: { type: "string", description: "URL изображения" },
           name: { type: "string", description: "Имя файла (например, hero.jpg)" },
         },
         required: ["url", "name"],
@@ -155,12 +150,80 @@ const FILE_TOOLS: Array<{
   },
 ];
 
-async function executeFileTool(
-  toolName: string,
-  args: Record<string, string>,
-  roomId: string,
-  userId: string,
-): Promise<string> {
+const UA_LIST = [
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+  "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+];
+
+function randomUA() { return UA_LIST[Math.floor(Math.random() * UA_LIST.length)]; }
+
+async function searchImagesDDG(query: string): Promise<Array<{ id: string; url: string; thumb: string; description: string; source: string }>> {
+  const ua = randomUA();
+  const encodedQ = encodeURIComponent(query);
+
+  // Try DuckDuckGo first
+  try {
+    const ddgInit = await fetch(
+      `https://duckduckgo.com/?q=${encodedQ}&iax=images&ia=images`,
+      { headers: { "User-Agent": ua, "Accept-Language": "en-US,en;q=0.9", "Accept": "text/html" }, signal: AbortSignal.timeout(8000) }
+    );
+    const initHtml = await ddgInit.text();
+    const vqdMatch = initHtml.match(/vqd=["']?([^"'&\s,]+)["']?/);
+    if (vqdMatch?.[1]) {
+      const vqd = vqdMatch[1];
+      const imgResp = await fetch(
+        `https://duckduckgo.com/i.js?l=us-en&o=json&q=${encodedQ}&vqd=${encodeURIComponent(vqd)}&f=,,,&p=1`,
+        { headers: { "Referer": "https://duckduckgo.com/", "User-Agent": ua, "Accept": "application/json" }, signal: AbortSignal.timeout(8000) }
+      );
+      if (imgResp.ok) {
+        const data = await imgResp.json() as { results?: Array<{ title?: string; image?: string; thumbnail?: string; url?: string; source?: string }> };
+        const results = (data.results ?? []).slice(0, 12).map((img, i) => ({
+          id: `ddg_${i}`, url: img.image ?? "", thumb: img.thumbnail ?? img.image ?? "",
+          description: img.title ?? "", source: img.source ?? img.url ?? "",
+        })).filter((r) => r.url);
+        if (results.length > 0) return results;
+      }
+    }
+  } catch (_) {}
+
+  // Fallback: try alternative DDG endpoint
+  try {
+    const alt = await fetch(
+      `https://duckduckgo.com/i.js?q=${encodedQ}&o=json&p=1`,
+      { headers: { "User-Agent": ua, "Accept": "application/json" }, signal: AbortSignal.timeout(8000) }
+    );
+    if (alt.ok) {
+      const data = await alt.json() as { results?: Array<{ image?: string; thumbnail?: string; title?: string }> };
+      const results = (data.results ?? []).slice(0, 12).map((img, i) => ({
+        id: `alt_${i}`, url: img.image ?? "", thumb: img.thumbnail ?? img.image ?? "",
+        description: img.title ?? "", source: "",
+      })).filter((r) => r.url);
+      if (results.length > 0) return results;
+    }
+  } catch (_) {}
+
+  throw new Error("Не удалось найти изображения. Попробуйте другой запрос.");
+}
+
+async function findOrCreateImagesFolder(roomId: string, userId: string): Promise<string | null> {
+  try {
+    const existing = await db.query.filesTable.findFirst({
+      where: and(eq(filesTable.roomId, roomId), eq(filesTable.name, "images"), eq(filesTable.isFolder, true)),
+    });
+    if (existing) return existing.id;
+
+    const [folder] = await db.insert(filesTable).values({
+      roomId, name: "images", path: "/images", language: "plaintext",
+      content: "", parentId: null, isFolder: true, createdBy: userId,
+    }).returning();
+    return folder.id;
+  } catch {
+    return null;
+  }
+}
+
+async function executeFileTool(toolName: string, args: Record<string, string>, roomId: string, userId: string): Promise<string> {
   try {
     if (toolName === "create_file") {
       const name = args.name ?? "";
@@ -170,68 +233,37 @@ async function executeFileTool(
       const [file] = await db.insert(filesTable).values({
         roomId, name, path: `/${name}`, language, content, parentId, isFolder: false, createdBy: userId,
       }).returning();
-      await db.insert(eventsTable).values({
-        roomId, userId, username: "AI", type: "file_created", description: `AI создал файл ${name}`,
-      }).catch(() => {});
+      await db.insert(eventsTable).values({ roomId, userId, username: "AI", type: "file_created", description: `AI создал файл ${name}` }).catch(() => {});
       return JSON.stringify({ success: true, fileId: file.id, name: file.name });
     }
 
     if (toolName === "edit_file") {
       const fileId = args.fileId ?? "";
       const content = args.content ?? "";
-      const existing = await db.query.filesTable.findFirst({
-        where: and(eq(filesTable.id, fileId), eq(filesTable.roomId, roomId)),
-      });
+      const existing = await db.query.filesTable.findFirst({ where: and(eq(filesTable.id, fileId), eq(filesTable.roomId, roomId)) });
       if (existing && existing.content !== content) {
         await saveFileSnapshot(fileId, roomId, existing.content, userId, "AI (before edit)").catch(() => {});
       }
-      const [file] = await db.update(filesTable)
-        .set({ content, updatedAt: new Date() })
-        .where(and(eq(filesTable.id, fileId), eq(filesTable.roomId, roomId)))
-        .returning();
+      const [file] = await db.update(filesTable).set({ content, updatedAt: new Date() })
+        .where(and(eq(filesTable.id, fileId), eq(filesTable.roomId, roomId))).returning();
       if (!file) return JSON.stringify({ success: false, error: "Файл не найден" });
-      await db.insert(eventsTable).values({
-        roomId, userId, username: "AI", type: "file_updated", description: `AI отредактировал файл ${file.name}`,
-      }).catch(() => {});
+      await db.insert(eventsTable).values({ roomId, userId, username: "AI", type: "file_updated", description: `AI отредактировал файл ${file.name}` }).catch(() => {});
       return JSON.stringify({ success: true, fileId: file.id, name: file.name });
     }
 
     if (toolName === "delete_file") {
       const fileId = args.fileId ?? "";
-      const file = await db.query.filesTable.findFirst({
-        where: and(eq(filesTable.id, fileId), eq(filesTable.roomId, roomId)),
-      });
+      const file = await db.query.filesTable.findFirst({ where: and(eq(filesTable.id, fileId), eq(filesTable.roomId, roomId)) });
       if (!file) return JSON.stringify({ success: false, error: "Файл не найден" });
       await db.delete(filesTable).where(and(eq(filesTable.id, fileId), eq(filesTable.roomId, roomId)));
-      await db.insert(eventsTable).values({
-        roomId, userId, username: "AI", type: "file_deleted", description: `AI удалил файл ${file.name}`,
-      }).catch(() => {});
+      await db.insert(eventsTable).values({ roomId, userId, username: "AI", type: "file_deleted", description: `AI удалил файл ${file.name}` }).catch(() => {});
       return JSON.stringify({ success: true, name: file.name });
     }
 
     if (toolName === "search_images") {
       const query = args.query ?? "";
       if (!query) return JSON.stringify({ error: "Параметр query обязателен" });
-      const ddgInit = await fetch(
-        `https://duckduckgo.com/?q=${encodeURIComponent(query)}&iax=images&ia=images`,
-        { headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120", "Accept-Language": "en-US,en;q=0.9" } }
-      );
-      const initHtml = await ddgInit.text();
-      const vqdMatch = initHtml.match(/vqd=["']?([^"'&\s]+)["']?/);
-      if (!vqdMatch?.[1]) return JSON.stringify({ error: "Не удалось получить токен поиска изображений." });
-      const vqd = vqdMatch[1];
-      const imgResp = await fetch(
-        `https://duckduckgo.com/i.js?l=us-en&o=json&q=${encodeURIComponent(query)}&vqd=${encodeURIComponent(vqd)}&f=,,,&p=1`,
-        { headers: { "Referer": "https://duckduckgo.com/", "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120", "Accept": "application/json" } }
-      );
-      if (!imgResp.ok) return JSON.stringify({ error: `Ошибка поиска изображений: ${imgResp.status}` });
-      const data = await imgResp.json() as {
-        results?: Array<{ title?: string; image?: string; thumbnail?: string; url?: string; source?: string }>;
-      };
-      const results = (data.results ?? []).slice(0, 8).map((img, i) => ({
-        id: String(i), url: img.image ?? "", thumb: img.thumbnail ?? img.image ?? "",
-        description: img.title ?? "", source: img.source ?? img.url ?? "",
-      })).filter((r) => r.url);
+      const results = await searchImagesDDG(query);
       return JSON.stringify({ success: true, results, count: results.length });
     }
 
@@ -239,17 +271,22 @@ async function executeFileTool(
       const url = args.url ?? "";
       const name = args.name ?? "image.jpg";
       if (!url) return JSON.stringify({ error: "Параметр url обязателен" });
-      const imgResp = await fetch(url);
+
+      const imgResp = await fetch(url, { signal: AbortSignal.timeout(15000) });
       if (!imgResp.ok) return JSON.stringify({ error: `Не удалось скачать: ${imgResp.status}` });
       const contentType = imgResp.headers.get("content-type") ?? "image/jpeg";
       const buf = await imgResp.arrayBuffer();
       const base64 = Buffer.from(buf).toString("base64");
       const dataUrl = `data:${contentType};base64,${base64}`;
+
+      // Find or create "images" folder
+      const folderId = await findOrCreateImagesFolder(roomId, userId);
+
       const [file] = await db.insert(filesTable).values({
-        roomId, name, path: `/${name}`, language: "image",
-        content: dataUrl, parentId: null, isFolder: false, createdBy: userId,
+        roomId, name, path: `/images/${name}`, language: "image",
+        content: dataUrl, parentId: folderId, isFolder: false, createdBy: userId,
       }).returning();
-      return JSON.stringify({ success: true, fileId: file.id, name: file.name });
+      return JSON.stringify({ success: true, fileId: file.id, name: file.name, folder: "images" });
     }
 
     return JSON.stringify({ error: "Unknown tool" });
@@ -260,9 +297,9 @@ async function executeFileTool(
 
 async function chatHandler(req: Request, res: Response): Promise<void> {
   const aiUser = await resolveAiUser(req);
-  if (!aiUser) { res.status(401).json({ error: "Authentication required to use AI chat" }); return; }
+  if (!aiUser) { res.status(401).json({ error: "Требуется авторизация для использования AI чата" }); return; }
   const { userId, isGuest } = aiUser;
-  if (!checkRateLimit(userId)) { res.status(429).json({ error: "Rate limit exceeded. Please wait before sending more messages." }); return; }
+  if (!checkRateLimit(userId)) { res.status(429).json({ error: "Слишком много запросов. Подождите немного." }); return; }
 
   const body = req.body as {
     message?: unknown; messages?: unknown; context?: unknown;
@@ -277,40 +314,53 @@ async function chatHandler(req: Request, res: Response): Promise<void> {
   } else if (typeof body.message === "string") {
     chatMessages = [{ role: "user", content: body.message }];
   } else {
-    res.status(400).json({ error: "message or messages field is required" }); return;
+    res.status(400).json({ error: "Необходимо поле message или messages" }); return;
   }
 
-  if (chatMessages.length === 0) { res.status(400).json({ error: "No valid messages provided" }); return; }
+  if (chatMessages.length === 0) { res.status(400).json({ error: "Нет сообщений" }); return; }
 
   const context = typeof body.context === "string" ? body.context : "";
   const language = typeof body.language === "string" ? body.language : "code";
   const roomId = typeof body.roomId === "string" ? body.roomId : "";
 
-  if (roomId) {
-    const hasAccess = await canReadRoom(roomId, userId);
-    if (!hasAccess) { res.status(403).json({ error: "У вас нет доступа к этой комнате" }); return; }
-  }
+  // Parallel access check
+  const [accessResult, roomFilesResult] = await Promise.all([
+    roomId ? canAccessRoom(roomId, userId) : Promise.resolve({ canRead: true, canWrite: !isGuest, isGuest }),
+    roomId ? db.query.filesTable.findMany({ where: eq(filesTable.roomId, roomId) }) : Promise.resolve([]),
+  ]);
 
-  const hasWriteAccess = roomId ? await canWriteRoom(roomId, userId, isGuest) : false;
+  if (roomId && !accessResult.canRead) { res.status(403).json({ error: "У вас нет доступа к этой комнате" }); return; }
 
-  let fileListContext = "";
-  if (roomId) {
-    const roomFiles = await db.query.filesTable.findMany({ where: eq(filesTable.roomId, roomId) });
-    if (roomFiles.length > 0) {
-      fileListContext = `\n\nФайлы в комнате:\n${roomFiles.map((f) => `- ${f.name} (id: ${f.id}, ${f.language}${f.isFolder ? ", папка" : ""})`).join("\n")}`;
-    }
+  const hasWriteAccess = accessResult.canWrite;
+
+  // Build file context - include file contents (not images, truncated)
+  const allFilesBody = Array.isArray(body.allFiles)
+    ? (body.allFiles as Array<{ id: string; name: string; language: string; content: string }>)
+    : [];
+
+  let fileContextStr = "";
+  const filesToContext = allFilesBody.filter((f) => f.language !== "image");
+  if (filesToContext.length > 0) {
+    const parts = filesToContext.slice(0, 10).map((f) => {
+      const truncated = f.content && f.content.length > 3000 ? f.content.slice(0, 3000) + "\n...(обрезано)" : f.content;
+      return `\n### ${f.name} (id: ${f.id}, ${f.language})\n\`\`\`${f.language}\n${truncated}\n\`\`\``;
+    });
+    fileContextStr = `\n\n## Файлы в комнате (${filesToContext.length} шт.):\n${parts.join("\n")}`;
+  } else if (roomFilesResult.length > 0) {
+    fileContextStr = `\n\nФайлы в комнате:\n${roomFilesResult.map((f) => `- ${f.name} (id: ${f.id}, ${f.language}${f.isFolder ? ", папка" : ""})`).join("\n")}`;
   }
 
   const systemPrompt = `Ты — AI-ассистент для разработчиков в среде CodeSync (онлайн IDE).
 Отвечай на русском языке. Помогай с написанием, объяснением и дебаггингом кода.
-Ты можешь создавать, редактировать и удалять файлы в комнате с помощью доступных инструментов.
+Ты можешь создавать, редактировать и удалять файлы в комнате с помощью инструментов.
 Если пользователь просит создать, изменить или удалить файл — используй соответствующий инструмент.
-Ты можешь искать и скачивать изображения из интернета самостоятельно:
-- Используй search_images для поиска подходящих изображений (запросы лучше на английском)
-- Затем используй download_image для скачивания лучшего результата и добавления в комнату
-- Используй изображения в HTML-коде через имя файла: <img src="hero.jpg">
-- При создании сайтов с изображениями — сначала найди и скачай нужные картинки, потом пиши HTML с их именами
-${context ? `\nКонтекст текущего файла (${language}):\n\`\`\`${language}\n${context}\n\`\`\`` : ""}${fileListContext}`;
+
+Для работы с изображениями:
+- Используй search_images для поиска (запрос лучше на английском)
+- Используй download_image для скачивания — изображения автоматически попадут в папку images/
+- В HTML-коде используй имя файла: <img src="images/hero.jpg">
+- При создании сайтов с картинками — сначала скачай нужные, потом пиши HTML
+${context ? `\nТекущий файл (${language}):\n\`\`\`${language}\n${context}\n\`\`\`` : ""}${fileContextStr}`;
 
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
@@ -376,15 +426,15 @@ ${context ? `\nКонтекст текущего файла (${language}):\n\`\`
         for (const tc of toolCallList) {
           const args = JSON.parse(tc.function.arguments) as Record<string, string>;
 
-          const isFileEdit = tc.function.name === "edit_file" || tc.function.name === "create_file";
-          if (isFileEdit && args.content && args.content.length > 0) {
+          const isFileWrite = tc.function.name === "edit_file" || tc.function.name === "create_file";
+          if (isFileWrite && args.content && args.content.length > 0) {
             const content = args.content;
             const fileId = args.fileId;
             const fileName = args.name;
             const chunkSize = Math.max(8, Math.ceil(content.length / 80));
             for (let i = 0; i < content.length; i += chunkSize) {
               res.write(`data: ${JSON.stringify({ fileStream: { toolName: tc.function.name, fileId, fileName, content: content.slice(0, i + chunkSize) } })}\n\n`);
-              await new Promise((r) => setTimeout(r, 6));
+              await new Promise((r) => setTimeout(r, 5));
             }
             res.write(`data: ${JSON.stringify({ fileStream: { toolName: tc.function.name, fileId, fileName, content, done: true } })}\n\n`);
           }
@@ -420,15 +470,13 @@ interface ReviewIssue {
 
 async function reviewHandler(req: Request, res: Response): Promise<void> {
   const aiUser = await resolveAiUser(req);
-  const userId = aiUser?.userId ?? null;
-  if (!userId) { res.status(401).json({ error: "Authentication required to use AI review" }); return; }
-  if (!checkRateLimit(userId)) { res.status(429).json({ error: "Rate limit exceeded. Please wait before sending more requests." }); return; }
+  if (!aiUser) { res.status(401).json({ error: "Требуется авторизация" }); return; }
+  if (!checkRateLimit(aiUser.userId)) { res.status(429).json({ error: "Слишком много запросов" }); return; }
 
   const body = req.body as { code?: unknown; language?: unknown };
   const code = typeof body.code === "string" ? body.code : "";
   const language = typeof body.language === "string" ? body.language : "code";
-
-  if (!code.trim()) { res.status(400).json({ error: "code is required" }); return; }
+  if (!code.trim()) { res.status(400).json({ error: "code обязателен" }); return; }
 
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
@@ -440,22 +488,14 @@ async function reviewHandler(req: Request, res: Response): Promise<void> {
     const completion = await openai.chat.completions.create({
       model: "gpt-4.1",
       messages: [
-        {
-          role: "system",
-          content: `Ты — эксперт по code review. Анализируй код и возвращай ТОЛЬКО валидный JSON-массив объектов.
-Каждый объект должен иметь поля: line (number), severity ("error"|"warning"|"info"), message (string на русском), suggestion (string на русском).
-Верни пустой массив [], если нет проблем. Не добавляй \`\`\`json или другие теги — только чистый JSON.`,
-        },
+        { role: "system", content: `Ты — эксперт code review. Анализируй код и верни ТОЛЬКО валидный JSON-массив объектов с полями: line (number), severity ("error"|"warning"|"info"), message (на русском), suggestion (на русском). Пустой массив [] если нет проблем. Без markdown-блоков, только чистый JSON.` },
         { role: "user", content: `Проверь этот ${language} код:\n\`\`\`${language}\n${code}\n\`\`\`` },
       ],
       max_tokens: 1500,
     });
 
     let rawText = completion.choices[0]?.message?.content ?? "[]";
-    rawText = rawText.trim();
-    if (rawText.startsWith("```")) {
-      rawText = rawText.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/, "").trim();
-    }
+    rawText = rawText.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/, "").trim();
     const jsonMatch = rawText.match(/\[[\s\S]*\]/);
     if (jsonMatch) rawText = jsonMatch[0];
 
@@ -463,14 +503,14 @@ async function reviewHandler(req: Request, res: Response): Promise<void> {
     try {
       const parsed: unknown = JSON.parse(rawText);
       if (Array.isArray(parsed)) {
-        const VALID_SEVERITIES = new Set(["error", "warning", "info"]);
+        const VALID = new Set(["error", "warning", "info"]);
         issues = parsed
-          .filter((item): item is Record<string, unknown> => typeof item === "object" && item !== null)
-          .map((item) => ({
-            line: typeof item["line"] === "number" ? Math.round(item["line"]) : 0,
-            severity: (VALID_SEVERITIES.has(item["severity"] as string) ? item["severity"] : "info") as ReviewIssue["severity"],
-            message: typeof item["message"] === "string" ? item["message"] : "",
-            suggestion: typeof item["suggestion"] === "string" ? item["suggestion"] : "",
+          .filter((i): i is Record<string, unknown> => typeof i === "object" && i !== null)
+          .map((i) => ({
+            line: typeof i["line"] === "number" ? Math.round(i["line"]) : 0,
+            severity: (VALID.has(i["severity"] as string) ? i["severity"] : "info") as ReviewIssue["severity"],
+            message: typeof i["message"] === "string" ? i["message"] : "",
+            suggestion: typeof i["suggestion"] === "string" ? i["suggestion"] : "",
           }))
           .filter((i) => i.message);
       }
@@ -479,8 +519,7 @@ async function reviewHandler(req: Request, res: Response): Promise<void> {
     res.write(`data: ${JSON.stringify({ issues })}\n\n`);
     res.write("data: [DONE]\n\n");
   } catch (err) {
-    const message = err instanceof Error ? err.message : "AI error";
-    res.write(`data: ${JSON.stringify({ error: message })}\n\n`);
+    res.write(`data: ${JSON.stringify({ error: err instanceof Error ? err.message : "AI error" })}\n\n`);
   } finally {
     res.end();
   }
@@ -493,28 +532,11 @@ async function imageSearchHandler(req: Request, res: Response): Promise<void> {
   if (!q) { res.status(400).json({ error: "Параметр q обязателен" }); return; }
 
   try {
-    const ddgInit = await fetch(
-      `https://duckduckgo.com/?q=${encodeURIComponent(q)}&iax=images&ia=images`,
-      { headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120", "Accept-Language": "en-US,en;q=0.9" } }
-    );
-    const initHtml = await ddgInit.text();
-    const vqdMatch = initHtml.match(/vqd=["']?([^"'&\s]+)["']?/);
-    if (!vqdMatch?.[1]) { res.status(502).json({ error: "Не удалось подключиться к поиску изображений." }); return; }
-    const vqd = vqdMatch[1];
-
-    const imgResp = await fetch(
-      `https://duckduckgo.com/i.js?l=us-en&o=json&q=${encodeURIComponent(q)}&vqd=${encodeURIComponent(vqd)}&f=,,,&p=1`,
-      { headers: { "Referer": "https://duckduckgo.com/", "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120", "Accept": "application/json" } }
-    );
-    if (!imgResp.ok) { res.status(502).json({ error: `Ошибка поиска: ${imgResp.status}` }); return; }
-    const data = await imgResp.json() as {
-      results?: Array<{ title?: string; image?: string; thumbnail?: string; url?: string; source?: string }>;
-    };
-    const results = (data.results ?? []).slice(0, 15).map((img, i) => ({
-      id: String(i), thumb: img.thumbnail ?? img.image ?? "",
-      full: img.image ?? "", description: img.title ?? "", photographer: img.source ?? "",
-    })).filter((r) => r.full);
-    res.json({ results });
+    const results = await searchImagesDDG(q);
+    const formatted = results.slice(0, 15).map((r) => ({
+      id: r.id, thumb: r.thumb, full: r.url, description: r.description, photographer: r.source,
+    }));
+    res.json({ results: formatted });
   } catch (err) {
     res.status(500).json({ error: err instanceof Error ? err.message : "Ошибка поиска" });
   }
@@ -530,15 +552,16 @@ async function imageImportHandler(req: Request, res: Response): Promise<void> {
   if (!roomId || !url) { res.status(400).json({ error: "Параметры roomId и url обязательны" }); return; }
 
   try {
-    const imgResp = await fetch(url);
-    if (!imgResp.ok) throw new Error(`Не удалось загрузить изображение: ${imgResp.status}`);
+    const imgResp = await fetch(url, { signal: AbortSignal.timeout(15000) });
+    if (!imgResp.ok) throw new Error(`Не удалось загрузить: ${imgResp.status}`);
     const contentType = imgResp.headers.get("content-type") ?? "image/jpeg";
-    const arrayBuffer = await imgResp.arrayBuffer();
-    const base64 = Buffer.from(arrayBuffer).toString("base64");
+    const base64 = Buffer.from(await imgResp.arrayBuffer()).toString("base64");
     const dataUrl = `data:${contentType};base64,${base64}`;
+
+    const folderId = await findOrCreateImagesFolder(roomId, aiUser.userId);
     const [file] = await db.insert(filesTable).values({
-      roomId, name, path: `/${name}`, language: "image",
-      content: dataUrl, parentId: null, isFolder: false, createdBy: aiUser.userId,
+      roomId, name, path: `/images/${name}`, language: "image",
+      content: dataUrl, parentId: folderId, isFolder: false, createdBy: aiUser.userId,
     }).returning();
     res.json({ success: true, fileId: file.id, name: file.name });
   } catch (err) {

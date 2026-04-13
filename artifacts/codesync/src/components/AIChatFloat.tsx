@@ -4,8 +4,10 @@ import ReactDOM from "react-dom";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-const PANEL_W = 480;
-const PANEL_H = 560;
+const MIN_W = 340;
+const MIN_H = 320;
+const DEFAULT_W = 480;
+const DEFAULT_H = 560;
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -139,10 +141,29 @@ export function AIChatFloat({
   const [isSearchingImages, setIsSearchingImages] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
 
+  // Panel position and size for drag/resize
+  const [panelPos, setPanelPos] = useState({ x: 0, y: 0 });
+  const [panelSize, setPanelSize] = useState({ w: DEFAULT_W, h: DEFAULT_H });
+  const posInitRef = useRef(false);
+  const isDraggingRef = useRef(false);
+  const isResizingRef = useRef(false);
+
   const chatEndRef = useRef<HTMLDivElement>(null);
   const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Initialize panel position when first opened
+  useEffect(() => {
+    if (isOpen && !posInitRef.current) {
+      posInitRef.current = true;
+      setPanelPos({
+        x: Math.max(8, (window.innerWidth - panelSize.w) / 2),
+        y: Math.max(8, window.innerHeight - 76 - panelSize.h),
+      });
+    }
+  }, [isOpen, panelSize.w, panelSize.h]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -152,7 +173,6 @@ export function AIChatFloat({
     if (isOpen && activeTab === "chat") setTimeout(() => inputRef.current?.focus(), 200);
   }, [isOpen, activeTab]);
 
-  // Handle prefill from outside (selection context menu)
   useEffect(() => {
     if (prefillInput) {
       setChatInput(prefillInput);
@@ -171,10 +191,75 @@ export function AIChatFloat({
   function showFlash(text: string, ok: boolean) {
     if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
     setFlashToast({ text, ok });
-    flashTimerRef.current = setTimeout(() => setFlashToast(null), 1500);
+    flashTimerRef.current = setTimeout(() => setFlashToast(null), 2500);
   }
 
-  useEffect(() => () => { if (flashTimerRef.current) clearTimeout(flashTimerRef.current); }, []);
+  useEffect(() => () => {
+    if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
+    abortControllerRef.current?.abort();
+  }, []);
+
+  // Drag header handler
+  const startDrag = useCallback((e: React.PointerEvent) => {
+    if (isResizingRef.current) return;
+    e.preventDefault();
+    isDraggingRef.current = true;
+    const startMouseX = e.clientX;
+    const startMouseY = e.clientY;
+    const startX = panelPos.x;
+    const startY = panelPos.y;
+
+    document.body.style.cursor = "move";
+    document.body.style.userSelect = "none";
+
+    function onMove(ev: PointerEvent) {
+      if (!isDraggingRef.current) return;
+      setPanelPos({
+        x: Math.max(0, Math.min(window.innerWidth - MIN_W, startX + ev.clientX - startMouseX)),
+        y: Math.max(0, Math.min(window.innerHeight - 60, startY + ev.clientY - startMouseY)),
+      });
+    }
+    function onUp() {
+      isDraggingRef.current = false;
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    }
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  }, [panelPos]);
+
+  // Resize SE corner handler
+  function startResizeSE(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    isResizingRef.current = true;
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startW = panelSize.w;
+    const startH = panelSize.h;
+
+    document.body.style.cursor = "nwse-resize";
+    document.body.style.userSelect = "none";
+
+    function onMove(ev: MouseEvent) {
+      if (!isResizingRef.current) return;
+      setPanelSize({
+        w: Math.max(MIN_W, Math.min(window.innerWidth - panelPos.x - 8, startW + ev.clientX - startX)),
+        h: Math.max(MIN_H, Math.min(window.innerHeight - panelPos.y - 8, startH + ev.clientY - startY)),
+      });
+    }
+    function onUp() {
+      isResizingRef.current = false;
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    }
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  }
 
   function getHeaders(): Record<string, string> {
     const h: Record<string, string> = { "Content-Type": "application/json" };
@@ -191,6 +276,11 @@ export function AIChatFloat({
     setIsChatLoading(true);
     onClearAiDiff?.();
 
+    // Cancel any previous request
+    abortControllerRef.current?.abort();
+    const abort = new AbortController();
+    abortControllerRef.current = abort;
+
     const allMessages = [...messages, { role: "user" as const, content: userMsg }];
     const contentBeforeEdit = fileContent;
 
@@ -198,6 +288,7 @@ export function AIChatFloat({
       const resp = await fetch(`${basePath}/api/ai/chat`, {
         method: "POST",
         headers: getHeaders(),
+        signal: abort.signal,
         body: JSON.stringify({
           messages: allMessages,
           context: fileContent,
@@ -219,9 +310,7 @@ export function AIChatFloat({
       let editedNewContent: string | null = null;
       let hadToolCalls = false;
 
-      // Batch operation tracker for grouped notifications
       const opCounts = { create: 0, edit: 0, delete: 0, search: 0, download: 0 };
-      const opNames: string[] = [];
       const statsAcc: Record<string, { added: number; removed: number }> = {};
 
       while (true) {
@@ -253,20 +342,15 @@ export function AIChatFloat({
               const tc = parsed.toolCall;
               onFilesChanged?.();
 
-              // Track operation counts for batch notification
               if (tc.result?.success) {
                 if (tc.name === "create_file") {
                   opCounts.create++;
-                  if (tc.result.name) opNames.push(tc.result.name);
-                  // Compute stats for new file
                   const newContent = (tc.args.content as string | undefined) ?? "";
                   const lineCount = newContent.split("\n").length;
                   const fid = tc.result.fileId ?? tc.result.name ?? "new";
                   statsAcc[fid] = { added: lineCount, removed: 0 };
                 } else if (tc.name === "edit_file") {
                   opCounts.edit++;
-                  if (tc.result.name) opNames.push(tc.result.name);
-                  // Compute diff stats for edited file
                   const editedId = (tc.args.fileId as string | undefined) ?? "";
                   const oldFile = files.find((f) => f.id === editedId);
                   const oldLines = (oldFile?.content ?? "").split("\n");
@@ -277,22 +361,18 @@ export function AIChatFloat({
                   if (editedId) statsAcc[editedId] = { added, removed };
                 } else if (tc.name === "delete_file") {
                   opCounts.delete++;
-                  if (tc.result.name) opNames.push(tc.result.name);
                 } else if (tc.name === "search_images") {
                   opCounts.search++;
                 } else if (tc.name === "download_image") {
                   opCounts.download++;
-                  if (tc.result.name) opNames.push(tc.result.name);
                 }
               } else if (tc.result && !tc.result.success) {
-                showFlash(`✗ ${tc.result?.error ?? tc.name}`, false);
+                showFlash(tc.result?.error ?? tc.name, false);
               }
 
-              // After create_file succeeds, switch editor to the new file
               if (tc.name === "create_file" && tc.result?.success && tc.result?.fileId) {
                 onFileStream?.(tc.result.fileId, tc.result.name ?? null, (tc.args.content as string | undefined) ?? "");
               }
-
               if (tc.name === "edit_file" && tc.result?.success && tc.args?.fileId === fileId) {
                 editedFileId = tc.args.fileId as string;
                 editedNewContent = (tc.args.content as string | undefined) ?? null;
@@ -315,33 +395,16 @@ export function AIChatFloat({
         }
       }
 
-      // Emit file stats for indicators in FileTree
       if (Object.keys(statsAcc).length > 0) onAiStats?.(statsAcc);
 
-      // Show single grouped notification for all operations
       if (hadToolCalls) {
         const parts: string[] = [];
-        if (opCounts.search) parts.push(`Нашёл изображения`);
+        if (opCounts.search) parts.push("Нашёл изображения");
         if (opCounts.download) parts.push(`Скачал ${opCounts.download} изобр.`);
-        if (opCounts.create) {
-          const s = opCounts.create > 1 ? "а" : "";
-          parts.push(`Создал ${opCounts.create} файл${s}`);
-        }
-        if (opCounts.edit) {
-          const s = opCounts.edit > 1 ? "а" : "";
-          parts.push(`Изменил ${opCounts.edit} файл${s}`);
-        }
-        if (opCounts.delete) {
-          const s = opCounts.delete > 1 ? "а" : "";
-          parts.push(`Удалил ${opCounts.delete} файл${s}`);
-        }
+        if (opCounts.create) parts.push(`Создал ${opCounts.create} файл${opCounts.create > 1 ? "а" : ""}`);
+        if (opCounts.edit) parts.push(`Изменил ${opCounts.edit} файл${opCounts.edit > 1 ? "а" : ""}`);
+        if (opCounts.delete) parts.push(`Удалил ${opCounts.delete} файл${opCounts.delete > 1 ? "а" : ""}`);
         if (parts.length > 0) showFlash(parts.join(" · "), true);
-
-        // Insert compact activity card into chat
-        const totalOps = opCounts.create + opCounts.edit + opCounts.delete + opCounts.download;
-        if (totalOps > 0 && !addedAssistant) {
-          // Build activity summary if AI didn't respond with text
-        }
       }
 
       if (editedFileId && editedNewContent !== null && fileId === editedFileId) {
@@ -355,6 +418,7 @@ export function AIChatFloat({
 
       playDoneSound();
     } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") return;
       const message = err instanceof Error ? err.message : "Произошла ошибка.";
       setMessages((prev) => [...prev, { role: "assistant", content: message }]);
     } finally {
@@ -407,22 +471,53 @@ export function AIChatFloat({
     }
   }
 
+  // Flash toast positioned via portal at panel's input area top
+  const flashToastEl = flashToast
+    ? ReactDOM.createPortal(
+        <AnimatePresence>
+          {flashToast && (
+            <motion.div
+              key="flash"
+              initial={{ opacity: 0, y: 6, scale: 0.92 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 4, scale: 0.95 }}
+              style={{
+                position: "fixed",
+                top: panelPos.y + panelSize.h - 72,
+                left: panelPos.x + panelSize.w / 2,
+                transform: "translateX(-50%)",
+                background: flashToast.ok ? "rgba(22,38,22,0.97)" : "rgba(38,22,22,0.97)",
+                border: `1px solid ${flashToast.ok ? "rgba(63,185,80,0.5)" : "rgba(255,123,114,0.5)"}`,
+                color: flashToast.ok ? "#3FB950" : "#FF7B72",
+                borderRadius: 10, padding: "6px 16px", fontSize: 12,
+                whiteSpace: "nowrap", zIndex: 99999, backdropFilter: "blur(12px)",
+                boxShadow: "0 4px 20px rgba(0,0,0,0.5)",
+                pointerEvents: "none",
+              }}
+            >
+              {flashToast.ok ? "✓ " : "✗ "}{flashToast.text}
+            </motion.div>
+          )}
+        </AnimatePresence>,
+        document.body,
+      )
+    : null;
+
   const panel = (
     <AnimatePresence>
       {isOpen && (
         <motion.div
           key="ai-chat-panel"
-          initial={{ opacity: 0, y: 24, scale: 0.97 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: 16, scale: 0.97 }}
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.95 }}
           transition={{ type: "spring", stiffness: 420, damping: 32 }}
           style={{
             position: "fixed",
-            bottom: 76,
-            left: `calc(50% - ${PANEL_W / 2}px)`,
-            width: PANEL_W,
-            maxWidth: "calc(100vw - 24px)",
-            height: PANEL_H,
+            top: panelPos.y,
+            left: panelPos.x,
+            width: panelSize.w,
+            height: panelSize.h,
             background: "rgba(8,8,10,0.97)",
             border: "1px solid rgba(255,255,255,0.1)",
             borderRadius: 18,
@@ -434,27 +529,31 @@ export function AIChatFloat({
             backdropFilter: "blur(28px)",
           }}
         >
-          {/* Glow top line */}
+          {/* Top glow */}
           <div style={{
             position: "absolute", top: 0, left: "15%", right: "15%", height: 1,
             background: "linear-gradient(90deg, transparent, rgba(88,166,255,0.5), rgba(63,185,80,0.35), transparent)",
             pointerEvents: "none",
           }} />
 
-          {/* Header */}
-          <div style={{
-            display: "flex", alignItems: "center", gap: 10,
-            padding: "10px 14px",
-            borderBottom: "1px solid rgba(255,255,255,0.07)",
-            flexShrink: 0,
-          }}>
+          {/* Header — draggable */}
+          <div
+            onPointerDown={startDrag}
+            style={{
+              display: "flex", alignItems: "center", gap: 10,
+              padding: "10px 14px",
+              borderBottom: "1px solid rgba(255,255,255,0.07)",
+              flexShrink: 0,
+              cursor: "move",
+              userSelect: "none",
+            }}
+          >
             <div style={{
               width: 30, height: 30, borderRadius: 10, flexShrink: 0,
               background: "linear-gradient(135deg, #1a1d29 0%, #0d1117 100%)",
               border: "1px solid rgba(88,166,255,0.35)",
               boxShadow: "0 0 14px rgba(88,166,255,0.2), inset 0 1px 0 rgba(255,255,255,0.06)",
               display: "flex", alignItems: "center", justifyContent: "center",
-              position: "relative", overflow: "hidden",
             }}>
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                 <path d="M8 1L9.5 5.5L14 7L9.5 8.5L8 13L6.5 8.5L2 7L6.5 5.5L8 1Z" fill="url(#ai-star)" />
@@ -469,12 +568,15 @@ export function AIChatFloat({
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 13, fontWeight: 600, color: "#E6EDF3" }}>CodeSync AI</div>
               <div style={{ fontSize: 10, color: "rgba(255,255,255,0.28)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {files.length > 0 ? `${files.length} файлов в комнате` : "Глобальный контекст"}
+                {isChatLoading ? "печатает..." : files.length > 0 ? `${files.length} файлов · перетащи панель` : "Глобальный контекст"}
               </div>
             </div>
 
             {/* Tabs */}
-            <div style={{ display: "flex", gap: 2, background: "rgba(255,255,255,0.05)", borderRadius: 8, padding: 2 }}>
+            <div
+              style={{ display: "flex", gap: 2, background: "rgba(255,255,255,0.05)", borderRadius: 8, padding: 2 }}
+              onPointerDown={(e) => e.stopPropagation()}
+            >
               {([["chat", "Чат"], ["images", "Изображения"]] as const).map(([tab, label]) => (
                 <button
                   key={tab}
@@ -491,13 +593,32 @@ export function AIChatFloat({
               ))}
             </div>
 
-            <div style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: 4 }}>
+            <div
+              style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: 4 }}
+              onPointerDown={(e) => e.stopPropagation()}
+            >
               {activeTab === "chat" && messages.length > 0 && (
                 <button
                   onClick={() => setMessages([])}
                   style={{ background: "transparent", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.28)", fontSize: 11, padding: "2px 6px", borderRadius: 5 }}
                 >
                   Очистить
+                </button>
+              )}
+              {isChatLoading && (
+                <button
+                  onClick={() => { abortControllerRef.current?.abort(); setIsChatLoading(false); }}
+                  title="Остановить"
+                  style={{
+                    width: 26, height: 26, borderRadius: 7,
+                    background: "rgba(255,123,114,0.12)",
+                    border: "1px solid rgba(255,123,114,0.3)",
+                    cursor: "pointer", color: "#FF7B72",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    flexShrink: 0, padding: 0, fontSize: 10,
+                  }}
+                >
+                  ■
                 </button>
               )}
               <button
@@ -525,20 +646,29 @@ export function AIChatFloat({
               <div style={{ flex: 1, overflowY: "auto", padding: "12px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
                 {messages.length === 0 && (
                   <motion.div
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.12 }}
-                    style={{ textAlign: "center", paddingTop: 48 }}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    style={{ textAlign: "center", paddingTop: 40 }}
                   >
                     <div style={{
-                      width: 52, height: 52, borderRadius: 15, margin: "0 auto 14px",
-                      background: "linear-gradient(135deg, rgba(88,166,255,0.18), rgba(63,185,80,0.18))",
-                      border: "1px solid rgba(88,166,255,0.18)",
-                      display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22,
-                    }}>✦</div>
-                    <p style={{ fontSize: 14, fontWeight: 600, color: "#E6EDF3", marginBottom: 6 }}>CodeSync AI</p>
-                    <p style={{ fontSize: 12, color: "rgba(255,255,255,0.32)", lineHeight: 1.7 }}>
-                      Задайте вопрос по коду или попросите<br />создать и изменить файлы в комнате
+                      width: 48, height: 48, borderRadius: 16, margin: "0 auto 14px",
+                      background: "linear-gradient(135deg, rgba(88,166,255,0.15), rgba(63,185,80,0.1))",
+                      border: "1px solid rgba(88,166,255,0.2)",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                    }}>
+                      <svg width="22" height="22" viewBox="0 0 16 16" fill="none">
+                        <path d="M8 1L9.5 5.5L14 7L9.5 8.5L8 13L6.5 8.5L2 7L6.5 5.5L8 1Z" fill="url(#ai-star-empty)" />
+                        <defs>
+                          <linearGradient id="ai-star-empty" x1="2" y1="1" x2="14" y2="13">
+                            <stop offset="0%" stopColor="#79C0FF"/>
+                            <stop offset="100%" stopColor="#56D364"/>
+                          </linearGradient>
+                        </defs>
+                      </svg>
+                    </div>
+                    <p style={{ fontSize: 13, color: "rgba(255,255,255,0.45)", fontWeight: 500 }}>CodeSync AI</p>
+                    <p style={{ fontSize: 11, color: "rgba(255,255,255,0.2)", marginTop: 6 }}>
+                      Задай вопрос по коду или попроси создать файл
                     </p>
                   </motion.div>
                 )}
@@ -593,8 +723,7 @@ export function AIChatFloat({
                   <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
                     <div style={{
                       width: 22, height: 22, borderRadius: 7, flexShrink: 0, marginTop: 2,
-                      background: "#0D1117",
-                      border: "1px solid rgba(88,166,255,0.4)",
+                      background: "#0D1117", border: "1px solid rgba(88,166,255,0.4)",
                       boxShadow: "0 0 8px rgba(88,166,255,0.18)",
                       display: "flex", alignItems: "center", justifyContent: "center",
                     }}>
@@ -619,49 +748,27 @@ export function AIChatFloat({
                 <div ref={chatEndRef} />
               </div>
 
-              {/* Input */}
-              <div style={{ padding: "8px 12px 12px", flexShrink: 0, borderTop: "1px solid rgba(255,255,255,0.06)", position: "relative" }}>
-                {/* Flash toast above input */}
-                <AnimatePresence>
-                  {flashToast && (
-                    <motion.div
-                      key="flash"
-                      initial={{ opacity: 0, y: 4, scale: 0.95 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: 4, scale: 0.95 }}
-                      style={{
-                        position: "absolute",
-                        bottom: "calc(100% - 2px)",
-                        left: "50%",
-                        transform: "translateX(-50%)",
-                        background: flashToast.ok ? "rgba(63,185,80,0.18)" : "rgba(255,123,114,0.18)",
-                        border: `1px solid ${flashToast.ok ? "rgba(63,185,80,0.5)" : "rgba(255,123,114,0.5)"}`,
-                        color: flashToast.ok ? "#3FB950" : "#FF7B72",
-                        borderRadius: 8, padding: "5px 14px", fontSize: 12,
-                        whiteSpace: "nowrap", zIndex: 10, backdropFilter: "blur(8px)",
-                      }}
-                    >
-                      {flashToast.ok ? "✓ " : "✗ "}{flashToast.text}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-
+              {/* Input area */}
+              <div style={{ padding: "8px 12px 12px", flexShrink: 0, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
                 <div style={{
                   display: "flex", gap: 8,
-                  background: "rgba(255,255,255,0.04)",
-                  border: "1px solid rgba(255,255,255,0.09)",
+                  background: isChatLoading ? "rgba(88,166,255,0.04)" : "rgba(255,255,255,0.04)",
+                  border: `1px solid ${isChatLoading ? "rgba(88,166,255,0.2)" : "rgba(255,255,255,0.09)"}`,
                   borderRadius: 12, padding: "8px 10px",
+                  transition: "border-color 0.3s, background 0.3s",
+                  boxShadow: isChatLoading ? "0 0 0 1px rgba(88,166,255,0.1)" : "none",
                 }}>
                   <textarea
                     ref={inputRef}
                     value={chatInput}
                     onChange={(e) => setChatInput(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    placeholder="Спросить AI... (Enter для отправки)"
+                    placeholder={isChatLoading ? "AI пишет..." : "Спросить AI..."}
                     rows={1}
                     style={{
                       flex: 1, background: "transparent", border: "none", outline: "none",
-                      color: "#E6EDF3", fontSize: 13, fontFamily: "Inter, sans-serif",
+                      color: isChatLoading ? "rgba(255,255,255,0.3)" : "#E6EDF3",
+                      fontSize: 13, fontFamily: "Inter, sans-serif",
                       resize: "none", lineHeight: 1.5, maxHeight: 120, overflowY: "auto",
                     }}
                     disabled={isChatLoading}
@@ -669,10 +776,10 @@ export function AIChatFloat({
                   <motion.button
                     onClick={() => void sendChat()}
                     disabled={!chatInput.trim() || isChatLoading}
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
+                    whileHover={chatInput.trim() && !isChatLoading ? { scale: 1.08 } : {}}
+                    whileTap={chatInput.trim() && !isChatLoading ? { scale: 0.92 } : {}}
                     style={{
-                      width: 32, height: 32, borderRadius: 9,
+                      width: 34, height: 34, borderRadius: 10,
                       background: chatInput.trim() && !isChatLoading
                         ? "linear-gradient(135deg, #58A6FF, #3FB950)"
                         : "rgba(255,255,255,0.06)",
@@ -680,22 +787,20 @@ export function AIChatFloat({
                       cursor: chatInput.trim() && !isChatLoading ? "pointer" : "default",
                       color: chatInput.trim() && !isChatLoading ? "#0D1117" : "rgba(255,255,255,0.2)",
                       display: "flex", alignItems: "center", justifyContent: "center",
-                      fontSize: 14, flexShrink: 0, alignSelf: "flex-end",
-                      transition: "background 0.2s",
+                      flexShrink: 0, alignSelf: "flex-end",
+                      transition: "background 0.2s, color 0.2s",
                     }}
                   >
-                    ↑
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                    </svg>
                   </motion.button>
                 </div>
-                <p style={{ fontSize: 10, color: "rgba(255,255,255,0.18)", marginTop: 5, textAlign: "center" }}>
-                  Enter — отправить · Shift+Enter — новая строка
-                </p>
               </div>
             </>
           ) : (
             /* Images tab */
             <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-              {/* Search bar */}
               <div style={{ padding: "10px 14px 8px", borderBottom: "1px solid rgba(255,255,255,0.06)", flexShrink: 0 }}>
                 <div style={{ display: "flex", gap: 8 }}>
                   <input
@@ -708,8 +813,7 @@ export function AIChatFloat({
                       flex: 1, background: "rgba(255,255,255,0.04)",
                       border: "1px solid rgba(255,255,255,0.09)",
                       borderRadius: 10, padding: "7px 12px", fontSize: 12,
-                      color: "#E6EDF3", outline: "none",
-                      fontFamily: "Inter, sans-serif",
+                      color: "#E6EDF3", outline: "none", fontFamily: "Inter, sans-serif",
                     }}
                   />
                   <motion.button
@@ -718,8 +822,7 @@ export function AIChatFloat({
                     whileTap={{ scale: 0.95 }}
                     style={{
                       padding: "7px 16px", borderRadius: 10, fontSize: 12, fontWeight: 600,
-                      background: "rgba(88,166,255,0.2)",
-                      border: "1px solid rgba(88,166,255,0.3)",
+                      background: "rgba(88,166,255,0.2)", border: "1px solid rgba(88,166,255,0.3)",
                       color: "#58A6FF", cursor: "pointer",
                     }}
                   >
@@ -731,29 +834,17 @@ export function AIChatFloat({
                 </p>
               </div>
 
-              {/* Results */}
               <div style={{ flex: 1, overflowY: "auto", padding: "10px 14px" }}>
-                {isSearchingImages && (
-                  <div style={{ textAlign: "center", paddingTop: 40, color: "rgba(255,255,255,0.3)", fontSize: 12 }}>
-                    <TypingDots />
-                  </div>
-                )}
+                {isSearchingImages && <div style={{ textAlign: "center", paddingTop: 40 }}><TypingDots /></div>}
                 {imageError && (
-                  <div style={{
-                    padding: "10px 14px", borderRadius: 10, fontSize: 12,
-                    background: "rgba(255,123,114,0.08)", border: "1px solid rgba(255,123,114,0.2)",
-                    color: "#FF7B72",
-                  }}>
+                  <div style={{ padding: "10px 14px", borderRadius: 10, fontSize: 12, background: "rgba(255,123,114,0.08)", border: "1px solid rgba(255,123,114,0.2)", color: "#FF7B72" }}>
                     {imageError}
                   </div>
                 )}
                 {!isSearchingImages && !imageError && imageResults.length === 0 && (
                   <div style={{ textAlign: "center", paddingTop: 48 }}>
-                    <div style={{ fontSize: 28, marginBottom: 12 }}>🔍</div>
                     <p style={{ fontSize: 13, color: "rgba(255,255,255,0.25)" }}>Введите запрос для поиска изображений</p>
-                    <p style={{ fontSize: 11, color: "rgba(255,255,255,0.15)", marginTop: 6 }}>
-                      Например: nature, technology, city
-                    </p>
+                    <p style={{ fontSize: 11, color: "rgba(255,255,255,0.15)", marginTop: 6 }}>Например: nature, technology, city</p>
                   </div>
                 )}
                 {imageResults.length > 0 && (
@@ -766,15 +857,9 @@ export function AIChatFloat({
                         style={{ position: "relative", borderRadius: 8, overflow: "hidden", cursor: "pointer" }}
                         whileHover={{ scale: 1.03 }}
                       >
-                        <img
-                          src={img.thumb}
-                          alt={img.description || "Image"}
-                          style={{ width: "100%", height: 90, objectFit: "cover", display: "block" }}
-                        />
+                        <img src={img.thumb} alt={img.description || "Image"} style={{ width: "100%", height: 90, objectFit: "cover", display: "block" }} />
                         <div style={{
-                          position: "absolute", inset: 0,
-                          background: "rgba(0,0,0,0)",
-                          transition: "background 0.15s",
+                          position: "absolute", inset: 0, background: "rgba(0,0,0,0)", transition: "background 0.15s",
                           display: "flex", alignItems: "center", justifyContent: "center",
                         }}
                           onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(0,0,0,0.5)")}
@@ -783,11 +868,8 @@ export function AIChatFloat({
                           <button
                             onClick={() => void addImageToProject(img)}
                             style={{
-                              background: "rgba(255,255,255,0.9)",
-                              border: "none", borderRadius: 6,
-                              padding: "4px 10px", fontSize: 11, fontWeight: 700,
-                              color: "#0D1117", cursor: "pointer",
-                              opacity: 0,
+                              background: "rgba(255,255,255,0.9)", border: "none", borderRadius: 6,
+                              padding: "4px 10px", fontSize: 11, fontWeight: 700, color: "#0D1117", cursor: "pointer", opacity: 0,
                             }}
                             onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
                             onMouseLeave={(e) => (e.currentTarget.style.opacity = "0")}
@@ -802,6 +884,21 @@ export function AIChatFloat({
               </div>
             </div>
           )}
+
+          {/* SE resize handle */}
+          <div
+            onMouseDown={startResizeSE}
+            style={{
+              position: "absolute", bottom: 0, right: 0,
+              width: 18, height: 18, cursor: "nwse-resize",
+              display: "flex", alignItems: "flex-end", justifyContent: "flex-end",
+              padding: "3px",
+            }}
+          >
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="rgba(255,255,255,0.2)">
+              <path d="M9 1L1 9M9 5L5 9M9 9L9 9" stroke="rgba(255,255,255,0.2)" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
+          </div>
         </motion.div>
       )}
     </AnimatePresence>
@@ -809,36 +906,52 @@ export function AIChatFloat({
 
   const trigger = (
     <motion.button
-      onClick={() => setIsOpen((o) => !o)}
-      whileHover={{ scale: 1.06 }}
-      whileTap={{ scale: 0.94 }}
+      onClick={() => {
+        setIsOpen((o) => !o);
+      }}
+      whileHover={{ scale: 1.04 }}
+      whileTap={{ scale: 0.96 }}
       style={{
         position: "fixed",
         bottom: 22,
-        left: `calc(50% - 54px)`,
+        left: "calc(50% - 54px)",
         width: 108,
         height: 42,
-        borderRadius: 21,
+        borderRadius: 14,
         background: isOpen
-          ? "rgba(255,255,255,0.08)"
-          : "linear-gradient(135deg, rgba(88,166,255,0.9), rgba(63,185,80,0.9))",
-        border: isOpen ? "1px solid rgba(255,255,255,0.15)" : "1px solid transparent",
-        color: isOpen ? "rgba(255,255,255,0.7)" : "#0D1117",
+          ? "rgba(20,20,26,0.95)"
+          : "linear-gradient(135deg, #1a6cf7 0%, #0ea86b 100%)",
+        border: isOpen ? "1px solid rgba(255,255,255,0.12)" : "1px solid rgba(255,255,255,0.08)",
+        color: isOpen ? "rgba(255,255,255,0.6)" : "#fff",
         fontSize: 12,
-        fontWeight: 700,
+        fontWeight: 600,
         cursor: "pointer",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        gap: 6,
-        boxShadow: isOpen ? "none" : "0 8px 32px rgba(88,166,255,0.3)",
+        gap: 7,
+        boxShadow: isOpen ? "none" : "0 4px 24px rgba(26,108,247,0.35), 0 2px 8px rgba(0,0,0,0.3)",
         zIndex: 8999,
         backdropFilter: isOpen ? "blur(12px)" : "none",
         letterSpacing: "0.01em",
+        transition: "background 0.2s, box-shadow 0.2s",
       }}
     >
-      <span style={{ display: "inline-flex", alignItems: "center", lineHeight: 0, fontSize: 14 }}>✦</span>
-      Чат с AI
+      {isOpen ? (
+        <>
+          <svg width="13" height="13" viewBox="0 0 10 10" fill="none">
+            <path d="M1 1l8 8M9 1L1 9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+          </svg>
+          Закрыть
+        </>
+      ) : (
+        <>
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+            <path d="M8 1L9.5 5.5L14 7L9.5 8.5L8 13L6.5 8.5L2 7L6.5 5.5L8 1Z" fill="white" />
+          </svg>
+          Чат с AI
+        </>
+      )}
     </motion.button>
   );
 
@@ -846,7 +959,8 @@ export function AIChatFloat({
     <>
       {trigger}
       {panel}
+      {flashToastEl}
     </>,
-    document.body
+    document.body,
   );
 }

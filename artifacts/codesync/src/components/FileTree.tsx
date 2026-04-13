@@ -122,6 +122,7 @@ export function FileTree({ roomId, files, activeFileId, fileStats = {}, onFileSe
     };
   }, []);
 
+  const [selectedFileIds, setSelectedFileIds] = useState<Set<string>>(new Set());
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [isCreatingFile, setIsCreatingFile] = useState(false);
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
@@ -157,6 +158,38 @@ export function FileTree({ roomId, files, activeFileId, fileStats = {}, onFileSe
       },
     });
     setContextMenu(null);
+  }
+
+  function handleBulkDelete() {
+    const ids = Array.from(selectedFileIds);
+    if (ids.length === 0) return;
+    const confirmed = window.confirm(`Удалить ${ids.length} файл${ids.length > 1 ? "а/ов" : ""}?`);
+    if (!confirmed) return;
+    setSelectedFileIds(new Set());
+    for (const fileId of ids) {
+      deleteFile.mutate({ roomId, fileId }, {
+        onSuccess: () => {
+          void qc.invalidateQueries({ queryKey: getGetRoomFilesQueryKey(roomId) });
+          onFilesChange();
+        },
+      });
+    }
+  }
+
+  function handleFileClick(e: React.MouseEvent, file: FileItem) {
+    if (file.isFolder) return;
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      setSelectedFileIds((prev) => {
+        const next = new Set(prev);
+        if (next.has(file.id)) next.delete(file.id);
+        else next.add(file.id);
+        return next;
+      });
+    } else {
+      setSelectedFileIds(new Set());
+      onFileSelect(file);
+    }
   }
 
   function startRename(fileId: string, currentName: string) {
@@ -247,6 +280,7 @@ export function FileTree({ roomId, files, activeFileId, fileStats = {}, onFileSe
     const icon = getLangIcon(file.language);
     const isActive = activeFileId === file.id;
     const isRenaming = renamingFileId === file.id;
+    const isSelected = selectedFileIds.has(file.id);
 
     return (
       <motion.div
@@ -254,7 +288,7 @@ export function FileTree({ roomId, files, activeFileId, fileStats = {}, onFileSe
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        onClick={() => { if (!isRenaming) onFileSelect(file); }}
+        onClick={(e) => { if (!isRenaming) handleFileClick(e, file); }}
         onContextMenu={(e) => handleContextMenu(e, file.id, file.name, false)}
         draggable={!isReadOnly && !isRenaming}
         onDragStart={(e) => handleDragStart(e, file.id)}
@@ -262,12 +296,14 @@ export function FileTree({ roomId, files, activeFileId, fileStats = {}, onFileSe
           display: "flex", alignItems: "center", gap: 7,
           padding: "5px 10px", paddingLeft: 10 + depth * 14,
           cursor: "pointer", borderRadius: 7,
-          background: isActive ? "rgba(88,166,255,0.1)" : "transparent",
-          border: `1px solid ${isActive ? "rgba(88,166,255,0.2)" : "transparent"}`,
+          background: isSelected
+            ? "rgba(88,166,255,0.15)"
+            : isActive ? "rgba(88,166,255,0.1)" : "transparent",
+          border: `1px solid ${isSelected ? "rgba(88,166,255,0.35)" : isActive ? "rgba(88,166,255,0.2)" : "transparent"}`,
           transition: "background 0.12s, border-color 0.12s",
           marginBottom: 1,
         }}
-        className={isActive ? "" : "hover:bg-white/4"}
+        className={isActive || isSelected ? "" : "hover:bg-white/4"}
         data-testid={`file-item-${file.id}`}
       >
         <span style={{ fontSize: 9, fontWeight: 700, color: icon.color, fontFamily: "JetBrains Mono, monospace", minWidth: 20, textAlign: "center" }}>
@@ -423,6 +459,48 @@ export function FileTree({ roomId, files, activeFileId, fileStats = {}, onFileSe
           <p style={{ fontSize: 10, color: "rgba(255,255,255,0.2)", marginTop: 4 }}>только чтение</p>
         )}
       </div>
+
+      {/* Bulk action bar */}
+      <AnimatePresence>
+        {selectedFileIds.size > 0 && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            style={{ flexShrink: 0, overflow: "hidden" }}
+          >
+            <div style={{
+              display: "flex", alignItems: "center", gap: 6,
+              padding: "5px 10px",
+              background: "rgba(255,123,114,0.07)",
+              borderBottom: "1px solid rgba(255,123,114,0.15)",
+            }}>
+              <span style={{ fontSize: 10, color: "rgba(255,255,255,0.5)", flex: 1 }}>
+                {selectedFileIds.size} выбрано
+              </span>
+              <button
+                onClick={handleBulkDelete}
+                style={{
+                  fontSize: 10, color: "#FF7B72",
+                  background: "rgba(255,123,114,0.1)", border: "1px solid rgba(255,123,114,0.2)",
+                  borderRadius: 5, padding: "2px 8px", cursor: "pointer",
+                }}
+              >
+                Удалить
+              </button>
+              <button
+                onClick={() => setSelectedFileIds(new Set())}
+                style={{
+                  fontSize: 10, color: "rgba(255,255,255,0.35)",
+                  background: "transparent", border: "none", cursor: "pointer", padding: "2px 4px",
+                }}
+              >
+                ✕
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* New folder input */}
       {isCreatingFolder && (
