@@ -130,7 +130,6 @@ export default function Home() {
   const [showGuestModal, setShowGuestModal] = useState(false);
   const [transitioning, setTransitioning] = useState(false);
   const [transitionOrigin, setTransitionOrigin] = useState({ x: 0, y: 0 });
-  const startBtnRef = useRef<HTMLButtonElement>(null);
   const stepsRef = useRef<HTMLDivElement>(null);
   const stepsInView = useInView(stepsRef, { once: true, margin: "-60px" });
   const reducedMotion = usePrefersReducedMotion();
@@ -233,7 +232,7 @@ export default function Home() {
                   boxShadow: "0 2px 16px rgba(255,255,255,0.15)",
                 }}
               >
-                Войти
+                Регистрация
               </button>
             </SignUpButton>
           </motion.div>
@@ -300,7 +299,6 @@ export default function Home() {
               transition={{ delay: 0.55, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
             >
               <button
-                ref={startBtnRef}
                 onClick={handleStart}
                 className="group relative px-12 py-4 rounded-2xl text-lg font-bold transition-all active:scale-95"
                 style={{
