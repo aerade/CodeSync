@@ -244,19 +244,39 @@ async function executeFileTool(
     if (toolName === "search_images") {
       const query = args.query ?? "";
       if (!query) return JSON.stringify({ error: "Параметр query обязателен" });
-      const url = `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=8&client_id=IFuWF4PGPadUVMDTXOxJVk7VJbp1EeEUuHRpIVAy7Xw`;
-      const resp = await fetch(url, { headers: { "Accept-Version": "v1" } });
-      if (!resp.ok) return JSON.stringify({ error: `Unsplash ошибка: ${resp.status}` });
-      const data = await resp.json() as {
-        results?: Array<{ id: string; alt_description?: string; urls?: { regular?: string; thumb?: string }; user?: { name?: string } }>;
+
+      // Step 1: get vqd token from DuckDuckGo (no API key required)
+      const ddgInit = await fetch(
+        `https://duckduckgo.com/?q=${encodeURIComponent(query)}&iax=images&ia=images`,
+        { headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120", "Accept-Language": "en-US,en;q=0.9" } }
+      );
+      const initHtml = await ddgInit.text();
+      const vqdMatch = initHtml.match(/vqd=["']?([^"'&\s]+)["']?/);
+      if (!vqdMatch?.[1]) {
+        return JSON.stringify({ error: "Не удалось получить токен поиска изображений. Попробуйте ещё раз." });
+      }
+      const vqd = vqdMatch[1];
+
+      // Step 2: fetch image results
+      const imgUrl = `https://duckduckgo.com/i.js?l=us-en&o=json&q=${encodeURIComponent(query)}&vqd=${encodeURIComponent(vqd)}&f=,,,&p=1`;
+      const imgResp = await fetch(imgUrl, {
+        headers: {
+          "Referer": "https://duckduckgo.com/",
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120",
+          "Accept": "application/json",
+        },
+      });
+      if (!imgResp.ok) return JSON.stringify({ error: `Ошибка поиска изображений: ${imgResp.status}` });
+      const data = await imgResp.json() as {
+        results?: Array<{ title?: string; image?: string; thumbnail?: string; url?: string; width?: number; height?: number; source?: string }>;
       };
-      const results = (data.results ?? []).map((img) => ({
-        id: img.id,
-        url: img.urls?.regular ?? "",
-        thumb: img.urls?.thumb ?? "",
-        description: img.alt_description ?? "",
-        photographer: img.user?.name ?? "",
-      }));
+      const results = (data.results ?? []).slice(0, 8).map((img, i) => ({
+        id: String(i),
+        url: img.image ?? "",
+        thumb: img.thumbnail ?? img.image ?? "",
+        description: img.title ?? "",
+        source: img.source ?? img.url ?? "",
+      })).filter((r) => r.url);
       return JSON.stringify({ success: true, results, count: results.length });
     }
 
@@ -573,31 +593,33 @@ async function imageSearchHandler(req: Request, res: Response): Promise<void> {
   if (!q) { res.status(400).json({ error: "Параметр q обязателен" }); return; }
 
   try {
-    const url = `https://api.unsplash.com/search/photos?query=${encodeURIComponent(q)}&per_page=15&client_id=IFuWF4PGPadUVMDTXOxJVk7VJbp1EeEUuHRpIVAy7Xw`;
-    const resp = await fetch(url, { headers: { "Accept-Version": "v1" } });
+    // Step 1: get vqd token
+    const ddgInit = await fetch(
+      `https://duckduckgo.com/?q=${encodeURIComponent(q)}&iax=images&ia=images`,
+      { headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120", "Accept-Language": "en-US,en;q=0.9" } }
+    );
+    const initHtml = await ddgInit.text();
+    const vqdMatch = initHtml.match(/vqd=["']?([^"'&\s]+)["']?/);
+    if (!vqdMatch?.[1]) { res.status(502).json({ error: "Не удалось подключиться к поиску изображений. Попробуйте ещё раз." }); return; }
+    const vqd = vqdMatch[1];
 
-    if (!resp.ok) {
-      res.status(502).json({ error: "Ошибка поиска изображений. Попробуйте другой запрос." });
-      return;
-    }
+    // Step 2: fetch image results
+    const imgResp = await fetch(
+      `https://duckduckgo.com/i.js?l=us-en&o=json&q=${encodeURIComponent(q)}&vqd=${encodeURIComponent(vqd)}&f=,,,&p=1`,
+      { headers: { "Referer": "https://duckduckgo.com/", "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120", "Accept": "application/json" } }
+    );
+    if (!imgResp.ok) { res.status(502).json({ error: `Ошибка поиска: ${imgResp.status}` }); return; }
 
-    const data = await resp.json() as {
-      results?: Array<{
-        id: string;
-        alt_description?: string;
-        description?: string;
-        urls?: { thumb?: string; regular?: string; full?: string };
-        user?: { name?: string };
-      }>;
+    const data = await imgResp.json() as {
+      results?: Array<{ title?: string; image?: string; thumbnail?: string; url?: string; source?: string }>;
     };
-
-    const results = (data.results ?? []).map((img) => ({
-      id: img.id,
-      thumb: img.urls?.thumb ?? "",
-      full: img.urls?.regular ?? img.urls?.full ?? "",
-      description: img.alt_description ?? img.description ?? "",
-      photographer: img.user?.name ?? "Unknown",
-    }));
+    const results = (data.results ?? []).slice(0, 15).map((img, i) => ({
+      id: String(i),
+      thumb: img.thumbnail ?? img.image ?? "",
+      full: img.image ?? "",
+      description: img.title ?? "",
+      photographer: img.source ?? "",
+    })).filter((r) => r.full);
 
     res.json({ results });
   } catch (err) {

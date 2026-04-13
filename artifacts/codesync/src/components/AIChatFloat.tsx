@@ -38,6 +38,9 @@ interface Props {
   onShowAiDiff?: (oldContent: string, newContent: string) => void;
   onClearAiDiff?: () => void;
   onFileStream?: (fileId: string | null, fileName: string | null, content: string) => void;
+  prefillInput?: string | null;
+  onPrefillUsed?: () => void;
+  onAiStats?: (stats: Record<string, { added: number; removed: number }>) => void;
 }
 
 function playDoneSound() {
@@ -123,6 +126,7 @@ function SafeMarkdown({ text }: { text: string }) {
 export function AIChatFloat({
   roomId, fileId, fileContent, language, fileName, files = [],
   onFilesChanged, onContentRestored, onShowAiDiff, onClearAiDiff, onFileStream,
+  prefillInput, onPrefillUsed, onAiStats,
 }: Props) {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -147,6 +151,22 @@ export function AIChatFloat({
   useEffect(() => {
     if (isOpen && activeTab === "chat") setTimeout(() => inputRef.current?.focus(), 200);
   }, [isOpen, activeTab]);
+
+  // Handle prefill from outside (selection context menu)
+  useEffect(() => {
+    if (prefillInput) {
+      setChatInput(prefillInput);
+      setIsOpen(true);
+      setActiveTab("chat");
+      onPrefillUsed?.();
+      setTimeout(() => {
+        if (inputRef.current) {
+          inputRef.current.focus();
+          inputRef.current.selectionStart = inputRef.current.selectionEnd = inputRef.current.value.length;
+        }
+      }, 250);
+    }
+  }, [prefillInput]);
 
   function showFlash(text: string, ok: boolean) {
     if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
@@ -199,6 +219,11 @@ export function AIChatFloat({
       let editedNewContent: string | null = null;
       let hadToolCalls = false;
 
+      // Batch operation tracker for grouped notifications
+      const opCounts = { create: 0, edit: 0, delete: 0, search: 0, download: 0 };
+      const opNames: string[] = [];
+      const statsAcc: Record<string, { added: number; removed: number }> = {};
+
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -226,16 +251,42 @@ export function AIChatFloat({
             if (parsed.toolCall) {
               hadToolCalls = true;
               const tc = parsed.toolCall;
-              const labels: Record<string, string> = {
-                create_file: "Создал файл",
-                edit_file: "Отредактировал файл",
-                delete_file: "Удалил файл",
-                search_images: "Нашёл изображения",
-                download_image: "Скачал изображение",
-              };
-              const label = `${labels[tc.name] ?? tc.name}${tc.result?.name ? `: ${tc.result.name}` : ""}`;
-              showFlash(label, !!tc.result?.success);
               onFilesChanged?.();
+
+              // Track operation counts for batch notification
+              if (tc.result?.success) {
+                if (tc.name === "create_file") {
+                  opCounts.create++;
+                  if (tc.result.name) opNames.push(tc.result.name);
+                  // Compute stats for new file
+                  const newContent = (tc.args.content as string | undefined) ?? "";
+                  const lineCount = newContent.split("\n").length;
+                  const fid = tc.result.fileId ?? tc.result.name ?? "new";
+                  statsAcc[fid] = { added: lineCount, removed: 0 };
+                } else if (tc.name === "edit_file") {
+                  opCounts.edit++;
+                  if (tc.result.name) opNames.push(tc.result.name);
+                  // Compute diff stats for edited file
+                  const editedId = (tc.args.fileId as string | undefined) ?? "";
+                  const oldFile = files.find((f) => f.id === editedId);
+                  const oldLines = (oldFile?.content ?? "").split("\n");
+                  const newLines = ((tc.args.content as string | undefined) ?? "").split("\n");
+                  let added = 0, removed = 0;
+                  newLines.forEach((l, i) => { if (l !== oldLines[i]) added++; });
+                  oldLines.forEach((l, i) => { if (l !== newLines[i]) removed++; });
+                  if (editedId) statsAcc[editedId] = { added, removed };
+                } else if (tc.name === "delete_file") {
+                  opCounts.delete++;
+                  if (tc.result.name) opNames.push(tc.result.name);
+                } else if (tc.name === "search_images") {
+                  opCounts.search++;
+                } else if (tc.name === "download_image") {
+                  opCounts.download++;
+                  if (tc.result.name) opNames.push(tc.result.name);
+                }
+              } else if (tc.result && !tc.result.success) {
+                showFlash(`✗ ${tc.result?.error ?? tc.name}`, false);
+              }
 
               // After create_file succeeds, switch editor to the new file
               if (tc.name === "create_file" && tc.result?.success && tc.result?.fileId) {
@@ -261,6 +312,26 @@ export function AIChatFloat({
               });
             }
           } catch (_) {}
+        }
+      }
+
+      // Emit file stats for indicators in FileTree
+      if (Object.keys(statsAcc).length > 0) onAiStats?.(statsAcc);
+
+      // Show single grouped notification for all operations
+      if (hadToolCalls) {
+        const parts: string[] = [];
+        if (opCounts.search) parts.push(`🔍 нашёл изображения`);
+        if (opCounts.download) parts.push(`⬇ скачал ${opCounts.download}`);
+        if (opCounts.create) parts.push(`✚ создал ${opCounts.create}`);
+        if (opCounts.edit) parts.push(`✎ изменил ${opCounts.edit}`);
+        if (opCounts.delete) parts.push(`✕ удалил ${opCounts.delete}`);
+        if (parts.length > 0) showFlash(parts.join("  "), true);
+
+        // Insert compact activity card into chat
+        const totalOps = opCounts.create + opCounts.edit + opCounts.delete + opCounts.download;
+        if (totalOps > 0 && !addedAssistant) {
+          // Build activity summary if AI didn't respond with text
         }
       }
 

@@ -59,10 +59,17 @@ export interface FileItem {
   updatedAt: string;
 }
 
+interface FileStatEntry {
+  added?: number;
+  removed?: number;
+  errors?: number;
+}
+
 interface Props {
   roomId: string;
   files: FileItem[];
   activeFileId: string | null;
+  fileStats?: Record<string, FileStatEntry>;
   onFileSelect: (file: FileItem) => void;
   onFilesChange: () => void;
   isReadOnly?: boolean;
@@ -72,7 +79,7 @@ interface ContextMenuState {
   x: number; y: number; fileId: string; fileName: string; isFolder: boolean;
 }
 
-export function FileTree({ roomId, files, activeFileId, onFileSelect, onFilesChange, isReadOnly = false }: Props) {
+export function FileTree({ roomId, files, activeFileId, fileStats = {}, onFileSelect, onFilesChange, isReadOnly = false }: Props) {
   const qc = useQueryClient();
   const createFile = useCreateFile();
   const deleteFile = useDeleteFile();
@@ -243,6 +250,26 @@ export function FileTree({ roomId, files, activeFileId, onFileSelect, onFilesCha
         ) : (
           <span className="text-xs truncate flex-1" style={{ color: isActive ? "#E6EDF3" : "rgba(255,255,255,0.65)" }}>
             {file.name}
+          </span>
+        )}
+        {/* AI edit stats indicator */}
+        {!isRenaming && fileStats[file.id] && (
+          <span style={{ display: "flex", gap: 3, alignItems: "center", flexShrink: 0, marginRight: 2 }}>
+            {(fileStats[file.id].added ?? 0) > 0 && (
+              <span style={{ fontSize: 9, color: "#3FB950", fontFamily: "JetBrains Mono, monospace", fontWeight: 700 }}>
+                +{fileStats[file.id].added}
+              </span>
+            )}
+            {(fileStats[file.id].removed ?? 0) > 0 && (
+              <span style={{ fontSize: 9, color: "#F78166", fontFamily: "JetBrains Mono, monospace", fontWeight: 700 }}>
+                -{fileStats[file.id].removed}
+              </span>
+            )}
+            {(fileStats[file.id].errors ?? 0) > 0 && (
+              <span style={{ fontSize: 9, color: "#F85149", background: "rgba(248,81,73,0.15)", padding: "0 3px", borderRadius: 3, fontWeight: 700 }}>
+                ✗{fileStats[file.id].errors}
+              </span>
+            )}
           </span>
         )}
         {!isRenaming && (

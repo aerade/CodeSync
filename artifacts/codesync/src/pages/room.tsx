@@ -131,6 +131,10 @@ export default function RoomPage() {
   const [isRightOpen, setIsRightOpen] = useState(!isMobile);
   const [isSidebarOpen, setIsSidebarOpen] = useState(!isMobile);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [selectionMenu, setSelectionMenu] = useState<{ x: number; y: number; text: string } | null>(null);
+  const selectionMenuRef = useRef<HTMLDivElement>(null);
+  const [aiChatPrefill, setAiChatPrefill] = useState<string | null>(null);
+  const [fileStats, setFileStats] = useState<Record<string, { added?: number; removed?: number; errors?: number }>>({});
 
   // Resizable panel sizes
   const [terminalHeight, setTerminalHeight] = useState(200);
@@ -401,11 +405,31 @@ export default function RoomPage() {
           type: "cursor",
           position: { lineNumber: e.position.lineNumber, column: e.position.column },
         }));
+        wsRef.current.send(JSON.stringify({ type: "awareness", state: { cursor: null } }));
+      }
+    });
 
-        wsRef.current.send(JSON.stringify({
-          type: "awareness",
-          state: { cursor: null },
-        }));
+    editor.onDidChangeCursorSelection((e) => {
+      const selection = editor.getSelection();
+      if (selection && !selection.isEmpty()) {
+        const selectedText = editor.getModel()?.getValueInRange(selection) ?? "";
+        if (selectedText.trim().length > 3) {
+          const scrollTop = editor.getScrollTop();
+          const scrollLeft = editor.getScrollLeft();
+          const domNode = editor.getDomNode();
+          if (!domNode) return;
+          const rect = domNode.getBoundingClientRect();
+          const startPos = editor.getScrolledVisiblePosition(selection.getStartPosition());
+          if (startPos) {
+            const x = rect.left + startPos.left - scrollLeft;
+            const y = rect.top + startPos.top - scrollTop - 44;
+            setSelectionMenu({ x: Math.max(8, x), y: Math.max(8, y), text: selectedText });
+          }
+        } else {
+          setSelectionMenu(null);
+        }
+      } else {
+        setSelectionMenu(null);
       }
     });
   };
@@ -695,6 +719,7 @@ export default function RoomPage() {
               roomId={roomId}
               files={files}
               activeFileId={activeFileId}
+              fileStats={fileStats}
               onFileSelect={(file) => {
                 setActiveFileId(file.id);
                 setFileContent(file.content ?? "");
@@ -795,6 +820,60 @@ export default function RoomPage() {
                 {c.username}
               </div>
             ))}
+
+            {/* Selection context menu */}
+            {selectionMenu && !isGuest && (
+              <div
+                ref={selectionMenuRef}
+                style={{
+                  position: "fixed",
+                  left: Math.min(selectionMenu.x, window.innerWidth - 310),
+                  top: selectionMenu.y,
+                  zIndex: 4000,
+                  display: "flex",
+                  gap: 3,
+                  background: "#1C2128",
+                  border: "1px solid #30363D",
+                  borderRadius: 8,
+                  padding: "3px 4px",
+                  boxShadow: "0 4px 24px rgba(0,0,0,0.6)",
+                  animation: "fadeIn 0.12s ease",
+                }}
+                onMouseDown={(e) => e.stopPropagation()}
+              >
+                {[
+                  { label: "✦ Спросить ИИ", prefix: "Объясни этот код:\n```\n", suffix: "\n```" },
+                  { label: "⟳ Рефакторинг", prefix: "Рефакторь следующий код, сделай его чище и эффективнее:\n```\n", suffix: "\n```" },
+                  { label: "★ Улучшить", prefix: "Улучши и оптимизируй этот код:\n```\n", suffix: "\n```" },
+                  { label: "✎ Комментарии", prefix: "Добавь подробные комментарии к этому коду:\n```\n", suffix: "\n```" },
+                  { label: "⚑ Найти баги", prefix: "Найди баги и проблемы в этом коде:\n```\n", suffix: "\n```" },
+                ].map(({ label, prefix, suffix }) => (
+                  <button
+                    key={label}
+                    onClick={() => {
+                      setAiChatPrefill(prefix + selectionMenu.text + suffix);
+                      setSelectionMenu(null);
+                    }}
+                    style={{
+                      background: "transparent",
+                      border: "none",
+                      borderRadius: 5,
+                      padding: "4px 8px",
+                      fontSize: 11,
+                      color: "#C9D1D9",
+                      cursor: "pointer",
+                      whiteSpace: "nowrap",
+                      transition: "background 0.1s",
+                      fontFamily: "Inter, sans-serif",
+                    }}
+                    onMouseEnter={(e) => { (e.target as HTMLButtonElement).style.background = "rgba(88,166,255,0.15)"; (e.target as HTMLButtonElement).style.color = "#58A6FF"; }}
+                    onMouseLeave={(e) => { (e.target as HTMLButtonElement).style.background = "transparent"; (e.target as HTMLButtonElement).style.color = "#C9D1D9"; }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Bottom: Terminal */}
@@ -939,6 +1018,9 @@ export default function RoomPage() {
       language={activeFile?.language ?? "javascript"}
       fileName={activeFile?.name ?? ""}
       files={files.filter((f) => !f.isFolder).map((f) => ({ id: f.id, name: f.name, language: f.language, content: f.content }))}
+      prefillInput={aiChatPrefill}
+      onPrefillUsed={() => setAiChatPrefill(null)}
+      onAiStats={(stats) => setFileStats((prev) => ({ ...prev, ...stats }))}
       onFilesChanged={() => {
         void qc.invalidateQueries({ queryKey: getGetRoomFilesQueryKey(roomId) });
       }}
