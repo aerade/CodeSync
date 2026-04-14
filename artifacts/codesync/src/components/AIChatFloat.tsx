@@ -37,14 +37,10 @@ interface Props {
 }
 
 const MODELS = [
-  { id: "gpt-4.1",            label: "GPT-4.1",         badge: "Новый" },
-  { id: "o3",                 label: "o3",               badge: "Умный" },
-  { id: "gpt-4o",             label: "GPT-4o",           badge: null },
-  { id: "gpt-4o-mini",        label: "GPT-4o mini",      badge: "Быстрый" },
-  { id: "o3-mini",            label: "o3-mini",           badge: "Рассуждение" },
-  { id: "claude-sonnet-4-6",  label: "Claude Sonnet 4",  badge: "Claude" },
-  { id: "claude-sonnet-4-5",  label: "Claude Sonnet",    badge: "Claude" },
-  { id: "claude-haiku-4-5",   label: "Claude Haiku",     badge: "Быстрый" },
+  { id: "gpt-4.1",           label: "GPT-4.1",        badge: "Новый" },
+  { id: "o3",                label: "o3",              badge: "Умный" },
+  { id: "claude-sonnet-4-6", label: "Claude Sonnet 4", badge: "Мощный" },
+  { id: "claude-sonnet-4-5", label: "Claude Sonnet",   badge: "Стабильный" },
 ];
 
 function playDoneSound() {
@@ -837,31 +833,33 @@ export function AIChatFloat({
 
           {/* Scroll-to-bottom button */}
           {showScrollBtn && (
-            <button
-              onClick={() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); setShowScrollBtn(false); }}
-              style={{
-                position: "absolute",
-                bottom: 72,
-                right: 14,
-                zIndex: 10,
-                width: 28,
-                height: 28,
-                borderRadius: "50%",
-                background: "rgba(88,166,255,0.18)",
-                border: "1px solid rgba(88,166,255,0.35)",
-                cursor: "pointer",
-                color: "#58A6FF",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                boxShadow: "0 2px 8px rgba(0,0,0,0.4)",
-              }}
-              title="Прокрутить вниз"
-            >
-              <svg width="12" height="12" viewBox="0 0 10 10" fill="none">
-                <path d="M2 3L5 6.5L8 3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </button>
+            <div style={{ position: "absolute", bottom: 78, left: 0, right: 0, display: "flex", justifyContent: "center", zIndex: 10, pointerEvents: "none" }}>
+              <button
+                onClick={() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); setShowScrollBtn(false); }}
+                style={{
+                  pointerEvents: "all",
+                  display: "flex", alignItems: "center", gap: 5,
+                  padding: "5px 12px 5px 8px",
+                  borderRadius: 20,
+                  background: "rgba(88,166,255,0.18)",
+                  border: "1px solid rgba(88,166,255,0.35)",
+                  backdropFilter: "blur(8px)",
+                  cursor: "pointer",
+                  color: "#58A6FF",
+                  fontSize: 12, fontWeight: 500,
+                  boxShadow: "0 2px 12px rgba(0,0,0,0.5)",
+                  whiteSpace: "nowrap",
+                  transition: "all 0.15s",
+                }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(88,166,255,0.28)"; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(88,166,255,0.18)"; }}
+              >
+                <svg width="13" height="13" viewBox="0 0 10 10" fill="none">
+                  <path d="M2 3L5 6.5L8 3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                прокрути вниз
+              </button>
+            </div>
           )}
 
           {/* ── Input area ── */}

@@ -324,8 +324,8 @@ async function chatHandler(req: Request, res: Response): Promise<void> {
   const language = typeof body.language === "string" ? body.language : "code";
   const roomId = typeof body.roomId === "string" ? body.roomId : "";
   const usePlan = body.usePlan === true;
-  const CLAUDE_MODELS = ["claude-sonnet-4-6", "claude-sonnet-4-5", "claude-haiku-4-5", "claude-opus-4-6"];
-  const ALLOWED_MODELS = ["gpt-4.1", "gpt-4o", "gpt-4o-mini", "o3-mini", "o3", ...CLAUDE_MODELS];
+  const CLAUDE_MODELS = ["claude-sonnet-4-6", "claude-sonnet-4-5"];
+  const ALLOWED_MODELS = ["gpt-4.1", "o3", ...CLAUDE_MODELS];
   const requestedModel = typeof body.model === "string" ? body.model : "gpt-4.1";
   const selectedModel = ALLOWED_MODELS.includes(requestedModel) ? requestedModel : "gpt-4.1";
   const isClaudeModel = selectedModel.startsWith("claude-");
@@ -394,29 +394,109 @@ ${context ? `\nТекущий файл (${language}):\n\`\`\`${language}\n${cont
   res.flushHeaders();
 
   try {
-    // ── Claude branch ──────────────────────────────────────────────────────────
+    // ── Claude branch (with tool_use) ──────────────────────────────────────────
     if (isClaudeModel) {
-      const claudeMessages = chatMessages
-        .filter((m) => m.role === "user" || m.role === "assistant")
-        .map((m) => ({ role: m.role as "user" | "assistant", content: m.content }));
+      // Convert OpenAI-style tools → Anthropic tool format
+      const claudeTools = (roomId && hasWriteAccess) ? FILE_TOOLS.map((t) => ({
+        name: t.function.name,
+        description: t.function.description,
+        input_schema: t.function.parameters as Record<string, unknown>,
+      })) : undefined;
 
-      if (claudeMessages.length === 0) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let claudeMsgs: any[] = chatMessages
+        .filter((m) => m.role === "user" || m.role === "assistant")
+        .map((m) => ({ role: m.role, content: m.content }));
+
+      if (claudeMsgs.length === 0) {
         res.write(`data: ${JSON.stringify({ error: "Нет сообщений для Claude" })}\n\n`);
         res.write("data: [DONE]\n\n");
         return;
       }
 
-      const stream = anthropic.messages.stream({
-        model: selectedModel,
-        max_tokens: 8192,
-        system: systemPrompt,
-        messages: claudeMessages,
-      });
+      let claudeAttempts = 0;
+      const MAX_CLAUDE_ROUNDS = 10;
 
-      for await (const event of stream) {
-        if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
-          res.write(`data: ${JSON.stringify({ content: event.delta.text })}\n\n`);
+      while (claudeAttempts < MAX_CLAUDE_ROUNDS) {
+        claudeAttempts++;
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const streamParams: any = {
+          model: selectedModel,
+          max_tokens: 8192,
+          system: systemPrompt,
+          messages: claudeMsgs,
+        };
+        if (claudeTools) streamParams.tools = claudeTools;
+
+        const stream = anthropic.messages.stream(streamParams);
+
+        let textContent = "";
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const toolUseBlocks: Array<{ id: string; name: string; inputJson: string }> = [];
+        let curToolId = "", curToolName = "", curToolJson = "";
+        let stopReason = "";
+
+        for await (const event of stream) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const ev = event as any;
+          if (ev.type === "content_block_start") {
+            if (ev.content_block?.type === "tool_use") {
+              curToolId = ev.content_block.id ?? "";
+              curToolName = ev.content_block.name ?? "";
+              curToolJson = "";
+            }
+          } else if (ev.type === "content_block_delta") {
+            if (ev.delta?.type === "text_delta") {
+              textContent += ev.delta.text;
+              res.write(`data: ${JSON.stringify({ content: ev.delta.text })}\n\n`);
+            } else if (ev.delta?.type === "input_json_delta") {
+              curToolJson += ev.delta.partial_json ?? "";
+            }
+          } else if (ev.type === "content_block_stop") {
+            if (curToolId) {
+              toolUseBlocks.push({ id: curToolId, name: curToolName, inputJson: curToolJson });
+              curToolId = ""; curToolName = ""; curToolJson = "";
+            }
+          } else if (ev.type === "message_delta") {
+            stopReason = ev.delta?.stop_reason ?? "";
+          }
         }
+
+        if (stopReason === "tool_use" && toolUseBlocks.length > 0) {
+          // Build assistant content array
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const assistantContent: any[] = [];
+          if (textContent) assistantContent.push({ type: "text", text: textContent });
+          for (const tb of toolUseBlocks) {
+            assistantContent.push({ type: "tool_use", id: tb.id, name: tb.name, input: JSON.parse(tb.inputJson || "{}") });
+          }
+          claudeMsgs.push({ role: "assistant", content: assistantContent });
+
+          // Execute tools, collect results
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const toolResults: any[] = [];
+          for (const tb of toolUseBlocks) {
+            const args = JSON.parse(tb.inputJson || "{}") as Record<string, string>;
+            // Stream file write content for live preview
+            const isFileWrite = tb.name === "edit_file" || tb.name === "create_file";
+            if (isFileWrite && args.content) {
+              const content = args.content;
+              const chunkSize = Math.max(8, Math.ceil(content.length / 80));
+              for (let i = 0; i < content.length; i += chunkSize) {
+                res.write(`data: ${JSON.stringify({ fileStream: { toolName: tb.name, fileId: args.fileId, fileName: args.name, content: content.slice(0, i + chunkSize) } })}\n\n`);
+                await new Promise((r) => setTimeout(r, 5));
+              }
+              res.write(`data: ${JSON.stringify({ fileStream: { toolName: tb.name, fileId: args.fileId, fileName: args.name, content, done: true } })}\n\n`);
+            }
+            const result = await executeFileTool(tb.name, args, roomId, userId);
+            res.write(`data: ${JSON.stringify({ toolCall: { name: tb.name, args, result: JSON.parse(result) } })}\n\n`);
+            toolResults.push({ type: "tool_result", tool_use_id: tb.id, content: result });
+          }
+          claudeMsgs.push({ role: "user", content: toolResults });
+          continue;
+        }
+        break;
       }
 
       res.write("data: [DONE]\n\n");

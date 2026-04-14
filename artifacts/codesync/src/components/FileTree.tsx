@@ -473,25 +473,6 @@ export function FileTree({ roomId, files, activeFileId, fileStats = {}, userPres
             )}
           </span>
         )}
-        {/* Close button for the active file */}
-        {isActive && !isRenaming && onLeaveFile && (
-          <button
-            title="Закрыть файл"
-            onClick={(e) => { e.stopPropagation(); onLeaveFile(); }}
-            style={{
-              background: "none", border: "none", cursor: "pointer",
-              color: "rgba(255,255,255,0.25)", padding: "1px 2px",
-              lineHeight: 1, flexShrink: 0, borderRadius: 3,
-              display: "flex", alignItems: "center",
-            }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.7)"; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.25)"; }}
-          >
-            <svg width="9" height="9" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <line x1="2" y1="2" x2="8" y2="8"/><line x1="8" y1="2" x2="2" y2="8"/>
-            </svg>
-          </button>
-        )}
         {/* AI edit stats indicator — hidden for the currently active file */}
         {!isRenaming && fileStats[file.id] && file.id !== activeFileId && (
           <span style={{ display: "flex", gap: 3, alignItems: "center", flexShrink: 0, marginRight: 2 }}>

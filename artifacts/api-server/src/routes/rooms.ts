@@ -252,11 +252,15 @@ roomsRouter.get("/rooms/:roomId", async (req, res) => {
     .from(roomMembersTable)
     .where(eq(roomMembersTable.roomId, room.id));
 
+  const roomUser = await resolveUser(req);
+  const isOwner = roomUser ? room.ownerId === roomUser.userId : false;
+
   return res.json({
     ...room,
     memberCount: Number(memberCountResult?.count ?? 0),
     createdAt: room.createdAt.toISOString(),
     updatedAt: room.updatedAt.toISOString(),
+    isOwner,
   });
 });
 

@@ -201,12 +201,14 @@ export default function RoomPage() {
   const files: RoomFile[] = rawFiles as RoomFile[];
   const activeFile = files.find((f) => f.id === activeFileId) ?? null;
 
-  // Determine if the current user is the room owner
-  const myClerkId = clerkUser?.id ?? null;
-  const isOwner = !!(myClerkId && room && (room as { ownerId?: string }).ownerId === myClerkId);
+  // isOwner comes from server (ownerId is DB user ID, not Clerk ID — server resolves it)
+  const isOwner = !!(room && (room as { isOwner?: boolean }).isOwner);
+
+  // Track whether user explicitly closed a file — prevent auto-selection in that case
+  const userClosedFileRef = useRef(false);
 
   useEffect(() => {
-    if (files.length > 0 && !activeFileId) {
+    if (files.length > 0 && !activeFileId && !userClosedFileRef.current) {
       const first = files[0];
       setActiveFileId(first.id);
       setFileContent(first.content ?? "");
@@ -928,6 +930,7 @@ export default function RoomPage() {
               }}
               onFilesChange={() => { void refetchFiles(); }}
               onLeaveFile={() => {
+                userClosedFileRef.current = true;
                 setActiveFileId(null);
                 setFileContent("");
               }}
