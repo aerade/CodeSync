@@ -403,22 +403,24 @@ function RoomCard({ room, onOpen, onDelete }: { room: Room; onOpen: () => void; 
             )}
           </div>
 
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                style={{ color: "rgba(255,255,255,0.25)", background: "none", border: "none", cursor: "pointer", padding: 4, borderRadius: 6, flexShrink: 0, lineHeight: 1 }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.55)"; (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.06)"; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.25)"; (e.currentTarget as HTMLElement).style.background = "none"; }}
-              >
-                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
-                  <circle cx="2" cy="8" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="14" cy="8" r="1.5"/>
-                </svg>
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent style={{ background: "rgba(12,12,12,0.96)", backdropFilter: "blur(20px)", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 16px 48px rgba(0,0,0,0.7)", zIndex: 9999 }}>
-              <DropdownMenuItem style={{ color: "#ef4444" }} onClick={onDelete}>Удалить</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {room.isOwner && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  style={{ color: "rgba(255,255,255,0.25)", background: "none", border: "none", cursor: "pointer", padding: 4, borderRadius: 6, flexShrink: 0, lineHeight: 1 }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.55)"; (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.06)"; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.25)"; (e.currentTarget as HTMLElement).style.background = "none"; }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                    <circle cx="2" cy="8" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="14" cy="8" r="1.5"/>
+                  </svg>
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent style={{ background: "rgba(12,12,12,0.96)", backdropFilter: "blur(20px)", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 16px 48px rgba(0,0,0,0.7)", zIndex: 9999 }}>
+                <DropdownMenuItem style={{ color: "#ef4444" }} onClick={onDelete}>Удалить</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
 
         {/* Mini code preview */}

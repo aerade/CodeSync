@@ -77,6 +77,8 @@ interface WSMessage {
   mouseY?: number;
   activeFileId?: string;
   isTyping?: boolean;
+  emoji?: string;
+  remove?: boolean;
 }
 
 interface MouseCursorInfo {
@@ -315,11 +317,13 @@ export default function RoomPage() {
   }, [cursors, settings.showEditorCursors]);
 
   useEffect(() => {
-    if (!activeFileId) return;
+    const wsFileId = activeFileId ?? "__room__";
 
-    const file = files.find((f) => f.id === activeFileId);
-    if (file) {
-      setFileContent(file.content ?? "");
+    if (activeFileId) {
+      const file = files.find((f) => f.id === activeFileId);
+      if (file) {
+        setFileContent(file.content ?? "");
+      }
     }
 
     if (editorRef.current && aiDiffDecorationsRef.current.length > 0) {
@@ -380,7 +384,7 @@ export default function RoomPage() {
       }
 
       const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-      const wsUrl = `${protocol}://${window.location.host}/ws/rooms/${roomId}/files/${activeFileId}?token=${encodeURIComponent(collabToken)}`;
+      const wsUrl = `${protocol}://${window.location.host}/ws/rooms/${roomId}/files/${wsFileId}?token=${encodeURIComponent(collabToken)}`;
 
       const ws = new WebSocket(wsUrl);
       if (cancelled) { ws.close(); return; }
@@ -471,6 +475,24 @@ export default function RoomPage() {
             ));
           } else if (msg.type === "chat_delete" && msg.messageId) {
             setChatMessages((prev) => prev.filter((m) => m.id !== msg.messageId));
+          } else if (msg.type === "chat_reaction" && msg.messageId && msg.emoji && msg.userId) {
+            setChatMessages((prev) => prev.map((m) => {
+              if (m.id !== msg.messageId) return m;
+              const reactions = { ...(m.reactions ?? {}) };
+              const users = [...(reactions[msg.emoji!] ?? [])];
+              if (msg.remove) {
+                const idx = users.indexOf(msg.userId!);
+                if (idx >= 0) users.splice(idx, 1);
+              } else if (!users.includes(msg.userId!)) {
+                users.push(msg.userId!);
+              }
+              if (users.length === 0) {
+                delete reactions[msg.emoji!];
+              } else {
+                reactions[msg.emoji!] = users;
+              }
+              return { ...m, reactions };
+            }));
           } else if (msg.type === "mouse-cursor" && msg.userId) {
             setMouseCursors((prev) => ({
               ...prev,
@@ -902,15 +924,8 @@ export default function RoomPage() {
               }}
               onFilesChange={() => { void refetchFiles(); }}
               onLeaveFile={() => {
-                // Move to next available file, or clear if none
-                const others = files.filter((f) => !f.isFolder && f.id !== activeFileId);
-                if (others.length > 0) {
-                  setActiveFileId(others[0].id);
-                  setFileContent(others[0].content ?? "");
-                } else {
-                  setActiveFileId(null);
-                  setFileContent("");
-                }
+                setActiveFileId(null);
+                setFileContent("");
               }}
               isReadOnly={isGuest}
             />
@@ -1257,6 +1272,16 @@ export default function RoomPage() {
               onSendMessage={sendChatMessage}
               onEditMessage={handleEditMessage}
               onDeleteMessage={handleDeleteMessage}
+              onReact={(messageId, emoji, remove) => {
+                if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+                wsRef.current.send(JSON.stringify({
+                  type: "chat_reaction",
+                  messageId,
+                  emoji,
+                  userId: myUserIdRef.current,
+                  remove,
+                }));
+              }}
             />
           </motion.div>
         )}
@@ -1388,7 +1413,13 @@ export default function RoomPage() {
       onFileStream={(streamFileId, streamFileName, content) => {
         const currentActiveFileId = activeFileIdRef.current;
 
-        // Switch to any file being streamed - even if not yet in list (just created)
+        // Skip navigation to folders or image files
+        if (streamFileId) {
+          const streamedFile = files.find((f) => f.id === streamFileId);
+          if (streamedFile?.isFolder || streamedFile?.language === "image") return;
+        }
+
+        // Switch to the streamed file if it's a real file (not just content update)
         if (streamFileId && streamFileId !== currentActiveFileId) {
           setActiveFileId(streamFileId);
           activeFileIdRef.current = streamFileId;

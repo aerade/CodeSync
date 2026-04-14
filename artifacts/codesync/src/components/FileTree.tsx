@@ -492,8 +492,8 @@ export function FileTree({ roomId, files, activeFileId, fileStats = {}, userPres
             </svg>
           </button>
         )}
-        {/* AI edit stats indicator */}
-        {!isRenaming && fileStats[file.id] && (
+        {/* AI edit stats indicator — hidden for the currently active file */}
+        {!isRenaming && fileStats[file.id] && file.id !== activeFileId && (
           <span style={{ display: "flex", gap: 3, alignItems: "center", flexShrink: 0, marginRight: 2 }}>
             {(fileStats[file.id].added ?? 0) > 0 && (
               <span style={{ fontSize: 9, color: "#3FB950", fontFamily: "JetBrains Mono, monospace", fontWeight: 700 }}>

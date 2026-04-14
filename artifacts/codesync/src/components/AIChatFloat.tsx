@@ -38,6 +38,7 @@ interface Props {
 
 const MODELS = [
   { id: "gpt-4.1",      label: "GPT-4.1",      badge: "Новый" },
+  { id: "o3",           label: "o3",             badge: "Умный" },
   { id: "gpt-4o",       label: "GPT-4o",        badge: null },
   { id: "gpt-4o-mini",  label: "GPT-4o mini",   badge: "Быстрый" },
   { id: "o3-mini",      label: "o3-mini",        badge: "Рассуждение" },
@@ -177,9 +178,11 @@ export function AIChatFloat({
   const [copiedMsgIdx, setCopiedMsgIdx] = useState<number | null>(null);
   const [aiContextMenu, setAiContextMenu] = useState<AiContextMenu>(null);
   const [btnPos, setBtnPos] = useState(initBtnPos);
+  const [showScrollBtn, setShowScrollBtn] = useState(false);
   const btnDraggingRef = useRef(false);
 
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const msgsContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileAttachRef = useRef<HTMLInputElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -187,10 +190,15 @@ export function AIChatFloat({
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    setShowScrollBtn(false);
   }, [messages, isChatLoading]);
 
   useEffect(() => {
-    if (isOpen) setTimeout(() => inputRef.current?.focus(), 200);
+    if (isOpen) {
+      chatEndRef.current?.scrollIntoView({ behavior: "instant" });
+      setShowScrollBtn(false);
+      setTimeout(() => inputRef.current?.focus(), 200);
+    }
   }, [isOpen]);
 
   useEffect(() => {
@@ -708,7 +716,15 @@ export function AIChatFloat({
           </div>
 
           {/* ── Messages ── */}
-          <div style={{ flex: 1, overflowY: "auto", padding: "12px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
+          <div
+            ref={msgsContainerRef}
+            onScroll={() => {
+              const el = msgsContainerRef.current;
+              if (!el) return;
+              setShowScrollBtn(el.scrollHeight - el.scrollTop - el.clientHeight > 120);
+            }}
+            style={{ flex: 1, overflowY: "auto", padding: "12px 14px", display: "flex", flexDirection: "column", gap: 10, position: "relative" }}
+          >
             {messages.length === 0 && (
               <motion.div
                 initial={{ opacity: 0 }}
@@ -815,6 +831,35 @@ export function AIChatFloat({
             )}
             <div ref={chatEndRef} />
           </div>
+
+          {/* Scroll-to-bottom button */}
+          {showScrollBtn && (
+            <button
+              onClick={() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); setShowScrollBtn(false); }}
+              style={{
+                position: "absolute",
+                bottom: 72,
+                right: 14,
+                zIndex: 10,
+                width: 28,
+                height: 28,
+                borderRadius: "50%",
+                background: "rgba(88,166,255,0.18)",
+                border: "1px solid rgba(88,166,255,0.35)",
+                cursor: "pointer",
+                color: "#58A6FF",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.4)",
+              }}
+              title="Прокрутить вниз"
+            >
+              <svg width="12" height="12" viewBox="0 0 10 10" fill="none">
+                <path d="M2 3L5 6.5L8 3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </button>
+          )}
 
           {/* ── Input area ── */}
           <div style={{ padding: "8px 12px 12px", flexShrink: 0, borderTop: "1px solid rgba(255,255,255,0.06)" }}>

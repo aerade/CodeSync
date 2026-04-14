@@ -323,7 +323,7 @@ async function chatHandler(req: Request, res: Response): Promise<void> {
   const language = typeof body.language === "string" ? body.language : "code";
   const roomId = typeof body.roomId === "string" ? body.roomId : "";
   const usePlan = body.usePlan === true;
-  const ALLOWED_MODELS = ["gpt-4.1", "gpt-4o", "gpt-4o-mini", "o3-mini"];
+  const ALLOWED_MODELS = ["gpt-4.1", "gpt-4o", "gpt-4o-mini", "o3-mini", "o3"];
   const requestedModel = typeof body.model === "string" ? body.model : "gpt-4.1";
   const selectedModel = ALLOWED_MODELS.includes(requestedModel) ? requestedModel : "gpt-4.1";
 

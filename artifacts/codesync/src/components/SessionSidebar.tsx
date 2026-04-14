@@ -33,7 +33,10 @@ export interface RoomChatMessage {
   replyTo?: ChatReplyInfo;
   edited?: boolean;
   timestamp: number;
+  reactions?: Record<string, string[]>;
 }
+
+const QUICK_EMOJIS = ["👍", "❤️", "😂", "😮", "🔥", "👀"];
 
 interface Props {
   members: Member[];
@@ -42,6 +45,7 @@ interface Props {
   onSendMessage: (content: string, imageDataUrl?: string, fileAttachment?: ChatFileAttachment, replyTo?: ChatReplyInfo) => void;
   onEditMessage: (messageId: string, newContent: string) => void;
   onDeleteMessage: (messageId: string) => void;
+  onReact: (messageId: string, emoji: string, remove: boolean) => void;
 }
 
 function formatSize(bytes: number): string {
@@ -70,13 +74,14 @@ interface ContextMenuState {
   message: RoomChatMessage;
 }
 
-export function SessionSidebar({ members, chatMessages, myUserId, onSendMessage, onEditMessage, onDeleteMessage }: Props) {
+export function SessionSidebar({ members, chatMessages, myUserId, onSendMessage, onEditMessage, onDeleteMessage, onReact }: Props) {
   const [chatInput, setChatInput] = useState("");
   const [replyTo, setReplyTo] = useState<ChatReplyInfo | null>(null);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingContent, setEditingContent] = useState("");
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [emojiPickerFor, setEmojiPickerFor] = useState<string | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -267,6 +272,7 @@ export function SessionSidebar({ members, chatMessages, myUserId, onSendMessage,
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95 }}
                 style={{ display: "flex", flexDirection: "column", alignItems: isMe ? "flex-end" : "flex-start", position: "relative" }}
+                onMouseEnter={() => setEmojiPickerFor(null)}
                 onContextMenu={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
@@ -275,6 +281,24 @@ export function SessionSidebar({ members, chatMessages, myUserId, onSendMessage,
                   setContextMenu({ x, y, message: msg });
                 }}
               >
+                {/* Emoji reaction trigger button */}
+                <button
+                  onClick={() => setEmojiPickerFor(emojiPickerFor === msg.id ? null : msg.id)}
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    right: isMe ? "auto" : -20,
+                    left: isMe ? -20 : "auto",
+                    background: "none", border: "none", cursor: "pointer",
+                    fontSize: 13, lineHeight: 1, padding: 2, opacity: 0.35,
+                    borderRadius: 4, color: "white",
+                  }}
+                  title="Реакция"
+                  onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.8")}
+                  onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.35")}
+                >
+                  🙂
+                </button>
                 {/* Username (for others) */}
                 {!isMe && (
                   <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 2, paddingLeft: 2 }}>
@@ -373,6 +397,59 @@ export function SessionSidebar({ members, chatMessages, myUserId, onSendMessage,
                     {formatTime(msg.timestamp)}
                   </span>
                 </div>
+
+                {/* Reactions */}
+                {msg.reactions && Object.keys(msg.reactions).length > 0 && (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 4 }}>
+                    {Object.entries(msg.reactions).map(([emoji, userIds]) => {
+                      const iMine = userIds.includes(myUserId);
+                      return (
+                        <button
+                          key={emoji}
+                          onClick={() => onReact(msg.id, emoji, iMine)}
+                          style={{
+                            display: "flex", alignItems: "center", gap: 3,
+                            background: iMine ? "rgba(88,166,255,0.18)" : "rgba(255,255,255,0.07)",
+                            border: iMine ? "1px solid rgba(88,166,255,0.4)" : "1px solid rgba(255,255,255,0.12)",
+                            borderRadius: 10, padding: "2px 6px", cursor: "pointer",
+                            fontSize: 12, lineHeight: 1.4, color: "rgba(255,255,255,0.75)",
+                          }}
+                        >
+                          <span>{emoji}</span>
+                          <span style={{ fontSize: 10 }}>{userIds.length}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Emoji picker (shown on hover via emojiPickerFor state) */}
+                {emojiPickerFor === msg.id && (
+                  <div
+                    style={{
+                      display: "flex", gap: 2, marginTop: 4,
+                      background: "rgba(18,18,22,0.96)", border: "1px solid rgba(255,255,255,0.1)",
+                      borderRadius: 10, padding: "4px 6px", boxShadow: "0 4px 16px rgba(0,0,0,0.5)",
+                    }}
+                    onMouseLeave={() => setEmojiPickerFor(null)}
+                  >
+                    {QUICK_EMOJIS.map((emoji) => {
+                      const iMine = (msg.reactions?.[emoji] ?? []).includes(myUserId);
+                      return (
+                        <button
+                          key={emoji}
+                          onClick={() => { onReact(msg.id, emoji, iMine); setEmojiPickerFor(null); }}
+                          title={iMine ? "Убрать реакцию" : "Добавить реакцию"}
+                          style={{
+                            background: iMine ? "rgba(88,166,255,0.2)" : "none",
+                            border: "none", borderRadius: 6, cursor: "pointer",
+                            fontSize: 15, padding: "2px 3px", lineHeight: 1, transition: "background 0.15s",
+                          }}
+                        >{emoji}</button>
+                      );
+                    })}
+                  </div>
+                )}
               </motion.div>
             );
           })}

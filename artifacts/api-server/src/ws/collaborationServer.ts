@@ -235,6 +235,8 @@ interface WsMessage {
   mouseX?: number;
   mouseY?: number;
   activeFileId?: string;
+  emoji?: string;
+  remove?: boolean;
 }
 
 export function setupWebSocketServer(wss: WebSocketServer) {
@@ -261,6 +263,7 @@ export function setupWebSocketServer(wss: WebSocketServer) {
 
     const [, roomId, fileId] = pathMatch;
     const key = getRoomKey(roomId, fileId);
+    const isRoomPresenceOnly = fileId === "__room__";
 
     // --- Authentication: require a valid collab token ---
     const collabToken = url.searchParams.get("token");
@@ -278,14 +281,16 @@ export function setupWebSocketServer(wss: WebSocketServer) {
 
     const { userId, username } = tokenData;
 
-    // --- Verify fileId belongs to roomId ---
-    const file = await db.query.filesTable.findFirst({
-      where: and(eq(filesTable.id, fileId), eq(filesTable.roomId, roomId)),
-    });
+    // --- Verify fileId belongs to roomId (skip for room-level presence) ---
+    if (!isRoomPresenceOnly) {
+      const file = await db.query.filesTable.findFirst({
+        where: and(eq(filesTable.id, fileId), eq(filesTable.roomId, roomId)),
+      });
 
-    if (!file) {
-      ws.close(1008, "File not found in room");
-      return;
+      if (!file) {
+        ws.close(1008, "File not found in room");
+        return;
+      }
     }
 
     // --- Verify room membership for private rooms ---
@@ -330,7 +335,9 @@ export function setupWebSocketServer(wss: WebSocketServer) {
     if (!fileRoom) {
       fileRoom = new FileRoom();
       fileRooms.set(key, fileRoom);
-      await loadYjsSnapshot(roomId, fileId, fileRoom.doc);
+      if (!isRoomPresenceOnly) {
+        await loadYjsSnapshot(roomId, fileId, fileRoom.doc);
+      }
     }
 
     const color = getStableColor(roomId, userId);
@@ -355,12 +362,14 @@ export function setupWebSocketServer(wss: WebSocketServer) {
       color,
     }).onConflictDoNothing().catch(() => {});
 
-    // Send current document state to new client
-    const initUpdate = Y.encodeStateAsUpdate(fileRoom.doc);
-    ws.send(JSON.stringify({
-      type: "init",
-      update: btoa(String.fromCharCode(...initUpdate)),
-    }));
+    // Send current document state to new client (only for file connections)
+    if (!isRoomPresenceOnly) {
+      const initUpdate = Y.encodeStateAsUpdate(fileRoom.doc);
+      ws.send(JSON.stringify({
+        type: "init",
+        update: btoa(String.fromCharCode(...initUpdate)),
+      }));
+    }
 
     // Broadcast updated awareness to all clients in the room (across all files)
     broadcastRoomAwareness(roomId);
@@ -384,7 +393,7 @@ export function setupWebSocketServer(wss: WebSocketServer) {
         return;
       }
 
-      if (msg.type === "yjs-update" && msg.update) {
+      if (msg.type === "yjs-update" && msg.update && !isRoomPresenceOnly) {
         if (collaborator.isGuest) return;
         const bytes = Uint8Array.from(atob(msg.update), (c) => c.charCodeAt(0));
         Y.applyUpdate(fileRoom.doc, bytes);
@@ -393,7 +402,7 @@ export function setupWebSocketServer(wss: WebSocketServer) {
       } else if (msg.type === "awareness") {
         fileRoom.awareness.set(ws, msg.state ?? {});
         broadcastRoomAwareness(roomId);
-      } else if (msg.type === "cursor" && msg.position) {
+      } else if (msg.type === "cursor" && msg.position && !isRoomPresenceOnly) {
         const info = fileRoom.clients.get(ws);
         if (info) {
           fileRoom.broadcastJSON({
@@ -493,6 +502,25 @@ export function setupWebSocketServer(wss: WebSocketServer) {
             }
           }
         }
+      } else if (msg.type === "chat_reaction" && msg.messageId && msg.emoji) {
+        const info = fileRoom.clients.get(ws);
+        if (info) {
+          const reactionMsg = JSON.stringify({
+            type: "chat_reaction",
+            messageId: msg.messageId,
+            emoji: msg.emoji,
+            userId: info.userId,
+            remove: msg.remove ?? false,
+          });
+          for (const [rKey, fr] of fileRooms) {
+            if (!rKey.startsWith(`${roomId}:`)) continue;
+            for (const [client] of fr.clients) {
+              if (client.readyState === WebSocket.OPEN) {
+                client.send(reactionMsg);
+              }
+            }
+          }
+        }
       }
     });
 
@@ -512,7 +540,9 @@ export function setupWebSocketServer(wss: WebSocketServer) {
       broadcastRoomAwareness(roomId);
 
       if (fileRoom.clients.size === 0) {
-        await saveYjsSnapshot(roomId, fileId, fileRoom.doc);
+        if (!isRoomPresenceOnly) {
+          await saveYjsSnapshot(roomId, fileId, fileRoom.doc);
+        }
         fileRooms.delete(key);
         const timer = saveTimers.get(key);
         if (timer) {
