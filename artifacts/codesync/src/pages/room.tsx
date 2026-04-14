@@ -575,6 +575,25 @@ export default function RoomPage() {
     });
   };
 
+  // Keyboard shortcuts
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      // Ctrl+` : toggle terminal
+      if (e.ctrlKey && e.code === "Backquote") {
+        e.preventDefault();
+        setIsBottomOpen((v) => !v);
+        return;
+      }
+      // Ctrl+S : show save feedback (file is already auto-synced via Yjs)
+      if (e.ctrlKey && e.key === "s") {
+        e.preventDefault();
+        // Monaco handles save natively; nothing extra needed – synced via Yjs
+      }
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
+
   function sendChatMessage(content: string, imageDataUrl?: string, fileAttachment?: ChatFileAttachment, replyTo?: ChatReplyInfo) {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({ type: "chat", message: content, imageDataUrl, fileAttachment, replyTo }));
@@ -866,11 +885,30 @@ export default function RoomPage() {
             <span className="text-xs" style={{ color: "#8B949E" }}>
               {activeFile?.name ?? "Выберите файл"}
             </span>
-            {activeFile && (
-              <span className="text-xs px-1.5 py-0.5 rounded font-mono" style={{ marginLeft: "auto", background: "#0D1117", color: "#8B949E", border: "1px solid #30363D" }}>
-                {LANG_LABELS[activeFile.language] ?? activeFile.language}
-              </span>
-            )}
+            <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>
+              {activeFile && (
+                <span className="text-xs px-1.5 py-0.5 rounded font-mono" style={{ background: "#0D1117", color: "#8B949E", border: "1px solid #30363D" }}>
+                  {LANG_LABELS[activeFile.language] ?? activeFile.language}
+                </span>
+              )}
+              {/* Terminal toggle button */}
+              <button
+                onClick={() => setIsBottomOpen((v) => !v)}
+                title="Терминал (Ctrl+`)"
+                className="flex items-center gap-1 px-2 py-0.5 rounded transition-colors hover:bg-white/8"
+                style={{
+                  background: isBottomOpen ? "rgba(63,185,80,0.12)" : "transparent",
+                  border: `1px solid ${isBottomOpen ? "rgba(63,185,80,0.3)" : "rgba(255,255,255,0.08)"}`,
+                  color: isBottomOpen ? "#3FB950" : "#8B949E",
+                  fontSize: 10, cursor: "pointer",
+                }}
+              >
+                <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor">
+                  <path d="M0 3.75C0 2.784.784 2 1.75 2h12.5c.966 0 1.75.784 1.75 1.75v8.5A1.75 1.75 0 0 1 14.25 14H1.75A1.75 1.75 0 0 1 0 12.25Zm1.75-.25a.25.25 0 0 0-.25.25v8.5c0 .138.112.25.25.25h12.5a.25.25 0 0 0 .25-.25v-8.5a.25.25 0 0 0-.25-.25ZM7.25 8a.75.75 0 0 1-.22.53l-2.25 2.25a.749.749 0 1 1-1.06-1.06L5.44 8 3.72 6.28a.749.749 0 1 1 1.06-1.06l2.25 2.25c.141.14.22.331.22.53Zm1.5 1.5h3a.75.75 0 0 1 0 1.5h-3a.75.75 0 0 1 0-1.5Z"/>
+                </svg>
+                Терминал
+              </button>
+            </div>
           </div>
 
           {/* Monaco Editor / Image Viewer */}
@@ -1023,19 +1061,37 @@ export default function RoomPage() {
           {isBottomOpen && (
             <div
               className="ide-bottom"
-              style={{ height: terminalHeight, flexShrink: 0, borderTop: "1px solid #30363D" }}
+              style={{ height: terminalHeight, flexShrink: 0, borderTop: "1px solid #30363D", display: "flex", flexDirection: "column" }}
             >
+              {/* Resize handle */}
               <div
                 className="resize-handle-horizontal"
                 onMouseDown={handleTerminalResizeStart}
-                style={{
-                  cursor: "row-resize",
-                  height: 6,
-                  background: "transparent",
-                  flexShrink: 0,
-                }}
+                style={{ cursor: "row-resize", height: 6, background: "transparent", flexShrink: 0 }}
               />
-              <div style={{ height: terminalHeight - 6, overflow: "hidden" }}>
+              {/* Terminal header */}
+              <div style={{
+                height: 26, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between",
+                padding: "0 8px 0 12px", background: "#161B22", borderBottom: "1px solid #30363D",
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <svg width="11" height="11" viewBox="0 0 16 16" fill="#3FB950">
+                    <path d="M0 3.75C0 2.784.784 2 1.75 2h12.5c.966 0 1.75.784 1.75 1.75v8.5A1.75 1.75 0 0 1 14.25 14H1.75A1.75 1.75 0 0 1 0 12.25Zm1.75-.25a.25.25 0 0 0-.25.25v8.5c0 .138.112.25.25.25h12.5a.25.25 0 0 0 .25-.25v-8.5a.25.25 0 0 0-.25-.25ZM7.25 8a.75.75 0 0 1-.22.53l-2.25 2.25a.749.749 0 1 1-1.06-1.06L5.44 8 3.72 6.28a.749.749 0 1 1 1.06-1.06l2.25 2.25c.141.14.22.331.22.53Zm1.5 1.5h3a.75.75 0 0 1 0 1.5h-3a.75.75 0 0 1 0-1.5Z"/>
+                  </svg>
+                  <span style={{ fontSize: 10, color: "#8B949E", fontFamily: "JetBrains Mono, monospace" }}>TERMINAL</span>
+                </div>
+                <button
+                  onClick={() => setIsBottomOpen(false)}
+                  title="Закрыть терминал (Ctrl+`)"
+                  style={{ background: "none", border: "none", cursor: "pointer", color: "#8B949E", display: "flex", alignItems: "center", padding: "2px 4px", borderRadius: 4 }}
+                  className="hover:bg-white/8 hover:text-white/70 transition-colors"
+                >
+                  <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.749.749 0 0 1 1.275.326.749.749 0 0 1-.215.734L9.06 8l3.22 3.22a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215L8 9.06l-3.22 3.22a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z"/>
+                  </svg>
+                </button>
+              </div>
+              <div style={{ flex: 1, overflow: "hidden" }}>
                 <Terminal
                   ref={terminalRef}
                   code={fileContent}

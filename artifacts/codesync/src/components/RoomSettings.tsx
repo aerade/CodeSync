@@ -350,10 +350,10 @@ export function RoomSettings({ isOpen, onClose, settings, onChange }: Props) {
               transition={{ type: "spring", stiffness: 380, damping: 32 }}
               style={{
                 width: 720, maxHeight: "85vh",
-                background: "#13171E",
-                border: "1px solid rgba(255,255,255,0.08)",
+                background: "#0D1117",
+                border: "1px solid rgba(255,255,255,0.07)",
                 borderRadius: 18,
-                boxShadow: "0 32px 96px rgba(0,0,0,0.85), 0 0 0 1px rgba(88,166,255,0.06)",
+                boxShadow: "0 32px 96px rgba(0,0,0,0.95), 0 0 0 1px rgba(88,166,255,0.05)",
                 display: "flex", flexDirection: "column",
                 overflow: "hidden",
                 pointerEvents: "all",
@@ -404,8 +404,8 @@ export function RoomSettings({ isOpen, onClose, settings, onChange }: Props) {
                 {/* Left sidebar navigation */}
                 <div style={{
                   width: 180, flexShrink: 0,
-                  borderRight: "1px solid rgba(255,255,255,0.07)",
-                  background: "rgba(0,0,0,0.2)",
+                  borderRight: "1px solid rgba(255,255,255,0.06)",
+                  background: "rgba(0,0,0,0.35)",
                   padding: "10px 8px",
                   display: "flex", flexDirection: "column", gap: 2,
                   overflowY: "auto",

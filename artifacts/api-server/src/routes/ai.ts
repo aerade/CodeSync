@@ -323,6 +323,9 @@ async function chatHandler(req: Request, res: Response): Promise<void> {
   const language = typeof body.language === "string" ? body.language : "code";
   const roomId = typeof body.roomId === "string" ? body.roomId : "";
   const usePlan = body.usePlan === true;
+  const ALLOWED_MODELS = ["gpt-4.1", "gpt-4o", "gpt-4o-mini", "o3-mini"];
+  const requestedModel = typeof body.model === "string" ? body.model : "gpt-4.1";
+  const selectedModel = ALLOWED_MODELS.includes(requestedModel) ? requestedModel : "gpt-4.1";
 
   // Parallel access check
   const [accessResult, roomFilesResult] = await Promise.all([
@@ -394,7 +397,7 @@ ${context ? `\nТекущий файл (${language}):\n\`\`\`${language}\n${cont
       attempts++;
 
       const stream = await openai.chat.completions.create({
-        model: "gpt-4.1",
+        model: selectedModel,
         messages: allMessages as Parameters<typeof openai.chat.completions.create>[0]["messages"],
         max_tokens: 4096,
         tools,

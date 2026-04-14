@@ -1,4 +1,5 @@
 import { useRef, useState, useEffect, useCallback } from "react";
+import ReactDOM from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface Member {
@@ -63,64 +64,10 @@ function getFileIcon(mimeType: string) {
   return "📎";
 }
 
-function MessageActions({
-  messageId,
-  isMe,
-  content,
-  username,
-  onReply,
-  onEdit,
-  onDelete,
-  onCopy,
-}: {
-  messageId: string;
-  isMe: boolean;
-  content: string;
-  username: string;
-  onReply: () => void;
-  onEdit: () => void;
-  onDelete: () => void;
-  onCopy: () => void;
-}) {
-  return (
-    <div
-      style={{
-        display: "flex",
-        gap: 1,
-        background: "#1C2128",
-        border: "1px solid rgba(255,255,255,0.1)",
-        borderRadius: 8,
-        padding: "2px 2px",
-        boxShadow: "0 4px 16px rgba(0,0,0,0.5)",
-      }}
-    >
-      {[
-        { icon: "↩", title: "Ответить", action: onReply, color: "#58A6FF" },
-        { icon: "⎘", title: "Копировать", action: onCopy, color: "rgba(255,255,255,0.6)" },
-        ...(isMe ? [
-          { icon: "✎", title: "Изменить", action: onEdit, color: "#F2CC60" },
-          { icon: "✕", title: "Удалить", action: onDelete, color: "#F85149" },
-        ] : []),
-      ].map(({ icon, title, action, color }) => (
-        <button
-          key={title}
-          onClick={(e) => { e.stopPropagation(); action(); }}
-          title={title}
-          style={{
-            width: 24, height: 24, borderRadius: 6,
-            background: "transparent", border: "none",
-            cursor: "pointer", color,
-            fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center",
-            transition: "background 0.12s",
-          }}
-          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.08)"; }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
-        >
-          {icon}
-        </button>
-      ))}
-    </div>
-  );
+interface ContextMenuState {
+  x: number;
+  y: number;
+  message: RoomChatMessage;
 }
 
 export function SessionSidebar({ members, chatMessages, myUserId, onSendMessage, onEditMessage, onDeleteMessage }: Props) {
@@ -128,7 +75,7 @@ export function SessionSidebar({ members, chatMessages, myUserId, onSendMessage,
   const [replyTo, setReplyTo] = useState<ChatReplyInfo | null>(null);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingContent, setEditingContent] = useState("");
-  const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null);
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -138,6 +85,21 @@ export function SessionSidebar({ members, chatMessages, myUserId, onSendMessage,
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatMessages]);
+
+  // Close context menu on click outside or Escape
+  useEffect(() => {
+    if (!contextMenu) return;
+    function onClose(e: MouseEvent | KeyboardEvent) {
+      if (e instanceof KeyboardEvent && e.key !== "Escape") return;
+      setContextMenu(null);
+    }
+    document.addEventListener("mousedown", onClose);
+    document.addEventListener("keydown", onClose);
+    return () => {
+      document.removeEventListener("mousedown", onClose);
+      document.removeEventListener("keydown", onClose);
+    };
+  }, [contextMenu]);
 
   useEffect(() => {
     if (editingMessageId && editInputRef.current) {
@@ -296,7 +258,6 @@ export function SessionSidebar({ members, chatMessages, myUserId, onSendMessage,
         <AnimatePresence initial={false}>
           {chatMessages.map((msg) => {
             const isMe = msg.userId === myUserId;
-            const isHovered = hoveredMessageId === msg.id;
             const isCopied = copiedId === msg.id;
 
             return (
@@ -306,8 +267,13 @@ export function SessionSidebar({ members, chatMessages, myUserId, onSendMessage,
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95 }}
                 style={{ display: "flex", flexDirection: "column", alignItems: isMe ? "flex-end" : "flex-start", position: "relative" }}
-                onMouseEnter={() => setHoveredMessageId(msg.id)}
-                onMouseLeave={() => setHoveredMessageId(null)}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const x = Math.min(e.clientX, window.innerWidth - 160);
+                  const y = Math.min(e.clientY, window.innerHeight - (isMe ? 130 : 100));
+                  setContextMenu({ x, y, message: msg });
+                }}
               >
                 {/* Username (for others) */}
                 {!isMe && (
@@ -318,34 +284,6 @@ export function SessionSidebar({ members, chatMessages, myUserId, onSendMessage,
                     <span style={{ fontSize: 9, color: "rgba(255,255,255,0.35)", fontWeight: 600 }}>{msg.username}</span>
                   </div>
                 )}
-
-                {/* Message actions (shown on hover) */}
-                <AnimatePresence>
-                  {isHovered && (
-                    <motion.div
-                      initial={{ opacity: 0, scale: 0.9 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.9 }}
-                      style={{
-                        position: "absolute",
-                        top: -4,
-                        [isMe ? "left" : "right"]: 0,
-                        zIndex: 10,
-                      }}
-                    >
-                      <MessageActions
-                        messageId={msg.id}
-                        isMe={isMe}
-                        content={msg.content}
-                        username={msg.username}
-                        onReply={() => startReply(msg)}
-                        onEdit={() => startEdit(msg)}
-                        onDelete={() => handleDelete(msg)}
-                        onCopy={() => handleCopy(msg)}
-                      />
-                    </motion.div>
-                  )}
-                </AnimatePresence>
 
                 {/* Reply preview */}
                 {msg.replyTo && (
@@ -479,6 +417,112 @@ export function SessionSidebar({ members, chatMessages, myUserId, onSendMessage,
             style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.3)", fontSize: 14, lineHeight: 1, padding: 2 }}
           >×</button>
         </div>
+      )}
+
+      {/* Telegram-style right-click context menu */}
+      {contextMenu && ReactDOM.createPortal(
+        <AnimatePresence>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9, y: -4 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            transition={{ type: "spring", stiffness: 500, damping: 32 }}
+            onMouseDown={(e) => e.stopPropagation()}
+            style={{
+              position: "fixed",
+              top: contextMenu.y,
+              left: contextMenu.x,
+              zIndex: 99999,
+              background: "#0D1117",
+              border: "1px solid rgba(255,255,255,0.1)",
+              borderRadius: 12,
+              boxShadow: "0 8px 32px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.04)",
+              padding: "4px",
+              minWidth: 152,
+              backdropFilter: "blur(20px)",
+            }}
+          >
+            {(() => {
+              const msg = contextMenu.message;
+              const isMe = msg.userId === myUserId;
+              const items = [
+                {
+                  label: "Ответить",
+                  icon: (
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/>
+                    </svg>
+                  ),
+                  color: "#58A6FF",
+                  action: () => { startReply(msg); setContextMenu(null); },
+                  always: true,
+                },
+                {
+                  label: copiedId === msg.id ? "Скопировано!" : "Копировать",
+                  icon: (
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                    </svg>
+                  ),
+                  color: "rgba(255,255,255,0.65)",
+                  action: () => { handleCopy(msg); setContextMenu(null); },
+                  always: true,
+                },
+                {
+                  label: "Изменить",
+                  icon: (
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z"/>
+                    </svg>
+                  ),
+                  color: "#F2CC60",
+                  action: () => { startEdit(msg); setContextMenu(null); },
+                  always: false,
+                  ownOnly: true,
+                },
+                {
+                  label: "Удалить",
+                  icon: (
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6m4-6v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+                    </svg>
+                  ),
+                  color: "#F85149",
+                  action: () => { handleDelete(msg); setContextMenu(null); },
+                  always: false,
+                  ownOnly: true,
+                },
+              ];
+              return (
+                <>
+                  {items
+                    .filter((item) => item.always || (item.ownOnly && isMe))
+                    .map((item, i, arr) => (
+                      <div key={item.label}>
+                        <button
+                          onClick={item.action}
+                          style={{
+                            width: "100%", display: "flex", alignItems: "center", gap: 9,
+                            padding: "7px 10px", borderRadius: 8, border: "none",
+                            background: "transparent", cursor: "pointer", color: item.color,
+                            fontSize: 12, fontWeight: 500, textAlign: "left",
+                            transition: "background 0.1s",
+                          }}
+                          onMouseEnter={(e) => { (e.currentTarget).style.background = "rgba(255,255,255,0.07)"; }}
+                          onMouseLeave={(e) => { (e.currentTarget).style.background = "transparent"; }}
+                        >
+                          <span style={{ opacity: 0.85, flexShrink: 0 }}>{item.icon}</span>
+                          {item.label}
+                        </button>
+                        {i === 1 && isMe && <div style={{ height: 1, background: "rgba(255,255,255,0.06)", margin: "2px 6px" }} />}
+                      </div>
+                    ))}
+                </>
+              );
+            })()}
+          </motion.div>
+        </AnimatePresence>,
+        document.body,
       )}
 
       {/* Chat input */}

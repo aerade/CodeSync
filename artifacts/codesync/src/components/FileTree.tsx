@@ -6,221 +6,61 @@ import { useQueryClient } from "@tanstack/react-query";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-// VS Code-style file type icons
+// Unified file type icons — consistent colored-rect + abbreviation style
 function LangIcon({ language }: { language: string }) {
   const s = { width: 16, height: 16, flexShrink: 0 } as const;
-  switch (language) {
-    case "javascript":
-      return (
-        <svg {...s} viewBox="0 0 16 16">
-          <rect width="16" height="16" rx="2.5" fill="#F7DF1E"/>
-          <path d="M4.5 10.8c.3.5.7.9 1.4.9.7 0 1.1-.35 1.1-.85 0-.6-.45-.8-1.2-1.15l-.4-.17c-1.2-.5-2-.95-2-2.1C3.4 6.1 4.35 5.3 5.8 5.3c1 0 1.7.35 2.2 1.25l-1.2.77c-.25-.45-.52-.63-.95-.63-.45 0-.73.28-.73.65 0 .45.28.63 1.1 1l.4.17c1.4.6 2.2 1.2 2.2 2.35 0 1.35-1.06 2.1-2.5 2.1-1.4 0-2.3-.67-2.74-1.54L4.5 10.8zm5.2.12c.34.6.78 1.04 1.55 1.04.65 0 1.07-.33 1.07-.92V5.45h-1.5v5.5c0 .22-.1.3-.27.3-.2 0-.3-.1-.4-.27l-1 .94z" fill="#000"/>
-        </svg>
-      );
-    case "jsx":
-      return (
-        <svg {...s} viewBox="0 0 16 16">
-          <rect width="16" height="16" rx="2.5" fill="#F7DF1E"/>
-          <path d="M8 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" fill="#000"/>
-          <path d="M8 4.5c-1.93 0-3.6.4-4.8.97l.6 1.05C4.75 6.05 6.3 5.7 8 5.7s3.25.35 4.2.82l.6-1.05C11.6 4.9 9.93 4.5 8 4.5zM3.2 8c0 .48.6 1.1 1.6 1.58l.6-1.05C4.8 8.27 4.5 8.1 4.5 8s.3-.27.9-.53L4.8 6.42C3.8 6.9 3.2 7.52 3.2 8zm9.6 0c0-.48-.6-1.1-1.6-1.58l-.6 1.05c.6.26.9.43.9.53s-.3.27-.9.53l.6 1.05c1-.48 1.6-1.1 1.6-1.58z" fill="#000" opacity="0.7"/>
-        </svg>
-      );
-    case "typescript":
-      return (
-        <svg {...s} viewBox="0 0 16 16">
-          <rect width="16" height="16" rx="2.5" fill="#3178C6"/>
-          <path d="M9.15 9.15v1.7c.28.14.6.24.96.3.36.06.74.09 1.13.09.38 0 .74-.04 1.08-.11.34-.08.64-.2.89-.37.26-.17.46-.4.6-.68.15-.28.22-.62.22-1.03 0-.3-.04-.56-.13-.78-.09-.22-.21-.41-.38-.58-.16-.17-.36-.32-.59-.45-.23-.13-.48-.26-.77-.38-.2-.09-.38-.17-.54-.25-.16-.08-.3-.16-.41-.24-.11-.09-.2-.18-.26-.29-.06-.1-.09-.22-.09-.36 0-.13.03-.24.08-.34.05-.1.13-.18.23-.25.1-.07.22-.12.36-.15.14-.03.3-.05.48-.05.13 0 .27.01.41.03.14.02.28.06.42.12.14.06.28.14.41.24.13.1.25.22.36.37V6.2c-.26-.1-.54-.17-.85-.22-.3-.05-.63-.07-.97-.07-.37 0-.72.04-1.06.12-.34.08-.63.21-.89.38-.26.18-.46.41-.61.7-.15.29-.22.64-.22 1.05 0 .5.13.93.4 1.27.27.34.68.63 1.24.86.21.08.41.17.59.26.18.09.33.18.46.27.13.09.23.2.31.31.07.12.11.25.11.4 0 .14-.03.26-.08.37-.06.11-.14.2-.25.28-.11.08-.25.14-.41.18-.16.04-.35.06-.57.06-.38 0-.75-.07-1.1-.22-.36-.15-.67-.37-.95-.66zM4.5 7.38H6.5V12h1.5V7.38H10V6H4.5v1.38z" fill="#fff"/>
-        </svg>
-      );
-    case "tsx":
-      return (
-        <svg {...s} viewBox="0 0 16 16">
-          <rect width="16" height="16" rx="2.5" fill="#3178C6"/>
-          <path d="M4.5 6v1.5H6.5V12H8V7.5H10V6H4.5z" fill="#fff"/>
-          <circle cx="12.5" cy="10" r="2" fill="none" stroke="#61DAFB" strokeWidth="1"/>
-          <circle cx="12.5" cy="10" r="0.5" fill="#61DAFB"/>
-        </svg>
-      );
-    case "python":
-      return (
-        <svg {...s} viewBox="0 0 16 16">
-          <rect width="16" height="16" rx="2.5" fill="#3572A5"/>
-          <path d="M7.95 2C5.7 2 5 3 5 4v1.5h3V6H3.5C2.5 6 1.5 7 1.5 9s1 3 2 3h1V10.5c0-1 1-1.5 2-1.5h3c1 0 1.5-.7 1.5-1.5V4c0-1-1-2-3.05-2zM6.5 3.75a.75.75 0 1 1 0 1.5.75.75 0 0 1 0-1.5z" fill="#FFD444"/>
-          <path d="M8.05 14c2.25 0 2.95-1 2.95-2v-1.5H8V10h5c1 0 2-1 2-3s-1-3-2-3h-1V5.5c0 1-1 1.5-2 1.5H7c-1 0-1.5.7-1.5 1.5V12c0 1 1 2 3.05 2zM9.5 12.25a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5z" fill="#3572A5"/>
-        </svg>
-      );
-    case "html":
-      return (
-        <svg {...s} viewBox="0 0 16 16">
-          <rect width="16" height="16" rx="2.5" fill="#E44D26"/>
-          <path d="M3 2.5l1 10.5 4 1 4-1 1-10.5H3zm7 2.5H6l.15 1.5h3.7l-.5 4.5L8 11.5l-1.35-.5L6.5 9.5H8l.1.75.9.25.9-.25.1-1.5H6.3L6 6.5h4.15L10 5z" fill="#fff"/>
-        </svg>
-      );
-    case "css":
-      return (
-        <svg {...s} viewBox="0 0 16 16">
-          <rect width="16" height="16" rx="2.5" fill="#264DE4"/>
-          <path d="M3 2.5l1 10.5 4 1 4-1 1-10.5H3zm7.1 2.5l-.1.9H5.8L6 7h4l-.4 4-1.6.45L6.4 11l-.1-1.2h1.5l.06.7.54.15.54-.15.15-1.45H6.05l-.35-4H10.1L10 5z" fill="#fff"/>
-        </svg>
-      );
-    case "scss":
-      return (
-        <svg {...s} viewBox="0 0 16 16">
-          <rect width="16" height="16" rx="2.5" fill="#BF4080"/>
-          <text x="2" y="11.5" fontSize="7" fontWeight="700" fill="#fff" fontFamily="monospace">SCSS</text>
-        </svg>
-      );
-    case "json":
-      return (
-        <svg {...s} viewBox="0 0 16 16">
-          <rect width="16" height="16" rx="2.5" fill="#1e1e1e"/>
-          <path d="M5 4.5C4 4.5 3.5 5 3.5 5.5v1C3.5 7 3 7.5 2.5 7.5 3 7.5 3.5 8 3.5 8.5v1C3.5 10 4 10.5 5 10.5" fill="none" stroke="#F2CC60" strokeWidth="1.2" strokeLinecap="round"/>
-          <path d="M11 4.5c1 0 1.5.5 1.5 1v1c0 .5.5 1 1 1-.5 0-1 .5-1 1v1c0 .5-.5 1-1.5 1" fill="none" stroke="#F2CC60" strokeWidth="1.2" strokeLinecap="round"/>
-          <circle cx="8" cy="7.5" r="1" fill="#F2CC60"/>
-        </svg>
-      );
-    case "markdown":
-      return (
-        <svg {...s} viewBox="0 0 16 16">
-          <rect width="16" height="16" rx="2.5" fill="#484F58"/>
-          <path d="M2 5h2v6H2V5zm3 0h1.5l1.5 2 1.5-2H11v6H9.5V8l-1.5 2-1.5-2V11H5V5zm7 0h2l-2 3h2v3h-2V8l-2-3h2z" fill="#fff" transform="scale(0.72) translate(1, 1)"/>
-        </svg>
-      );
-    case "go":
-      return (
-        <svg {...s} viewBox="0 0 16 16">
-          <rect width="16" height="16" rx="2.5" fill="#00ACD7"/>
-          <path d="M2.5 9.5c0 1.1.9 2 2 2h5c1.1 0 2-.9 2-2v-3c0-1.1-.9-2-2-2h-5c-1.1 0-2 .9-2 2v3zm7.5-1h-1.5V7.5H10v1zm-2 0H7V7.5h1.5v1zM5 9a1 1 0 1 1 2 0 1 1 0 0 1-2 0z" fill="#fff"/>
-          <circle cx="12" cy="6" r="1.5" fill="#fff"/>
-        </svg>
-      );
-    case "rust":
-      return (
-        <svg {...s} viewBox="0 0 16 16">
-          <rect width="16" height="16" rx="2.5" fill="#CE422B"/>
-          <path d="M8 2.5l1 2h2l-1.5 1.5.5 2-2-1-2 1 .5-2L5 4.5h2l1-2z" fill="#fff"/>
-          <rect x="3.5" y="8" width="9" height="5" rx="1.5" fill="rgba(255,255,255,0.2)"/>
-          <text x="4.5" y="12" fontSize="6" fontWeight="700" fill="#fff" fontFamily="monospace">RS</text>
-        </svg>
-      );
-    case "java":
-      return (
-        <svg {...s} viewBox="0 0 16 16">
-          <rect width="16" height="16" rx="2.5" fill="#ED8B00"/>
-          <path d="M6 3c0 2-2 3-2 5s1.5 3 4 3-4 2-4 2M10 3s1 1 0 2-2 1-2 2 2 1 2 2" fill="none" stroke="#fff" strokeWidth="1.2" strokeLinecap="round"/>
-          <path d="M5 13s3-1 6-1" stroke="#fff" strokeWidth="1.2" strokeLinecap="round"/>
-        </svg>
-      );
-    case "cpp":
-      return (
-        <svg {...s} viewBox="0 0 16 16">
-          <rect width="16" height="16" rx="2.5" fill="#6295CB"/>
-          <path d="M6 4.5C4.5 4.5 3.5 5.8 3.5 8s1 3.5 2.5 3.5c1 0 1.8-.5 2.3-1.5H6.7c-.3.4-.6.6-1.1.6-.9 0-1.5-.9-1.5-2.1 0-1.3.6-2.1 1.5-2.1.5 0 .8.2 1.1.6H8.3C7.8 5 7 4.5 6 4.5zM10 7H9V8h1v1h1V8h1V7h-1V6h-1v1z" fill="#fff"/>
-          <path d="M13 7h-1v1h1V7z" fill="#fff"/>
-        </svg>
-      );
-    case "c":
-      return (
-        <svg {...s} viewBox="0 0 16 16">
-          <rect width="16" height="16" rx="2.5" fill="#5C6BC0"/>
-          <path d="M9 4.5C7.5 4.5 6.5 5.8 6.5 8s1 3.5 2.5 3.5c1 0 1.8-.5 2.3-1.5H9.7c-.3.4-.6.6-1.1.6-.9 0-1.5-.9-1.5-2.1 0-1.3.6-2.1 1.5-2.1.5 0 .8.2 1.1.6H11.3C10.8 5 10 4.5 9 4.5z" fill="#fff"/>
-        </svg>
-      );
-    case "csharp":
-      return (
-        <svg {...s} viewBox="0 0 16 16">
-          <rect width="16" height="16" rx="2.5" fill="#68217A"/>
-          <path d="M6 4.5C4.5 4.5 3.5 5.8 3.5 8s1 3.5 2.5 3.5c1 0 1.8-.5 2.3-1.5H6.7c-.3.4-.6.6-1.1.6-.9 0-1.5-.9-1.5-2.1 0-1.3.6-2.1 1.5-2.1.5 0 .8.2 1.1.6H8.3C7.8 5 7 4.5 6 4.5z" fill="#fff"/>
-          <path d="M9.5 7.5h.8V7h.8v.5h.4V7h.8v.5h.7v.8h-.7v.4h.7v.8h-.7V10h-.8v-.5h-.4V10h-.8v-.5h-.8v-.8h.8v-.4h-.8v-.8z" fill="#fff"/>
-        </svg>
-      );
-    case "ruby":
-      return (
-        <svg {...s} viewBox="0 0 16 16">
-          <rect width="16" height="16" rx="2.5" fill="#CC342D"/>
-          <path d="M10 3L5 6l-1 5 5 2 4-4-3-6z" fill="rgba(255,255,255,0.25)"/>
-          <path d="M10 3l-5 3m0 0l-1 5m1-5l4.5 2M5 11l5 2m-5-2l4.5-4.5M10 3l-0.5 7.5" fill="none" stroke="#fff" strokeWidth="1" strokeLinecap="round"/>
-        </svg>
-      );
-    case "php":
-      return (
-        <svg {...s} viewBox="0 0 16 16">
-          <rect width="16" height="16" rx="2.5" fill="#777BB4"/>
-          <ellipse cx="8" cy="8" rx="6" ry="3.5" fill="rgba(255,255,255,0.15)" stroke="rgba(255,255,255,0.3)" strokeWidth="0.8"/>
-          <text x="4.5" y="10.5" fontSize="6.5" fontWeight="700" fill="#fff" fontFamily="monospace">php</text>
-        </svg>
-      );
-    case "shell":
-    case "bash":
-      return (
-        <svg {...s} viewBox="0 0 16 16">
-          <rect width="16" height="16" rx="2.5" fill="#1d2023"/>
-          <rect x="1" y="1" width="14" height="14" rx="1.8" fill="none" stroke="#3FB950" strokeWidth="0.7" opacity="0.5"/>
-          <path d="M3 6l2 2-2 2" fill="none" stroke="#3FB950" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
-          <path d="M7 10h4" stroke="#3FB950" strokeWidth="1.3" strokeLinecap="round"/>
-        </svg>
-      );
-    case "sql":
-      return (
-        <svg {...s} viewBox="0 0 16 16">
-          <rect width="16" height="16" rx="2.5" fill="#336791"/>
-          <ellipse cx="8" cy="5" rx="4.5" ry="2" fill="#fff" opacity="0.3"/>
-          <path d="M3.5 5v6c0 1.1 2 2 4.5 2s4.5-.9 4.5-2V5" fill="none" stroke="#fff" strokeWidth="1" opacity="0.7"/>
-          <path d="M3.5 8c0 1.1 2 2 4.5 2s4.5-.9 4.5-2" fill="none" stroke="#fff" strokeWidth="1" opacity="0.5"/>
-        </svg>
-      );
-    case "yaml":
-      return (
-        <svg {...s} viewBox="0 0 16 16">
-          <rect width="16" height="16" rx="2.5" fill="#CB171E"/>
-          <text x="2" y="11" fontSize="6.5" fontWeight="700" fill="#fff" fontFamily="monospace">YAML</text>
-        </svg>
-      );
-    case "vue":
-      return (
-        <svg {...s} viewBox="0 0 16 16">
-          <rect width="16" height="16" rx="2.5" fill="#1a1a2e"/>
-          <path d="M8 3L5 8l3 5 3-5-3-5z" fill="#42b883"/>
-          <path d="M8 3L6 7l2 3.5L10 7 8 3z" fill="#35495e"/>
-          <path d="M2 3l6 10L14 3h-2L8 9.5 4 3H2z" fill="none" stroke="#42b883" strokeWidth="0.5" opacity="0.5"/>
-        </svg>
-      );
-    case "svelte":
-      return (
-        <svg {...s} viewBox="0 0 16 16">
-          <rect width="16" height="16" rx="2.5" fill="#FF3E00"/>
-          <path d="M11.5 4.5c-1-1.5-3-1.5-4 0L5 8c-.8 1.3-.4 2.8 1 3.3 1 .3 2 0 2.7-.8l.3-.4c.5-.7.5-1.6-.1-2.2-.3-.3-.7-.5-1.2-.4l-.5.1" fill="none" stroke="#fff" strokeWidth="1.2" strokeLinecap="round"/>
-          <path d="M4.5 11.5c1 1.5 3 1.5 4 0L11 8c.8-1.3.4-2.8-1-3.3-1-.3-2 0-2.7.8l-.3.4c-.5.7-.5 1.6.1 2.2.3.3.7.5 1.2.4l.5-.1" fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth="1.2" strokeLinecap="round"/>
-        </svg>
-      );
-    case "dockerfile":
-      return (
-        <svg {...s} viewBox="0 0 16 16">
-          <rect width="16" height="16" rx="2.5" fill="#1D63ED"/>
-          <path d="M2.5 9.5h11M2.5 7.5h3m1 0h2m1 0h2M2.5 5.5h3m1 0h2" stroke="#fff" strokeWidth="1.1" strokeLinecap="round" opacity="0.9"/>
-          <path d="M11 11.5c1.5 0 2.5-1 2.5-2.5" fill="none" stroke="#00ADEF" strokeWidth="1" strokeLinecap="round"/>
-        </svg>
-      );
-    case "image":
-      return (
-        <svg {...s} viewBox="0 0 16 16">
-          <rect width="16" height="16" rx="2.5" fill="#A84F1B"/>
-          <rect x="2.5" y="3.5" width="11" height="9" rx="1.2" fill="rgba(255,255,255,0.15)" stroke="rgba(255,255,255,0.4)" strokeWidth="0.7"/>
-          <circle cx="5.5" cy="6" r="1.2" fill="#FFD60A"/>
-          <path d="M2.5 10.5l3-3 2 2.5 2-2 3 3" fill="none" stroke="#fff" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" opacity="0.9"/>
-        </svg>
-      );
-    default:
-      return (
-        <svg {...s} viewBox="0 0 16 16">
-          <path d="M3 2h7l3 3v9a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z" fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.2)" strokeWidth="0.8"/>
-          <path d="M10 2v3h3" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="0.8"/>
-          <rect x="4" y="8" width="6" height="0.9" rx="0.45" fill="rgba(255,255,255,0.3)"/>
-          <rect x="4" y="10" width="4.5" height="0.9" rx="0.45" fill="rgba(255,255,255,0.2)"/>
-          <rect x="4" y="12" width="5.5" height="0.9" rx="0.45" fill="rgba(255,255,255,0.2)"/>
-        </svg>
-      );
-  }
+
+  type Cfg = { bg: string; label: string; fg?: string };
+  const map: Record<string, Cfg> = {
+    javascript: { bg: "#C8961A", label: "JS",   fg: "#fff8e0" },
+    jsx:        { bg: "#1792B8", label: "JSX",  fg: "#fff" },
+    typescript: { bg: "#2362A4", label: "TS",   fg: "#fff" },
+    tsx:        { bg: "#1E518A", label: "TSX",  fg: "#61DAFB" },
+    python:     { bg: "#2E6AA6", label: "PY",   fg: "#FFD444" },
+    html:       { bg: "#C03A1C", label: "HTML", fg: "#fff" },
+    css:        { bg: "#1250A4", label: "CSS",  fg: "#fff" },
+    scss:       { bg: "#A0306A", label: "SCSS", fg: "#fff" },
+    json:       { bg: "#161B22", label: "{}",   fg: "#F0C040" },
+    markdown:   { bg: "#36485A", label: "MD",   fg: "#fff" },
+    go:         { bg: "#007898", label: "Go",   fg: "#fff" },
+    rust:       { bg: "#9E2818", label: "RS",   fg: "#fff" },
+    java:       { bg: "#C05808", label: "JAV",  fg: "#fff" },
+    cpp:        { bg: "#3E6888", label: "C++",  fg: "#fff" },
+    c:          { bg: "#3840A0", label: "C",    fg: "#fff" },
+    csharp:     { bg: "#5A1688", label: "C#",   fg: "#fff" },
+    ruby:       { bg: "#901820", label: "RB",   fg: "#fff" },
+    php:        { bg: "#585880", label: "PHP",  fg: "#fff" },
+    shell:      { bg: "#0a1410", label: "$_",   fg: "#3FB950" },
+    bash:       { bg: "#0a1410", label: "$_",   fg: "#3FB950" },
+    sql:        { bg: "#1A4870", label: "SQL",  fg: "#fff" },
+    yaml:       { bg: "#A81010", label: "YML",  fg: "#fff" },
+    vue:        { bg: "#1A5038", label: "VUE",  fg: "#42B883" },
+    svelte:     { bg: "#A82400", label: "SV",   fg: "#fff" },
+    dockerfile: { bg: "#0B4E9E", label: "DOC",  fg: "#fff" },
+    image:      { bg: "#602808", label: "IMG",  fg: "#fff" },
+  };
+
+  const { bg, label, fg = "#fff" } = map[language] ?? { bg: "#252D3A", label: "TXT", fg: "rgba(255,255,255,0.55)" };
+  const len = label.length;
+  const fontSize = len >= 4 ? 4.4 : len === 3 ? 5.5 : len === 1 ? 9 : 7;
+
+  return (
+    <svg {...s} viewBox="0 0 16 16">
+      <rect width="16" height="16" rx="3" fill={bg}/>
+      <rect width="16" height="5" rx="0" fill="rgba(255,255,255,0.06)" style={{ borderRadius: "3px 3px 0 0" }}/>
+      <text
+        x="8" y="11"
+        textAnchor="middle"
+        fontSize={fontSize}
+        fontWeight="700"
+        fill={fg}
+        fontFamily='"JetBrains Mono","Cascadia Code",monospace'
+        letterSpacing="-0.5"
+      >
+        {label}
+      </text>
+    </svg>
+  );
 }
 
 function detectLanguage(filename: string): string {

@@ -172,6 +172,7 @@ export function AIChatFloat({
   const [isSearchingImages, setIsSearchingImages] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
   const [planMode, setPlanMode] = useState(false);
+  const [selectedModel, setSelectedModel] = useState("gpt-4.1");
   const [attachedFile, setAttachedFile] = useState<{ name: string; content: string; mimeType: string } | null>(null);
   const [copiedMsgIdx, setCopiedMsgIdx] = useState<number | null>(null);
   const [hoveredMsgIdx, setHoveredMsgIdx] = useState<number | null>(null);
@@ -238,6 +239,9 @@ export function AIChatFloat({
   // Drag header handler
   const startDrag = useCallback((e: React.PointerEvent) => {
     if (isResizingRef.current) return;
+    // Don't start drag when clicking on buttons, inputs, selects or any interactive element
+    const target = e.target as HTMLElement;
+    if (target.closest('button, input, textarea, select, a, [role="button"], [tabindex]')) return;
     e.preventDefault();
     isDraggingRef.current = true;
     const startMouseX = e.clientX;
@@ -354,6 +358,7 @@ export function AIChatFloat({
           roomId,
           fileId,
           usePlan: planMode,
+          model: selectedModel,
           // Exclude image files (base64 is huge) and truncate content to keep payload small
           allFiles: files
             .filter((f) => f.language !== "image")
@@ -656,6 +661,24 @@ export function AIChatFloat({
                 </button>
               ))}
             </div>
+            {/* Model selector */}
+            <select
+              value={selectedModel}
+              onChange={(e) => setSelectedModel(e.target.value)}
+              title="Выбрать модель AI"
+              onPointerDown={(e) => e.stopPropagation()}
+              style={{
+                height: 24, padding: "0 6px", borderRadius: 7, fontSize: 10, fontWeight: 500,
+                background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)",
+                color: "rgba(255,255,255,0.55)", cursor: "pointer", outline: "none",
+                appearance: "none", WebkitAppearance: "none",
+              }}
+            >
+              <option value="gpt-4.1">GPT-4.1</option>
+              <option value="gpt-4o">GPT-4o</option>
+              <option value="gpt-4o-mini">GPT-4o mini</option>
+              <option value="o3-mini">o3-mini</option>
+            </select>
 
             <div
               style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: 4 }}
@@ -865,54 +888,7 @@ export function AIChatFloat({
                     <button onClick={() => setAttachedFile(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.3)", fontSize: 14, lineHeight: 1, padding: 0 }}>×</button>
                   </div>
                 )}
-                {/* Toolbar row */}
-                <div style={{ display: "flex", gap: 4, marginBottom: 6 }}>
-                  {/* Attach file button */}
-                  <button
-                    onClick={() => fileAttachRef.current?.click()}
-                    title="Прикрепить файл для AI"
-                    style={{
-                      height: 28, padding: "0 8px", borderRadius: 8,
-                      background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)",
-                      cursor: "pointer", color: "rgba(255,255,255,0.4)",
-                      display: "flex", alignItems: "center", gap: 4, fontSize: 11,
-                      transition: "all 0.15s",
-                    }}
-                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.09)"; (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.7)"; }}
-                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)"; (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.4)"; }}
-                  >
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
-                    </svg>
-                    <span>Файл</span>
-                  </button>
-                  {/* Plan mode toggle */}
-                  <button
-                    onClick={() => setPlanMode((p) => !p)}
-                    title={planMode ? "Режим плана включён" : "Включить режим плана"}
-                    style={{
-                      height: 28, padding: "0 8px", borderRadius: 8,
-                      background: planMode ? "rgba(210,168,255,0.12)" : "rgba(255,255,255,0.05)",
-                      border: `1px solid ${planMode ? "rgba(210,168,255,0.3)" : "rgba(255,255,255,0.08)"}`,
-                      cursor: "pointer", color: planMode ? "#D2A8FF" : "rgba(255,255,255,0.4)",
-                      display: "flex", alignItems: "center", gap: 4, fontSize: 11,
-                      transition: "all 0.15s",
-                    }}
-                  >
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <line x1="8" y1="6" x2="21" y2="6"/>
-                      <line x1="8" y1="12" x2="21" y2="12"/>
-                      <line x1="8" y1="18" x2="21" y2="18"/>
-                      <line x1="3" y1="6" x2="3.01" y2="6"/>
-                      <line x1="3" y1="12" x2="3.01" y2="12"/>
-                      <line x1="3" y1="18" x2="3.01" y2="18"/>
-                    </svg>
-                    <span>План</span>
-                    {planMode && (
-                      <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#D2A8FF", display: "inline-block" }} />
-                    )}
-                  </button>
-                </div>
+                {/* Main input row */}
                 <div style={{
                   display: "flex", gap: 8,
                   background: isChatLoading ? "rgba(88,166,255,0.04)" : "rgba(255,255,255,0.04)",
@@ -958,6 +934,51 @@ export function AIChatFloat({
                       <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
                     </svg>
                   </motion.button>
+                </div>
+                {/* Bottom toolbar: file attach icon + plan checkbox */}
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 6, paddingLeft: 2 }}>
+                  {/* Attach file — icon only */}
+                  <button
+                    onClick={() => fileAttachRef.current?.click()}
+                    title="Прикрепить файл"
+                    style={{
+                      width: 26, height: 26, borderRadius: 7,
+                      background: attachedFile ? "rgba(88,166,255,0.12)" : "rgba(255,255,255,0.05)",
+                      border: `1px solid ${attachedFile ? "rgba(88,166,255,0.3)" : "rgba(255,255,255,0.08)"}`,
+                      cursor: "pointer", color: attachedFile ? "#58A6FF" : "rgba(255,255,255,0.35)",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      transition: "all 0.15s", flexShrink: 0,
+                    }}
+                  >
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+                    </svg>
+                  </button>
+                  {/* Plan mode — checkbox + label */}
+                  <label
+                    style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer", userSelect: "none" }}
+                    title="Режим плана: AI сначала составит план, затем выполнит"
+                  >
+                    <div
+                      onClick={() => setPlanMode((p) => !p)}
+                      style={{
+                        width: 14, height: 14, borderRadius: 3, flexShrink: 0,
+                        border: `1.5px solid ${planMode ? "#D2A8FF" : "rgba(255,255,255,0.25)"}`,
+                        background: planMode ? "rgba(210,168,255,0.18)" : "transparent",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        transition: "all 0.15s",
+                      }}
+                    >
+                      {planMode && (
+                        <svg width="9" height="9" viewBox="0 0 10 10" fill="none">
+                          <path d="M1.5 5L4 7.5L8.5 2.5" stroke="#D2A8FF" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                      )}
+                    </div>
+                    <span style={{ fontSize: 11, color: planMode ? "#D2A8FF" : "rgba(255,255,255,0.35)", transition: "color 0.15s" }}>
+                      План
+                    </span>
+                  </label>
                 </div>
               </div>
             </>
