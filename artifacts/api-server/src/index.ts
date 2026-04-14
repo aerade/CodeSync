@@ -4,6 +4,7 @@ import app from "./app";
 import { logger } from "./lib/logger";
 import { setupWebSocketServer } from "./ws/collaborationServer";
 import { setupPtyServer } from "./ws/ptyServer";
+import { db } from "@workspace/db";
 
 const rawPort = process.env["PORT"];
 
@@ -17,6 +18,16 @@ const port = Number(rawPort);
 
 if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
+}
+
+// Run any pending DB migrations at startup
+async function runMigrations() {
+  try {
+    await db.execute(`ALTER TABLE rooms ADD COLUMN IF NOT EXISTS password text`);
+    logger.info("DB migrations applied");
+  } catch (err) {
+    logger.warn({ err }, "DB migration step failed (non-fatal)");
+  }
 }
 
 const httpServer = createServer(app);
@@ -40,13 +51,15 @@ httpServer.on("upgrade", (request, socket, head) => {
   }
 });
 
-httpServer.listen(port, (err?: Error) => {
-  if (err) {
-    logger.error({ err }, "Error listening on port");
-    process.exit(1);
-  }
+runMigrations().then(() => {
+  httpServer.listen(port, (err?: Error) => {
+    if (err) {
+      logger.error({ err }, "Error listening on port");
+      process.exit(1);
+    }
 
-  logger.info({ port }, "Server listening");
-  logger.info({ path: "/ws/rooms/:roomId/files/:fileId" }, "WebSocket server ready");
-  logger.info({ path: "/ws/pty" }, "PTY WebSocket server ready");
+    logger.info({ port }, "Server listening");
+    logger.info({ path: "/ws/rooms/:roomId/files/:fileId" }, "WebSocket server ready");
+    logger.info({ path: "/ws/pty" }, "PTY WebSocket server ready");
+  });
 });
