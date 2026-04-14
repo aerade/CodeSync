@@ -273,8 +273,32 @@ async function executeFileTool(toolName: string, args: Record<string, string>, r
       const name = args.name ?? "image.jpg";
       if (!url) return JSON.stringify({ error: "Параметр url обязателен" });
 
-      const imgResp = await fetch(url, { signal: AbortSignal.timeout(6000) });
-      if (!imgResp.ok) return JSON.stringify({ error: `Не удалось скачать: ${imgResp.status}. Пропусти это изображение и используй placeholder.` });
+      const imageHeaders = {
+        "User-Agent": randomUA(),
+        "Accept": "image/webp,image/apng,image/*,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Referer": new URL(url).origin + "/",
+        "Sec-Fetch-Dest": "image",
+        "Sec-Fetch-Mode": "no-cors",
+        "Sec-Fetch-Site": "cross-site",
+      };
+
+      let imgResp: Response | null = null;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          const headers = attempt === 0
+            ? imageHeaders
+            : { "User-Agent": UA_LIST[attempt % UA_LIST.length], "Accept": "image/*,*/*" };
+          imgResp = await fetch(url, { headers, signal: AbortSignal.timeout(8000) });
+          if (imgResp.ok) break;
+        } catch (_) {}
+        imgResp = null;
+      }
+
+      if (!imgResp || !imgResp.ok) {
+        const status = imgResp?.status ?? 0;
+        return JSON.stringify({ error: `Не удалось скачать изображение (${status}). Пропусти и используй placeholder.` });
+      }
       const contentType = imgResp.headers.get("content-type") ?? "image/jpeg";
       const buf = await imgResp.arrayBuffer();
       const base64 = Buffer.from(buf).toString("base64");
@@ -325,7 +349,7 @@ async function chatHandler(req: Request, res: Response): Promise<void> {
   const roomId = typeof body.roomId === "string" ? body.roomId : "";
   const usePlan = body.usePlan === true;
   const CLAUDE_MODELS = ["claude-sonnet-4-6", "claude-sonnet-4-5"];
-  const ALLOWED_MODELS = ["gpt-4.1", "o3", ...CLAUDE_MODELS];
+  const ALLOWED_MODELS = ["gpt-4.1", "o3", "gpt-4o", ...CLAUDE_MODELS];
   const requestedModel = typeof body.model === "string" ? body.model : "gpt-4.1";
   const selectedModel = ALLOWED_MODELS.includes(requestedModel) ? requestedModel : "gpt-4.1";
   const isClaudeModel = selectedModel.startsWith("claude-");

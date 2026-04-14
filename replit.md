@@ -20,7 +20,7 @@ pnpm workspace monorepo using TypeScript.
 - **Real-time**: Yjs CRDT + WebSocket
 - **Frontend**: React + Vite, Tailwind v4, Framer Motion
 - **Editor**: Monaco Editor (@monaco-editor/react)
-- **AI**: OpenAI gpt-4.1 via Replit AI Integrations (streaming SSE)
+- **AI**: OpenAI (gpt-4.1, o3, gpt-4o) + Anthropic Claude (claude-sonnet-4-6, claude-sonnet-4-5) via Replit AI Integrations (streaming SSE + tool_use)
 - **Code execution**: Piston API (free, 50+ languages)
 
 ## Project Structure
@@ -57,8 +57,8 @@ lib/
 - **Code execution**: Local execution (child_process) with auth + rate limiting, supports JS/TS/C/C++/Bash/HTML preview
 - **File tree**: Create/delete files and folders, drag-and-drop to move, context menus, Ctrl+click multi-select with bulk delete
 - **Guest mode**: Join rooms without account; can't create rooms. Proper error messages for restricted actions
-- **Session sidebar**: Online collaborators (240px panel), real-time room chat via WS `type:"chat"` with file attachment (any type up to 5MB), message actions (copy/reply/edit/delete), reply-with-quote, inline edit mode, file download button, animated message bubbles
-- **Room settings**: Left sidebar navigation (7 sections: Внешний вид, Редактор, Присутствие, Звук, Комната, Уведомления, Горячие клавиши), settings include fontSize, tabSize, wordWrap, autoSave, showMinimap, 4 sound types, notification preferences, keyboard shortcuts reference
+- **Session sidebar**: Online collaborators (240px panel), real-time room chat via WS `type:"chat"` with file attachment (any type up to 5MB), message actions (copy/reply/edit/delete), reply-with-quote, inline edit mode, file download button, animated message bubbles. No emoji/reactions.
+- **Room settings**: Left sidebar navigation (7 sections: Внешний вид, Редактор, Присутствие, Звук, Комната, Уведомления, Горячие клавиши). Owner "Комната" section: editable name/description, privacy toggle, maxUsers slider (1-5), password field. `rooms` table has `password` nullable text column.
 - **AI chat plan mode**: Toggle "Plan" button to make AI plan tasks step-by-step before executing; file attachment for AI (AI reads text/code files sent by user); copy button on all messages
 - **VS Code-style file icons**: Unique icons for JS, JSX, TS, TSX, Python, HTML, CSS, SCSS, JSON, Markdown, Go, Rust, Java, C/C++, C#, Ruby, PHP, Shell, SQL, YAML, Vue, Svelte, Dockerfile, Image
 - **WS chat events**: Server broadcasts `type:"chat"` with `messageId`, `fileAttachment`, `replyTo`; handles `chat_edit` and `chat_delete` broadcast to all room participants

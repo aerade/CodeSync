@@ -10,6 +10,7 @@ export const roomsTable = pgTable("rooms", {
   inviteCode: text("invite_code").notNull().unique(),
   ownerId: text("owner_id").notNull(),
   maxUsers: integer("max_users").notNull().default(5),
+  password: text("password"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

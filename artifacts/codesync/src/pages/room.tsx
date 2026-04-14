@@ -204,16 +204,19 @@ export default function RoomPage() {
   // isOwner comes from server (ownerId is DB user ID, not Clerk ID — server resolves it)
   const isOwner = !!(room && (room as { isOwner?: boolean }).isOwner);
 
-  // Track whether user explicitly closed a file — prevent auto-selection in that case
+  // Auto-select first file only on initial load (not when user closes a file)
+  const hasAutoSelectedRef = useRef(false);
   const userClosedFileRef = useRef(false);
 
   useEffect(() => {
-    if (files.length > 0 && !activeFileId && !userClosedFileRef.current) {
-      const first = files[0];
-      setActiveFileId(first.id);
-      setFileContent(first.content ?? "");
+    if (files.length > 0 && !hasAutoSelectedRef.current && !userClosedFileRef.current) {
+      hasAutoSelectedRef.current = true;
+      if (!activeFileId) {
+        setActiveFileId(files[0].id);
+        setFileContent(files[0].content ?? "");
+      }
     }
-  }, [files, activeFileId]);
+  }, [files]); // intentionally only re-runs on files change, not activeFileId
 
   // Broadcast file presence when active file changes
   useEffect(() => {
@@ -1284,16 +1287,6 @@ export default function RoomPage() {
               onSendMessage={sendChatMessage}
               onEditMessage={handleEditMessage}
               onDeleteMessage={handleDeleteMessage}
-              onReact={(messageId, emoji, remove) => {
-                if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
-                wsRef.current.send(JSON.stringify({
-                  type: "chat_reaction",
-                  messageId,
-                  emoji,
-                  userId: myUserIdRef.current,
-                  remove,
-                }));
-              }}
             />
           </motion.div>
         )}
@@ -1310,7 +1303,8 @@ export default function RoomPage() {
       roomTitle={(room as { title?: string })?.title ?? ""}
       roomDescription={(room as { description?: string })?.description ?? ""}
       roomIsPrivate={(room as { isPrivate?: boolean })?.isPrivate ?? false}
-      roomMaxUsers={(room as { maxUsers?: number })?.maxUsers ?? 20}
+      roomMaxUsers={Math.min(5, (room as { maxUsers?: number })?.maxUsers ?? 5)}
+      roomPassword={(room as { roomPassword?: string })?.roomPassword ?? ""}
     />
 
     {/* Mouse cursor overlays (fixed, full screen) — only show cursors in the same file */}

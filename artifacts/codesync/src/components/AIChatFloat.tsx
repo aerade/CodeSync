@@ -39,6 +39,7 @@ interface Props {
 const MODELS = [
   { id: "gpt-4.1",           label: "GPT-4.1",        badge: "Новый" },
   { id: "o3",                label: "o3",              badge: "Умный" },
+  { id: "gpt-4o",            label: "GPT-4o",          badge: "Быстрый" },
   { id: "claude-sonnet-4-6", label: "Claude Sonnet 4", badge: "Мощный" },
   { id: "claude-sonnet-4-5", label: "Claude Sonnet",   badge: "Стабильный" },
 ];

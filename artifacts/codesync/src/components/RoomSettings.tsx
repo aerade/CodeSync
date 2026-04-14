@@ -207,6 +207,7 @@ interface Props {
   roomDescription?: string;
   roomIsPrivate?: boolean;
   roomMaxUsers?: number;
+  roomPassword?: string;
 }
 
 function Toggle({ value, onChange, label, desc }: { value: boolean; onChange: (v: boolean) => void; label: string; desc?: string }) {
@@ -327,11 +328,13 @@ const SHORTCUTS = [
   { keys: ["Ctrl", "G"], desc: "Перейти к строке" },
 ];
 
-export function RoomSettings({ isOpen, onClose, settings, onChange, isOwner = false, roomId, roomTitle = "", roomDescription = "", roomIsPrivate = false, roomMaxUsers = 20 }: Props) {
+export function RoomSettings({ isOpen, onClose, settings, onChange, isOwner = false, roomId, roomTitle = "", roomDescription = "", roomIsPrivate = false, roomMaxUsers = 5, roomPassword = "" }: Props) {
   const [ownerTitle, setOwnerTitle] = useState(roomTitle);
   const [ownerDesc, setOwnerDesc] = useState(roomDescription);
   const [ownerPrivate, setOwnerPrivate] = useState(roomIsPrivate);
-  const [ownerMaxUsers, setOwnerMaxUsers] = useState(roomMaxUsers);
+  const [ownerMaxUsers, setOwnerMaxUsers] = useState(Math.min(5, Math.max(1, roomMaxUsers)));
+  const [ownerPassword, setOwnerPassword] = useState(roomPassword);
+  const [showPassword, setShowPassword] = useState(false);
   const [ownerSaving, setOwnerSaving] = useState(false);
   const [ownerSaved, setOwnerSaved] = useState(false);
   const [ownerError, setOwnerError] = useState<string | null>(null);
@@ -340,7 +343,8 @@ export function RoomSettings({ isOpen, onClose, settings, onChange, isOwner = fa
   useEffect(() => { setOwnerTitle(roomTitle); }, [roomTitle]);
   useEffect(() => { setOwnerDesc(roomDescription); }, [roomDescription]);
   useEffect(() => { setOwnerPrivate(roomIsPrivate); }, [roomIsPrivate]);
-  useEffect(() => { setOwnerMaxUsers(roomMaxUsers); }, [roomMaxUsers]);
+  useEffect(() => { setOwnerMaxUsers(Math.min(5, Math.max(1, roomMaxUsers))); }, [roomMaxUsers]);
+  useEffect(() => { setOwnerPassword(roomPassword); }, [roomPassword]);
 
   async function handleOwnerSave() {
     if (!roomId) return;
@@ -349,7 +353,7 @@ export function RoomSettings({ isOpen, onClose, settings, onChange, isOwner = fa
       const res = await fetch(`/api/rooms/${roomId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: ownerTitle, description: ownerDesc, isPrivate: ownerPrivate, maxUsers: ownerMaxUsers }),
+        body: JSON.stringify({ title: ownerTitle, description: ownerDesc, isPrivate: ownerPrivate, maxUsers: ownerMaxUsers, password: ownerPassword }),
       });
       if (!res.ok) { const d = await res.json(); throw new Error(d.error || "Ошибка сохранения"); }
       setOwnerSaved(true);
@@ -690,24 +694,52 @@ export function RoomSettings({ isOpen, onClose, settings, onChange, isOwner = fa
                                   onBlur={(e) => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)")}
                                 />
                               </div>
-                              {/* Max users */}
-                              <div style={{ marginBottom: 8 }}>
-                                <label style={{ fontSize: 11, color: "rgba(255,255,255,0.45)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", display: "block", marginBottom: 5 }}>Макс. участников</label>
-                                <input
-                                  type="number" min={1} max={100}
-                                  value={ownerMaxUsers}
-                                  onChange={(e) => setOwnerMaxUsers(Math.max(1, Math.min(100, parseInt(e.target.value) || 1)))}
-                                  style={{
-                                    width: 80, background: "rgba(255,255,255,0.04)",
-                                    border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8,
-                                    padding: "7px 10px", fontSize: 13, color: "#fff",
-                                    outline: "none",
-                                  }}
-                                  onFocus={(e) => (e.currentTarget.style.borderColor = "rgba(88,166,255,0.5)")}
-                                  onBlur={(e) => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)")}
-                                />
+                              {/* Max users slider */}
+                              <div style={{ marginBottom: 8, padding: "12px 14px", borderRadius: 10, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                                  <label style={{ fontSize: 13, color: "rgba(255,255,255,0.85)", fontWeight: 500 }}>Макс. участников</label>
+                                  <span style={{ fontSize: 12, fontWeight: 700, color: "#79C0FF", background: "rgba(88,166,255,0.1)", border: "1px solid rgba(88,166,255,0.2)", borderRadius: 6, padding: "1px 8px", fontFamily: "JetBrains Mono, monospace", minWidth: 24, textAlign: "center" }}>{ownerMaxUsers}</span>
+                                </div>
+                                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                  <span style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", fontFamily: "JetBrains Mono, monospace", minWidth: 10 }}>1</span>
+                                  <input
+                                    type="range" min={1} max={5} step={1}
+                                    value={ownerMaxUsers}
+                                    onChange={(e) => setOwnerMaxUsers(Number(e.target.value))}
+                                    style={{ flex: 1, accentColor: "#58A6FF", cursor: "pointer", height: 4 }}
+                                  />
+                                  <span style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", fontFamily: "JetBrains Mono, monospace", minWidth: 10 }}>5</span>
+                                </div>
+                                <div style={{ display: "flex", gap: 4, marginTop: 8 }}>
+                                  {[1,2,3,4,5].map((n) => (
+                                    <button key={n} onClick={() => setOwnerMaxUsers(n)} style={{ flex: 1, fontSize: 10, padding: "2px 0", borderRadius: 5, cursor: "pointer", fontFamily: "JetBrains Mono, monospace", background: ownerMaxUsers === n ? "rgba(88,166,255,0.15)" : "rgba(255,255,255,0.04)", border: `1px solid ${ownerMaxUsers === n ? "rgba(88,166,255,0.35)" : "rgba(255,255,255,0.08)"}`, color: ownerMaxUsers === n ? "#79C0FF" : "rgba(255,255,255,0.35)", fontWeight: ownerMaxUsers === n ? 700 : 400, transition: "all 0.12s" }}>{n}</button>
+                                  ))}
+                                </div>
                               </div>
-                              {/* Privt toggle */}
+                              {/* Password */}
+                              <div style={{ marginBottom: 8 }}>
+                                <label style={{ fontSize: 11, color: "rgba(255,255,255,0.45)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", display: "block", marginBottom: 5 }}>Пароль (необязательно)</label>
+                                <div style={{ position: "relative" }}>
+                                  <input
+                                    type={showPassword ? "text" : "password"}
+                                    value={ownerPassword}
+                                    onChange={(e) => setOwnerPassword(e.target.value)}
+                                    maxLength={64}
+                                    placeholder="Оставьте пустым, чтобы убрать пароль"
+                                    style={{ width: "100%", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "7px 36px 7px 10px", fontSize: 13, color: "#fff", outline: "none", boxSizing: "border-box", fontFamily: "JetBrains Mono, monospace" }}
+                                    onFocus={(e) => (e.currentTarget.style.borderColor = "rgba(88,166,255,0.5)")}
+                                    onBlur={(e) => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)")}
+                                  />
+                                  <button onClick={() => setShowPassword((v) => !v)} style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.35)", padding: 2, lineHeight: 0 }}>
+                                    {showPassword ? (
+                                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                                    ) : (
+                                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                    )}
+                                  </button>
+                                </div>
+                              </div>
+                              {/* Private toggle */}
                               <Toggle
                                 value={ownerPrivate}
                                 onChange={setOwnerPrivate}
