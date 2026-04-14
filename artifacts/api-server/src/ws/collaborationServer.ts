@@ -75,6 +75,25 @@ function getRoomKey(roomId: string, fileId: string): string {
   return `${roomId}:${fileId}`;
 }
 
+export function broadcastFileContent(roomId: string, fileId: string, newContent: string) {
+  const key = getRoomKey(roomId, fileId);
+  const fileRoom = fileRooms.get(key);
+  if (!fileRoom) return;
+  const yText = fileRoom.doc.getText("content");
+  fileRoom.doc.transact(() => {
+    yText.delete(0, yText.length);
+    yText.insert(0, newContent);
+  });
+  const update = Y.encodeStateAsUpdate(fileRoom.doc);
+  const encoded = btoa(String.fromCharCode(...update));
+  const msg = JSON.stringify({ type: "yjs-update", update: encoded });
+  for (const [client] of fileRoom.clients) {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(msg);
+    }
+  }
+}
+
 export function getActiveUserCountForRoom(roomId: string): number {
   const users = new Set<string>();
   for (const [key, fr] of fileRooms) {
@@ -121,64 +140,33 @@ function broadcastRoomAwareness(roomId: string) {
   }
 }
 
-// Assign a stable color per userId within a room so it doesn't change across file switches
-const roomUserColors = new Map<string, string>(); // `${roomId}:${userId}` -> color
+const roomUserColors = new Map<string, string>();
 
 function getStableColor(roomId: string, userId: string): string {
   const key = `${roomId}:${userId}`;
-  if (!roomUserColors.has(key)) {
-    // Count distinct users in this room to pick the next color
-    let count = 0;
-    for (const k of roomUserColors.keys()) {
-      if (k.startsWith(`${roomId}:`)) count++;
-    }
-    roomUserColors.set(key, getColor(count));
-  }
-  return roomUserColors.get(key)!;
+  if (roomUserColors.has(key)) return roomUserColors.get(key)!;
+  const color = getColor(roomUserColors.size);
+  roomUserColors.set(key, color);
+  return color;
 }
 
-/**
- * Forcefully update the content of an active file room's Yjs doc and
- * broadcast the new state to all connected clients. Called by the restore
- * API endpoint so that live collaborators immediately see the restored content.
- */
-export function broadcastFileContent(roomId: string, fileId: string, content: string): void {
-  const key = getRoomKey(roomId, fileId);
-  const fileRoom = fileRooms.get(key);
-  if (!fileRoom) return;
-
-  const yText = fileRoom.doc.getText("content");
-  fileRoom.doc.transact(() => {
-    yText.delete(0, yText.length);
-    yText.insert(0, content);
-  });
-
-  const update = Y.encodeStateAsUpdate(fileRoom.doc);
-  const encoded = btoa(String.fromCharCode(...update));
-  fileRoom.broadcastJSON({ type: "yjs-update", update: encoded });
-}
-
-async function loadYjsSnapshot(roomId: string, fileId: string, doc: Y.Doc): Promise<void> {
+async function loadYjsSnapshot(roomId: string, fileId: string, doc: Y.Doc) {
   try {
-    const snapshot = await db.query.yjsSnapshotsTable.findFirst({
+    const snap = await db.query.yjsSnapshotsTable.findFirst({
       where: and(
         eq(yjsSnapshotsTable.roomId, roomId),
         eq(yjsSnapshotsTable.fileId, fileId)
       ),
     });
 
-    if (snapshot?.data) {
-      const bytes = Uint8Array.from(atob(snapshot.data), (c) => c.charCodeAt(0));
+    if (snap?.data) {
+      const bytes = Uint8Array.from(atob(snap.data), (c) => c.charCodeAt(0));
       Y.applyUpdate(doc, bytes);
     } else {
-      const file = await db.query.filesTable.findFirst({
-        where: eq(filesTable.id, fileId),
-      });
+      const file = await db.query.filesTable.findFirst({ where: eq(filesTable.id, fileId) });
       if (file?.content) {
         const yText = doc.getText("content");
-        doc.transact(() => {
-          yText.insert(0, file.content);
-        });
+        yText.insert(0, file.content);
       }
     }
   } catch (err) {
@@ -186,19 +174,19 @@ async function loadYjsSnapshot(roomId: string, fileId: string, doc: Y.Doc): Prom
   }
 }
 
-async function saveYjsSnapshot(roomId: string, fileId: string, doc: Y.Doc): Promise<void> {
+async function saveYjsSnapshot(roomId: string, fileId: string, doc: Y.Doc) {
   try {
     const update = Y.encodeStateAsUpdate(doc);
     const data = btoa(String.fromCharCode(...update));
     const content = doc.getText("content").toString();
 
     await db.transaction(async (tx) => {
-      const existing = await tx.query.yjsSnapshotsTable.findFirst({
-        where: and(
-          eq(yjsSnapshotsTable.roomId, roomId),
-          eq(yjsSnapshotsTable.fileId, fileId)
-        ),
-      });
+      const existing = await tx.query.yjsSnapshotsTable.findFirst(
+        { where: and(
+            eq(yjsSnapshotsTable.roomId, roomId),
+            eq(yjsSnapshotsTable.fileId, fileId)
+          ),
+        });
 
       if (existing) {
         await tx.update(yjsSnapshotsTable)
@@ -220,6 +208,19 @@ async function saveYjsSnapshot(roomId: string, fileId: string, doc: Y.Doc): Prom
   }
 }
 
+interface ChatFileAttachment {
+  name: string;
+  size: number;
+  mimeType: string;
+  dataUrl: string;
+}
+
+interface ReplyInfo {
+  id: string;
+  username: string;
+  content: string;
+}
+
 interface WsMessage {
   type: string;
   update?: string;
@@ -227,6 +228,10 @@ interface WsMessage {
   position?: { lineNumber: number; column: number };
   message?: string;
   imageDataUrl?: string;
+  fileAttachment?: ChatFileAttachment;
+  replyTo?: ReplyInfo;
+  messageId?: string;
+  editedContent?: string;
   mouseX?: number;
   mouseY?: number;
   activeFileId?: string;
@@ -271,8 +276,6 @@ export function setupWebSocketServer(wss: WebSocketServer) {
       return;
     }
 
-    // Consume the token (one-time use for this connection)
-    // Keep it alive for reconnects — remove after connection closes instead
     const { userId, username } = tokenData;
 
     // --- Verify fileId belongs to roomId ---
@@ -382,11 +385,9 @@ export function setupWebSocketServer(wss: WebSocketServer) {
       }
 
       if (msg.type === "yjs-update" && msg.update) {
-        // Guests are read-only observers — ignore document edits from them
         if (collaborator.isGuest) return;
         const bytes = Uint8Array.from(atob(msg.update), (c) => c.charCodeAt(0));
         Y.applyUpdate(fileRoom.doc, bytes);
-        // Broadcast to all other peers
         fileRoom.broadcastJSON({ type: "yjs-update", update: msg.update }, ws);
         scheduleSave(key, roomId, fileId, fileRoom.doc);
       } else if (msg.type === "awareness") {
@@ -406,7 +407,6 @@ export function setupWebSocketServer(wss: WebSocketServer) {
       } else if (msg.type === "mouse-cursor") {
         const info = fileRoom.clients.get(ws);
         if (info) {
-          // Update activeFileId on this collaborator info object
           if (msg.activeFileId) info.activeFileId = msg.activeFileId;
           const mouseMsg = JSON.stringify({
             type: "mouse-cursor",
@@ -418,7 +418,6 @@ export function setupWebSocketServer(wss: WebSocketServer) {
             activeFileId: info.activeFileId,
             isTyping: msg.activeFileId === fileId,
           });
-          // Broadcast to all users in the room across all file-rooms
           for (const [rKey, fr] of fileRooms) {
             if (!rKey.startsWith(`${roomId}:`)) continue;
             for (const [client, clientInfo] of fr.clients) {
@@ -437,21 +436,59 @@ export function setupWebSocketServer(wss: WebSocketServer) {
       } else if (msg.type === "chat" && msg.message) {
         const info = fileRoom.clients.get(ws);
         if (info) {
+          const messageId = `msg_${Date.now()}_${info.userId.slice(0, 8)}`;
           const chatMsg = {
             type: "chat",
+            messageId,
             userId: info.userId,
             username: info.username,
             color: info.color,
             message: msg.message,
             imageDataUrl: msg.imageDataUrl,
+            fileAttachment: msg.fileAttachment,
+            replyTo: msg.replyTo,
             timestamp: Date.now(),
           };
-          // Broadcast to all clients in all file-rooms for this room (including sender)
           for (const [rKey, fr] of fileRooms) {
             if (!rKey.startsWith(`${roomId}:`)) continue;
             for (const [client] of fr.clients) {
               if (client.readyState === WebSocket.OPEN) {
                 client.send(JSON.stringify(chatMsg));
+              }
+            }
+          }
+        }
+      } else if (msg.type === "chat_edit" && msg.messageId && msg.editedContent !== undefined) {
+        const info = fileRoom.clients.get(ws);
+        if (info) {
+          const editMsg = {
+            type: "chat_edit",
+            messageId: msg.messageId,
+            userId: info.userId,
+            editedContent: msg.editedContent,
+          };
+          for (const [rKey, fr] of fileRooms) {
+            if (!rKey.startsWith(`${roomId}:`)) continue;
+            for (const [client] of fr.clients) {
+              if (client.readyState === WebSocket.OPEN) {
+                client.send(JSON.stringify(editMsg));
+              }
+            }
+          }
+        }
+      } else if (msg.type === "chat_delete" && msg.messageId) {
+        const info = fileRoom.clients.get(ws);
+        if (info) {
+          const deleteMsg = {
+            type: "chat_delete",
+            messageId: msg.messageId,
+            userId: info.userId,
+          };
+          for (const [rKey, fr] of fileRooms) {
+            if (!rKey.startsWith(`${roomId}:`)) continue;
+            for (const [client] of fr.clients) {
+              if (client.readyState === WebSocket.OPEN) {
+                client.send(JSON.stringify(deleteMsg));
               }
             }
           }
@@ -463,10 +500,8 @@ export function setupWebSocketServer(wss: WebSocketServer) {
       if (!fileRoom) return;
       fileRoom.clients.delete(ws);
       fileRoom.awareness.delete(ws);
-      // Remove the used token on disconnect
       collabTokens.delete(collabToken);
 
-      // Clean up stable color only if user has no more connections in the room
       const userStillInRoom = [...fileRooms.entries()].some(
         ([k, fr]) => k.startsWith(`${roomId}:`) && [...fr.clients.values()].some((i) => i.userId === userId)
       );
@@ -474,7 +509,6 @@ export function setupWebSocketServer(wss: WebSocketServer) {
         roomUserColors.delete(`${roomId}:${userId}`);
       }
 
-      // Broadcast updated participant list to everyone remaining in the room
       broadcastRoomAwareness(roomId);
 
       if (fileRoom.clients.size === 0) {

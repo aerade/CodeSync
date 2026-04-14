@@ -37,6 +37,19 @@ interface CollabCursorInfo {
   column: number;
 }
 
+interface ChatFileAttachment {
+  name: string;
+  size: number;
+  mimeType: string;
+  dataUrl: string;
+}
+
+interface ChatReplyInfo {
+  id: string;
+  username: string;
+  content: string;
+}
+
 interface WSMessage {
   type: string;
   update?: string;
@@ -53,7 +66,11 @@ interface WSMessage {
   color?: string;
   position?: { lineNumber: number; column: number };
   message?: string;
+  messageId?: string;
   imageDataUrl?: string;
+  fileAttachment?: ChatFileAttachment;
+  replyTo?: ChatReplyInfo;
+  editedContent?: string;
   timestamp?: number;
   mouseX?: number;
   mouseY?: number;
@@ -405,16 +422,26 @@ export default function RoomPage() {
               setChatMessages((prev) => [
                 ...prev,
                 {
-                  id: `chat_${msg.timestamp ?? Date.now()}_${msg.userId}`,
+                  id: msg.messageId ?? `chat_${msg.timestamp ?? Date.now()}_${msg.userId}`,
                   userId: msg.userId!,
                   username: msg.username ?? "Аноним",
                   color: msg.color ?? "#58A6FF",
                   content: msg.message!,
                   imageDataUrl: msg.imageDataUrl,
+                  fileAttachment: msg.fileAttachment,
+                  replyTo: msg.replyTo,
                   timestamp: msg.timestamp ?? Date.now(),
                 },
               ]);
             }
+          } else if (msg.type === "chat_edit" && msg.messageId && msg.editedContent !== undefined) {
+            setChatMessages((prev) => prev.map((m) =>
+              m.id === msg.messageId
+                ? { ...m, content: msg.editedContent!, edited: true }
+                : m
+            ));
+          } else if (msg.type === "chat_delete" && msg.messageId) {
+            setChatMessages((prev) => prev.filter((m) => m.id !== msg.messageId));
           } else if (msg.type === "mouse-cursor" && msg.userId) {
             setMouseCursors((prev) => ({
               ...prev,
@@ -548,9 +575,25 @@ export default function RoomPage() {
     });
   };
 
-  function sendChatMessage(content: string, imageDataUrl?: string) {
+  function sendChatMessage(content: string, imageDataUrl?: string, fileAttachment?: ChatFileAttachment, replyTo?: ChatReplyInfo) {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ type: "chat", message: content, imageDataUrl }));
+      wsRef.current.send(JSON.stringify({ type: "chat", message: content, imageDataUrl, fileAttachment, replyTo }));
+    }
+  }
+
+  function handleEditMessage(messageId: string, newContent: string) {
+    setChatMessages((prev) => prev.map((m) =>
+      m.id === messageId ? { ...m, content: newContent, edited: true } : m
+    ));
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: "chat_edit", messageId, editedContent: newContent }));
+    }
+  }
+
+  function handleDeleteMessage(messageId: string) {
+    setChatMessages((prev) => prev.filter((m) => m.id !== messageId));
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: "chat_delete", messageId }));
     }
   }
 
@@ -745,9 +788,9 @@ export default function RoomPage() {
             title="Настройки комнаты"
             data-testid="btn-room-settings"
           >
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="3"/>
-              <path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14M12 2v2m0 16v2m8-10h2M2 12H0m17.66-5.66L19.07 4.93M4.93 19.07l-1.41 1.41m0-14.14L4.93 4.93m14.14 14.14-1.41 1.41"/>
+            <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M10 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"/>
+              <path d="M16.9 10a6.9 6.9 0 0 1-.07.93l2.02 1.58a.48.48 0 0 1 .12.62l-1.92 3.32a.48.48 0 0 1-.58.21l-2.39-.96a6.88 6.88 0 0 1-1.61.93l-.36 2.54a.47.47 0 0 1-.47.4H8.36a.47.47 0 0 1-.47-.4l-.36-2.54a6.88 6.88 0 0 1-1.61-.93l-2.39.96a.48.48 0 0 1-.58-.21L1.03 13.13a.47.47 0 0 1 .12-.62l2.02-1.58A6.94 6.94 0 0 1 3.1 10c0-.31.02-.62.07-.93L1.15 7.49a.48.48 0 0 1-.12-.62l1.92-3.32a.48.48 0 0 1 .58-.21l2.39.96a6.88 6.88 0 0 1 1.61-.93L7.89.83a.47.47 0 0 1 .47-.4h3.28c.23 0 .43.16.47.4l.36 2.54c.57.23 1.1.54 1.61.93l2.39-.96a.48.48 0 0 1 .58.21l1.92 3.32a.47.47 0 0 1-.12.62L16.83 9.07c.05.31.07.62.07.93z"/>
             </svg>
             <span>Настройки</span>
           </button>
@@ -1106,6 +1149,8 @@ export default function RoomPage() {
               chatMessages={chatMessages}
               myUserId={myUserIdRef.current}
               onSendMessage={sendChatMessage}
+              onEditMessage={handleEditMessage}
+              onDeleteMessage={handleDeleteMessage}
             />
           </motion.div>
         )}

@@ -322,6 +322,7 @@ async function chatHandler(req: Request, res: Response): Promise<void> {
   const context = typeof body.context === "string" ? body.context : "";
   const language = typeof body.language === "string" ? body.language : "code";
   const roomId = typeof body.roomId === "string" ? body.roomId : "";
+  const usePlan = body.usePlan === true;
 
   // Parallel access check
   const [accessResult, roomFilesResult] = await Promise.all([
@@ -350,6 +351,17 @@ async function chatHandler(req: Request, res: Response): Promise<void> {
     fileContextStr = `\n\nФайлы в комнате:\n${roomFilesResult.map((f) => `- ${f.name} (id: ${f.id}, ${f.language}${f.isFolder ? ", папка" : ""})`).join("\n")}`;
   }
 
+  const planModeInstructions = usePlan ? `
+
+## Режим планирования (Plan Mode)
+Ты работаешь в режиме планирования. Перед тем как приступить к любой задаче:
+1. Разбей задачу на чёткие шаги (нумерованный список)
+2. Объясни что именно будет изменено/создано в каждом шаге
+3. Укажи какие файлы будут затронуты
+4. Только после показа плана и явного подтверждения пользователя — выполняй инструменты
+5. Если задача проста (1 шаг) — можно выполнять сразу, без отдельного плана
+Используй формат: "**Шаг N:** описание" для каждого пункта плана.` : "";
+
   const systemPrompt = `Ты — AI-ассистент для разработчиков в среде CodeSync (онлайн IDE).
 Отвечай на русском языке. Помогай с написанием, объяснением и дебаггингом кода.
 Ты можешь создавать, редактировать и удалять файлы в комнате с помощью инструментов.
@@ -360,7 +372,7 @@ async function chatHandler(req: Request, res: Response): Promise<void> {
 - Используй download_image для скачивания — изображения автоматически попадут в папку images/
 - В HTML-коде используй имя файла: <img src="images/hero.jpg">
 - При создании сайтов с картинками — сначала скачай нужные, потом пиши HTML
-${context ? `\nТекущий файл (${language}):\n\`\`\`${language}\n${context}\n\`\`\`` : ""}${fileContextStr}`;
+${context ? `\nТекущий файл (${language}):\n\`\`\`${language}\n${context}\n\`\`\`` : ""}${fileContextStr}${planModeInstructions}`;
 
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");

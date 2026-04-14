@@ -171,6 +171,11 @@ export function AIChatFloat({
   const [imageResults, setImageResults] = useState<ImageResult[]>([]);
   const [isSearchingImages, setIsSearchingImages] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
+  const [planMode, setPlanMode] = useState(false);
+  const [attachedFile, setAttachedFile] = useState<{ name: string; content: string; mimeType: string } | null>(null);
+  const [copiedMsgIdx, setCopiedMsgIdx] = useState<number | null>(null);
+  const [hoveredMsgIdx, setHoveredMsgIdx] = useState<number | null>(null);
+  const fileAttachRef = useRef<HTMLInputElement>(null);
 
   // Panel position and size for drag/resize
   const [panelPos, setPanelPos] = useState({ x: 0, y: 0 });
@@ -299,9 +304,31 @@ export function AIChatFloat({
     return h;
   }
 
+  function handleAttachFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      alert("Файл слишком большой (макс. 5 МБ)");
+      e.target.value = "";
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const content = ev.target?.result as string ?? "";
+      setAttachedFile({ name: file.name, content, mimeType: file.type || "text/plain" });
+    };
+    reader.readAsText(file);
+    e.target.value = "";
+  }
+
   async function sendChat() {
     if (!chatInput.trim() || isChatLoading) return;
-    const userMsg = chatInput.trim();
+    let userMsg = chatInput.trim();
+    const fileToSend = attachedFile;
+    if (fileToSend) {
+      userMsg = `[Файл: ${fileToSend.name}]\n\`\`\`\n${fileToSend.content.slice(0, 8000)}\n\`\`\`\n\n${userMsg}`;
+      setAttachedFile(null);
+    }
     setChatInput("");
     setMessages((prev) => [...prev, { role: "user", content: userMsg }]);
     setIsChatLoading(true);
@@ -326,6 +353,7 @@ export function AIChatFloat({
           language,
           roomId,
           fileId,
+          usePlan: planMode,
           // Exclude image files (base64 is huge) and truncate content to keep payload small
           allFiles: files
             .filter((f) => f.language !== "image")
@@ -724,7 +752,11 @@ export function AIChatFloat({
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.18 }}
                   >
-                    <div style={{ display: "flex", justifyContent: msg.role === "user" ? "flex-end" : "flex-start", alignItems: "flex-start", gap: 8 }}>
+                    <div
+                      style={{ display: "flex", justifyContent: msg.role === "user" ? "flex-end" : "flex-start", alignItems: "flex-start", gap: 8, position: "relative" }}
+                      onMouseEnter={() => setHoveredMsgIdx(i)}
+                      onMouseLeave={() => setHoveredMsgIdx(null)}
+                    >
                       {msg.role === "assistant" && (
                         <div style={{
                           width: 22, height: 22, borderRadius: 7, flexShrink: 0, marginTop: 2,
@@ -744,20 +776,38 @@ export function AIChatFloat({
                           </svg>
                         </div>
                       )}
-                      <div
-                        className="ai-prose"
-                        style={{
-                          maxWidth: "83%",
-                          borderRadius: msg.role === "user" ? "12px 12px 4px 12px" : "4px 12px 12px 12px",
-                          padding: "8px 12px", fontSize: 12, lineHeight: 1.65,
-                          background: msg.role === "user"
-                            ? "linear-gradient(135deg, rgba(88,166,255,0.18), rgba(88,166,255,0.1))"
-                            : "rgba(255,255,255,0.04)",
-                          border: `1px solid ${msg.role === "user" ? "rgba(88,166,255,0.3)" : "rgba(255,255,255,0.08)"}`,
-                          color: "#E6EDF3",
-                        }}
-                      >
-                        <SafeMarkdown text={msg.content} />
+                      <div style={{ maxWidth: "83%", display: "flex", flexDirection: "column", gap: 4, alignItems: msg.role === "user" ? "flex-end" : "flex-start" }}>
+                        <div
+                          className="ai-prose"
+                          style={{
+                            borderRadius: msg.role === "user" ? "12px 12px 4px 12px" : "4px 12px 12px 12px",
+                            padding: "8px 12px", fontSize: 12, lineHeight: 1.65,
+                            background: msg.role === "user"
+                              ? "linear-gradient(135deg, rgba(88,166,255,0.18), rgba(88,166,255,0.1))"
+                              : "rgba(255,255,255,0.04)",
+                            border: `1px solid ${msg.role === "user" ? "rgba(88,166,255,0.3)" : "rgba(255,255,255,0.08)"}`,
+                            color: "#E6EDF3",
+                          }}
+                        >
+                          <SafeMarkdown text={msg.content} />
+                        </div>
+                        {hoveredMsgIdx === i && (
+                          <button
+                            onClick={() => {
+                              void navigator.clipboard.writeText(msg.content);
+                              setCopiedMsgIdx(i);
+                              setTimeout(() => setCopiedMsgIdx(null), 1500);
+                            }}
+                            style={{
+                              background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)",
+                              borderRadius: 6, padding: "2px 8px", fontSize: 10,
+                              color: copiedMsgIdx === i ? "#3FB950" : "rgba(255,255,255,0.4)",
+                              cursor: "pointer", transition: "all 0.12s",
+                            }}
+                          >
+                            {copiedMsgIdx === i ? "✓ Скопировано" : "⎘ Копировать"}
+                          </button>
+                        )}
                       </div>
                     </div>
                   </motion.div>
@@ -794,6 +844,75 @@ export function AIChatFloat({
 
               {/* Input area */}
               <div style={{ padding: "8px 12px 12px", flexShrink: 0, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+                <input
+                  ref={fileAttachRef}
+                  type="file"
+                  accept="text/*,.json,.md,.yaml,.yml,.ts,.tsx,.js,.jsx,.py,.go,.rs,.java,.cpp,.c,.cs,.rb,.php,.sql,.sh"
+                  style={{ display: "none" }}
+                  onChange={handleAttachFile}
+                />
+                {/* Attached file chip */}
+                {attachedFile && (
+                  <div style={{
+                    display: "flex", alignItems: "center", gap: 6, marginBottom: 6,
+                    padding: "4px 8px", borderRadius: 8,
+                    background: "rgba(88,166,255,0.08)", border: "1px solid rgba(88,166,255,0.2)",
+                  }}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#58A6FF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+                    </svg>
+                    <span style={{ fontSize: 11, color: "#58A6FF", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{attachedFile.name}</span>
+                    <button onClick={() => setAttachedFile(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.3)", fontSize: 14, lineHeight: 1, padding: 0 }}>×</button>
+                  </div>
+                )}
+                {/* Toolbar row */}
+                <div style={{ display: "flex", gap: 4, marginBottom: 6 }}>
+                  {/* Attach file button */}
+                  <button
+                    onClick={() => fileAttachRef.current?.click()}
+                    title="Прикрепить файл для AI"
+                    style={{
+                      height: 28, padding: "0 8px", borderRadius: 8,
+                      background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)",
+                      cursor: "pointer", color: "rgba(255,255,255,0.4)",
+                      display: "flex", alignItems: "center", gap: 4, fontSize: 11,
+                      transition: "all 0.15s",
+                    }}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.09)"; (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.7)"; }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)"; (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.4)"; }}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+                    </svg>
+                    <span>Файл</span>
+                  </button>
+                  {/* Plan mode toggle */}
+                  <button
+                    onClick={() => setPlanMode((p) => !p)}
+                    title={planMode ? "Режим плана включён" : "Включить режим плана"}
+                    style={{
+                      height: 28, padding: "0 8px", borderRadius: 8,
+                      background: planMode ? "rgba(210,168,255,0.12)" : "rgba(255,255,255,0.05)",
+                      border: `1px solid ${planMode ? "rgba(210,168,255,0.3)" : "rgba(255,255,255,0.08)"}`,
+                      cursor: "pointer", color: planMode ? "#D2A8FF" : "rgba(255,255,255,0.4)",
+                      display: "flex", alignItems: "center", gap: 4, fontSize: 11,
+                      transition: "all 0.15s",
+                    }}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="8" y1="6" x2="21" y2="6"/>
+                      <line x1="8" y1="12" x2="21" y2="12"/>
+                      <line x1="8" y1="18" x2="21" y2="18"/>
+                      <line x1="3" y1="6" x2="3.01" y2="6"/>
+                      <line x1="3" y1="12" x2="3.01" y2="12"/>
+                      <line x1="3" y1="18" x2="3.01" y2="18"/>
+                    </svg>
+                    <span>План</span>
+                    {planMode && (
+                      <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#D2A8FF", display: "inline-block" }} />
+                    )}
+                  </button>
+                </div>
                 <div style={{
                   display: "flex", gap: 8,
                   background: isChatLoading ? "rgba(88,166,255,0.04)" : "rgba(255,255,255,0.04)",
@@ -807,7 +926,7 @@ export function AIChatFloat({
                     value={chatInput}
                     onChange={(e) => setChatInput(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    placeholder={isChatLoading ? "AI пишет..." : "Спросить AI..."}
+                    placeholder={isChatLoading ? "AI пишет..." : planMode ? "Описать задачу для плана..." : "Спросить AI..."}
                     rows={1}
                     style={{
                       flex: 1, background: "transparent", border: "none", outline: "none",
@@ -825,7 +944,7 @@ export function AIChatFloat({
                     style={{
                       width: 34, height: 34, borderRadius: 10,
                       background: chatInput.trim() && !isChatLoading
-                        ? "linear-gradient(135deg, #58A6FF, #3FB950)"
+                        ? planMode ? "linear-gradient(135deg, #D2A8FF, #8957e5)" : "linear-gradient(135deg, #58A6FF, #3FB950)"
                         : "rgba(255,255,255,0.06)",
                       border: "none",
                       cursor: chatInput.trim() && !isChatLoading ? "pointer" : "default",
