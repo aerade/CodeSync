@@ -429,6 +429,8 @@ export function AIChatFloat({
       setMessages((prev) => [...prev, { role: "assistant", content: message }]);
     } finally {
       setIsChatLoading(false);
+      // Auto-exit plan mode after AI responds: plan was shown, now ready to act
+      if (planMode) setPlanMode(false);
     }
   }
 

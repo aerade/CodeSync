@@ -94,46 +94,36 @@ roomsRouter.get("/rooms", async (req, res) => {
   const { search } = req.query as { search?: string };
   const user = await resolveUser(req);
 
-  const publicRooms = await db.query.roomsTable.findMany({
-    where: search
-      ? and(eq(roomsTable.isPrivate, false), ilike(roomsTable.title, `%${search}%`))
-      : eq(roomsTable.isPrivate, false),
+  // Fetch all rooms (public + all private — we'll control visibility per-room below)
+  const allRooms = await db.query.roomsTable.findMany({
+    where: search ? ilike(roomsTable.title, `%${search}%`) : undefined,
     orderBy: [desc(roomsTable.createdAt)],
-    limit: 50,
+    limit: 100,
   });
 
-  let privateRooms: typeof publicRooms = [];
+  // Determine which private rooms the current user is a member of
+  let memberRoomIds = new Set<string>();
   if (user) {
     const memberRows = await db.query.roomMembersTable.findMany({
       where: eq(roomMembersTable.userId, user.userId),
     });
-    const memberRoomIds = memberRows.map((m) => m.roomId);
-    if (memberRoomIds.length > 0) {
-      const allMemberRooms = await db.query.roomsTable.findMany({
-        where: and(
-          eq(roomsTable.isPrivate, true),
-          ...(search ? [ilike(roomsTable.title, `%${search}%`)] : [])
-        ),
-        orderBy: [desc(roomsTable.createdAt)],
-      });
-      privateRooms = allMemberRooms.filter((r) => memberRoomIds.includes(r.id));
-    }
+    memberRoomIds = new Set(memberRows.map((m) => m.roomId));
   }
 
-  const allRooms = [...privateRooms, ...publicRooms];
-  const seen = new Set<string>();
-  const uniqueRooms = allRooms.filter((r) => {
-    if (seen.has(r.id)) return false;
-    seen.add(r.id);
-    return true;
+  const roomsWithCounts = allRooms.map((room) => {
+    const isJoined = !room.isPrivate || memberRoomIds.has(room.id);
+    const isOwner = user ? room.ownerId === user.userId : false;
+    return {
+      ...room,
+      // Hide invite code for private rooms the user hasn't joined (show null)
+      inviteCode: room.isPrivate && !isJoined ? null : room.inviteCode,
+      memberCount: getActiveUserCountForRoom(room.id),
+      createdAt: room.createdAt.toISOString(),
+      updatedAt: room.updatedAt.toISOString(),
+      isJoined,
+      isOwner,
+    };
   });
-
-  const roomsWithCounts = uniqueRooms.map((room) => ({
-    ...room,
-    memberCount: getActiveUserCountForRoom(room.id),
-    createdAt: room.createdAt.toISOString(),
-    updatedAt: room.updatedAt.toISOString(),
-  }));
 
   return res.json(roomsWithCounts);
 });

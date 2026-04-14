@@ -253,10 +253,12 @@ interface Room {
   title: string;
   description?: string | null;
   isPrivate: boolean;
-  inviteCode: string;
+  inviteCode: string | null;
   memberCount: number;
   maxUsers: number;
   createdAt: string;
+  isJoined?: boolean;
+  isOwner?: boolean;
 }
 
 // Deterministic accent color from room id
@@ -307,6 +309,7 @@ function MiniCodeLines({ seed }: { seed: string }) {
 function RoomCard({ room, onOpen, onDelete }: { room: Room; onOpen: () => void; onDelete: () => void }) {
   const accent = roomAccent(room.id);
   const isActive = room.memberCount > 0;
+  const isLocked = room.isPrivate && room.isJoined === false;
 
   return (
     <motion.div
@@ -447,7 +450,7 @@ function RoomCard({ room, onOpen, onDelete }: { room: Room; onOpen: () => void; 
               </span>
             </div>
 
-            {/* Invite code */}
+            {/* Invite code — blurred for locked rooms */}
             <div style={{
               fontSize: 10, fontFamily: "JetBrains Mono, monospace",
               padding: "2px 7px", borderRadius: 5,
@@ -455,26 +458,37 @@ function RoomCard({ room, onOpen, onDelete }: { room: Room; onOpen: () => void; 
               border: "1px solid rgba(255,255,255,0.06)",
               color: "rgba(255,255,255,0.22)",
               letterSpacing: "0.1em",
+              filter: isLocked ? "blur(4px)" : "none",
+              userSelect: isLocked ? "none" : "auto",
+              transition: "filter 0.2s",
             }}>
-              {room.inviteCode}
+              {isLocked ? "XXXXXXXX" : (room.inviteCode ?? "—")}
             </div>
           </div>
 
           <motion.button
-            onClick={onOpen}
-            whileHover={{ scale: 1.04 }}
-            whileTap={{ scale: 0.96 }}
+            onClick={isLocked ? undefined : onOpen}
+            whileHover={isLocked ? {} : { scale: 1.04 }}
+            whileTap={isLocked ? {} : { scale: 0.96 }}
             data-testid={`btn-open-room-${room.id}`}
             style={{
               padding: "5px 14px", borderRadius: 8,
-              background: accent.bg,
-              border: `1px solid ${accent.color}40`,
-              color: accent.color,
-              fontSize: 12, fontWeight: 600, cursor: "pointer",
+              background: isLocked ? "rgba(255,255,255,0.04)" : accent.bg,
+              border: isLocked ? "1px solid rgba(255,255,255,0.1)" : `1px solid ${accent.color}40`,
+              color: isLocked ? "rgba(255,255,255,0.3)" : accent.color,
+              fontSize: 12, fontWeight: 600, cursor: isLocked ? "default" : "pointer",
+              display: "flex", alignItems: "center", gap: 5,
               transition: "all 0.15s",
             }}
           >
-            Открыть →
+            {isLocked ? (
+              <>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                </svg>
+                Закрыто
+              </>
+            ) : "Открыть →"}
           </motion.button>
         </div>
       </div>

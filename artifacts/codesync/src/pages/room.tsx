@@ -35,6 +35,7 @@ interface CollabCursorInfo {
   color: string;
   lineNumber: number;
   column: number;
+  activeFileId?: string;
 }
 
 interface ChatFileAttachment {
@@ -276,6 +277,22 @@ export default function RoomPage() {
     return map;
   }, [connectedMembers]);
 
+  // Auto-select a different file when the active file is deleted
+  useEffect(() => {
+    if (!activeFileId) return;
+    if (files.length === 0) {
+      setActiveFileId(null);
+      setFileContent("");
+      return;
+    }
+    const stillExists = files.some((f) => f.id === activeFileId);
+    if (!stillExists) {
+      const next = files[0];
+      setActiveFileId(next.id);
+      setFileContent(next.content ?? "");
+    }
+  }, [files, activeFileId]);
+
   // Update collaborator cursor decorations
   useEffect(() => {
     if (!editorRef.current || !monacoRef.current) return;
@@ -283,7 +300,7 @@ export default function RoomPage() {
     const monaco = monacoRef.current;
 
     const newDecorations: MonacoType.editor.IModelDeltaDecoration[] = settings.showEditorCursors
-      ? cursors.map((c) => ({
+      ? cursors.filter((c) => c.activeFileId === activeFileId || !c.activeFileId).map((c) => ({
           range: new monaco.Range(c.lineNumber, c.column, c.lineNumber, c.column + 1),
           options: {
             afterContentClassName: "collab-cursor",
@@ -389,10 +406,15 @@ export default function RoomPage() {
             const text = yText.toString();
             if (editorRef.current) {
               const editor = editorRef.current;
-              const position = editor.getPosition();
-              // Keep isRemoteUpdate true while setValue runs so onChange doesn't re-emit
-              editor.setValue(text);
-              if (position) editor.setPosition(position);
+              const model = editor.getModel();
+              if (model) {
+                const currentVal = model.getValue();
+                if (currentVal !== text) {
+                  // Use executeEdits so undo stack and cursor are preserved
+                  const fullRange = model.getFullModelRange();
+                  editor.executeEdits("remote-yjs", [{ range: fullRange, text }]);
+                }
+              }
               setFileContent(text);
             }
             isRemoteUpdate.current = false;
@@ -417,6 +439,7 @@ export default function RoomPage() {
                   color: msg.color ?? "#58A6FF",
                   lineNumber: msg.position.lineNumber,
                   column: msg.position.column,
+                  activeFileId: msg.activeFileId,
                 });
               }
               return next;
@@ -497,9 +520,18 @@ export default function RoomPage() {
 
       // Only update Yjs and broadcast if content actually changed
       if (currentText !== text) {
+        // Compute minimal diff: find shared prefix and suffix, only mutate the changed region
+        let start = 0;
+        while (start < currentText.length && start < text.length && currentText[start] === text[start]) start++;
+        let endOld = currentText.length;
+        let endNew = text.length;
+        while (endOld > start && endNew > start && currentText[endOld - 1] === text[endNew - 1]) {
+          endOld--;
+          endNew--;
+        }
         ydoc.transact(() => {
-          yText.delete(0, yText.length);
-          yText.insert(0, text);
+          if (endOld > start) yText.delete(start, endOld - start);
+          if (endNew > start) yText.insert(start, text.slice(start, endNew));
         });
 
         const update = Y.encodeStateAsUpdate(ydoc);
@@ -542,6 +574,7 @@ export default function RoomPage() {
         wsRef.current.send(JSON.stringify({
           type: "cursor",
           position: { lineNumber: e.position.lineNumber, column: e.position.column },
+          activeFileId: activeFileIdRef.current,
         }));
         wsRef.current.send(JSON.stringify({ type: "awareness", state: { cursor: null } }));
       }
@@ -868,6 +901,17 @@ export default function RoomPage() {
                 });
               }}
               onFilesChange={() => { void refetchFiles(); }}
+              onLeaveFile={() => {
+                // Move to next available file, or clear if none
+                const others = files.filter((f) => !f.isFolder && f.id !== activeFileId);
+                if (others.length > 0) {
+                  setActiveFileId(others[0].id);
+                  setFileContent(others[0].content ?? "");
+                } else {
+                  setActiveFileId(null);
+                  setFileContent("");
+                }
+              }}
               isReadOnly={isGuest}
             />
           </motion.div>
@@ -1226,8 +1270,8 @@ export default function RoomPage() {
       onChange={setSettings}
     />
 
-    {/* Mouse cursor overlays (fixed, full screen) */}
-    {settings.showMouseCursors && Object.values(mouseCursors).map((mc) => (
+    {/* Mouse cursor overlays (fixed, full screen) — only show cursors in the same file */}
+    {settings.showMouseCursors && Object.values(mouseCursors).filter((mc) => !mc.activeFileId || mc.activeFileId === activeFileId).map((mc) => (
       <div
         key={mc.userId}
         className="pointer-events-none"

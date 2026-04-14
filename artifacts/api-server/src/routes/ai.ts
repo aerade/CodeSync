@@ -272,8 +272,8 @@ async function executeFileTool(toolName: string, args: Record<string, string>, r
       const name = args.name ?? "image.jpg";
       if (!url) return JSON.stringify({ error: "Параметр url обязателен" });
 
-      const imgResp = await fetch(url, { signal: AbortSignal.timeout(15000) });
-      if (!imgResp.ok) return JSON.stringify({ error: `Не удалось скачать: ${imgResp.status}` });
+      const imgResp = await fetch(url, { signal: AbortSignal.timeout(6000) });
+      if (!imgResp.ok) return JSON.stringify({ error: `Не удалось скачать: ${imgResp.status}. Пропусти это изображение и используй placeholder.` });
       const contentType = imgResp.headers.get("content-type") ?? "image/jpeg";
       const buf = await imgResp.arrayBuffer();
       const base64 = Buffer.from(buf).toString("base64");
@@ -368,13 +368,20 @@ async function chatHandler(req: Request, res: Response): Promise<void> {
   const systemPrompt = `Ты — AI-ассистент для разработчиков в среде CodeSync (онлайн IDE).
 Отвечай на русском языке. Помогай с написанием, объяснением и дебаггингом кода.
 Ты можешь создавать, редактировать и удалять файлы в комнате с помощью инструментов.
-Если пользователь просит создать, изменить или удалить файл — используй соответствующий инструмент.
+
+ВАЖНО — правила работы с файлами:
+- Когда нужно создать или изменить файл — СРАЗУ вызывай инструмент (create_file или edit_file). НЕ пиши код в чат перед этим.
+- После вызова инструмента кратко объясни что сделал (1-2 предложения), но не дублируй весь код в сообщение.
+- Если файлов несколько — создавай их последовательно, по одному инструменту за раз.
+- Не объясняй что "собираешься сделать" — просто делай.
 
 Для работы с изображениями:
 - Используй search_images для поиска (запрос лучше на английском)
 - Используй download_image для скачивания — изображения автоматически попадут в папку images/
+- Если download_image не удался (ошибка или недоступен URL) — пропусти это изображение и напиши placeholder в HTML
 - В HTML-коде используй имя файла: <img src="images/hero.jpg">
-- При создании сайтов с картинками — сначала скачай нужные, потом пиши HTML
+- При создании сайтов с картинками — сначала скачай нужные (максимум 3-4 штуки), потом создавай HTML
+- Не пытайся скачать одно и то же изображение повторно если первый раз не получилось
 ${context ? `\nТекущий файл (${language}):\n\`\`\`${language}\n${context}\n\`\`\`` : ""}${fileContextStr}${planModeInstructions}`;
 
   res.setHeader("Content-Type", "text/event-stream");

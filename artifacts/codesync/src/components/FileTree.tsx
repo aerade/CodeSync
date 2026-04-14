@@ -132,6 +132,7 @@ interface Props {
   showFilePresence?: boolean;
   onFileSelect: (file: FileItem) => void;
   onFilesChange: () => void;
+  onLeaveFile?: () => void;
   isReadOnly?: boolean;
 }
 
@@ -139,7 +140,7 @@ interface ContextMenuState {
   x: number; y: number; fileId: string; fileName: string; isFolder: boolean;
 }
 
-export function FileTree({ roomId, files, activeFileId, fileStats = {}, userPresence = {}, showFilePresence = true, onFileSelect, onFilesChange, isReadOnly = false }: Props) {
+export function FileTree({ roomId, files, activeFileId, fileStats = {}, userPresence = {}, showFilePresence = true, onFileSelect, onFilesChange, onLeaveFile, isReadOnly = false }: Props) {
   const qc = useQueryClient();
   const createFile = useCreateFile();
   const deleteFile = useDeleteFile();
@@ -401,6 +402,9 @@ export function FileTree({ roomId, files, activeFileId, fileStats = {}, userPres
           ? "rgba(88,166,255,0.18)"
           : "transparent";
 
+    const presenceUsers = (showFilePresence && !isRenaming && userPresence[file.id]) ? userPresence[file.id] : [];
+    const borderColor = presenceUsers.length > 0 ? presenceUsers[0].color : undefined;
+
     return (
       <motion.div
         key={file.id}
@@ -418,7 +422,8 @@ export function FileTree({ roomId, files, activeFileId, fileStats = {}, userPres
           cursor: "pointer", borderRadius: selRadius,
           background: bg,
           border: "none",
-          transition: "background 0.1s",
+          borderLeft: borderColor ? `2px solid ${borderColor}` : "2px solid transparent",
+          transition: "background 0.1s, border-left-color 0.2s",
           marginBottom: nextHighlighted ? 0 : 1,
         }}
         onMouseEnter={(e) => { if (!isHighlighted) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)"; }}
@@ -442,21 +447,50 @@ export function FileTree({ roomId, files, activeFileId, fileStats = {}, userPres
             {file.name}
           </span>
         )}
-        {/* User presence dots */}
-        {showFilePresence && !isRenaming && userPresence[file.id] && userPresence[file.id].length > 0 && (
+        {/* User presence badges — colored name chips */}
+        {presenceUsers.length > 0 && (
           <span style={{ display: "flex", gap: 2, alignItems: "center", flexShrink: 0 }}>
-            {userPresence[file.id].slice(0, 3).map((u) => (
+            {presenceUsers.slice(0, 2).map((u) => (
               <span
                 key={u.userId}
                 title={u.username}
                 style={{
-                  width: 6, height: 6, borderRadius: "50%",
-                  background: u.color, flexShrink: 0,
-                  boxShadow: `0 0 4px ${u.color}60`,
+                  fontSize: 8, fontWeight: 700, fontFamily: "system-ui, sans-serif",
+                  padding: "1px 4px", borderRadius: 3,
+                  background: u.color + "28",
+                  border: `1px solid ${u.color}60`,
+                  color: u.color,
+                  lineHeight: 1.5,
+                  whiteSpace: "nowrap",
+                  maxWidth: 36, overflow: "hidden", textOverflow: "ellipsis",
                 }}
-              />
+              >
+                {u.username.split(" ")[0].slice(0, 5)}
+              </span>
             ))}
+            {presenceUsers.length > 2 && (
+              <span style={{ fontSize: 8, color: "rgba(255,255,255,0.3)" }}>+{presenceUsers.length - 2}</span>
+            )}
           </span>
+        )}
+        {/* Close button for the active file */}
+        {isActive && !isRenaming && onLeaveFile && (
+          <button
+            title="Закрыть файл"
+            onClick={(e) => { e.stopPropagation(); onLeaveFile(); }}
+            style={{
+              background: "none", border: "none", cursor: "pointer",
+              color: "rgba(255,255,255,0.25)", padding: "1px 2px",
+              lineHeight: 1, flexShrink: 0, borderRadius: 3,
+              display: "flex", alignItems: "center",
+            }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.7)"; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.25)"; }}
+          >
+            <svg width="9" height="9" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <line x1="2" y1="2" x2="8" y2="8"/><line x1="8" y1="2" x2="2" y2="8"/>
+            </svg>
+          </button>
         )}
         {/* AI edit stats indicator */}
         {!isRenaming && fileStats[file.id] && (
