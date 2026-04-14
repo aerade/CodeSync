@@ -349,36 +349,29 @@ export function RoomSettings({ isOpen, onClose, settings, onChange }: Props) {
               exit={{ opacity: 0, scale: 0.96, y: 8 }}
               transition={{ type: "spring", stiffness: 380, damping: 32 }}
               style={{
-                width: 720, maxHeight: "85vh",
-                background: "#0D1117",
+                width: 720, height: 500,
+                background: "#080A0E",
                 border: "1px solid rgba(255,255,255,0.07)",
                 borderRadius: 18,
-                boxShadow: "0 32px 96px rgba(0,0,0,0.95), 0 0 0 1px rgba(88,166,255,0.05)",
+                boxShadow: "0 32px 96px rgba(0,0,0,0.95)",
                 display: "flex", flexDirection: "column",
                 overflow: "hidden",
                 pointerEvents: "all",
               }}
             >
-              {/* Top glow line */}
-              <div style={{
-                position: "absolute", top: 0, left: "10%", right: "10%", height: 1,
-                background: "linear-gradient(90deg, transparent, rgba(88,166,255,0.4), transparent)",
-                pointerEvents: "none",
-              }} />
-
               {/* Header */}
               <div style={{
                 padding: "16px 20px 14px",
-                borderBottom: "1px solid rgba(255,255,255,0.07)",
+                borderBottom: "1px solid rgba(255,255,255,0.06)",
                 display: "flex", alignItems: "center", gap: 10, flexShrink: 0,
               }}>
                 <div style={{
                   width: 32, height: 32, borderRadius: 10,
-                  background: "rgba(88,166,255,0.1)",
-                  border: "1px solid rgba(88,166,255,0.2)",
+                  background: "rgba(255,255,255,0.05)",
+                  border: "1px solid rgba(255,255,255,0.08)",
                   display: "flex", alignItems: "center", justifyContent: "center",
                 }}>
-                  <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="#58A6FF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M10 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"/>
                     <path d="M16.9 10a6.9 6.9 0 0 1-.07.93l2.02 1.58a.48.48 0 0 1 .12.62l-1.92 3.32a.48.48 0 0 1-.58.21l-2.39-.96a6.88 6.88 0 0 1-1.61.93l-.36 2.54a.47.47 0 0 1-.47.4H8.36a.47.47 0 0 1-.47-.4l-.36-2.54a6.88 6.88 0 0 1-1.61-.93l-2.39.96a.48.48 0 0 1-.58-.21L1.03 13.13a.47.47 0 0 1 .12-.62l2.02-1.58A6.94 6.94 0 0 1 3.1 10c0-.31.02-.62.07-.93L1.15 7.49a.48.48 0 0 1-.12-.62l1.92-3.32a.48.48 0 0 1 .58-.21l2.39.96a6.88 6.88 0 0 1 1.61-.93L7.89.83a.47.47 0 0 1 .47-.4h3.28c.23 0 .43.16.47.4l.36 2.54c.57.23 1.1.54 1.61.93l2.39-.96a.48.48 0 0 1 .58.21l1.92 3.32a.47.47 0 0 1-.12.62L16.83 9.07c.05.31.07.62.07.93z"/>
                   </svg>
@@ -404,8 +397,8 @@ export function RoomSettings({ isOpen, onClose, settings, onChange }: Props) {
                 {/* Left sidebar navigation */}
                 <div style={{
                   width: 180, flexShrink: 0,
-                  borderRight: "1px solid rgba(255,255,255,0.06)",
-                  background: "rgba(0,0,0,0.35)",
+                  borderRight: "1px solid rgba(255,255,255,0.05)",
+                  background: "rgba(0,0,0,0.5)",
                   padding: "10px 8px",
                   display: "flex", flexDirection: "column", gap: 2,
                   overflowY: "auto",

@@ -4,10 +4,8 @@ import ReactDOM from "react-dom";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-const MIN_W = 340;
-const MIN_H = 320;
-const DEFAULT_W = 480;
-const DEFAULT_H = 560;
+const PANEL_W = 480;
+const PANEL_H = 560;
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -18,14 +16,6 @@ interface ToolCallInfo {
   name: string;
   args: Record<string, unknown>;
   result: { success?: boolean; name?: string; error?: string; fileId?: string };
-}
-
-interface ImageResult {
-  id: string;
-  thumb: string;
-  full: string;
-  description: string;
-  photographer: string;
 }
 
 interface Props {
@@ -45,17 +35,22 @@ interface Props {
   onAiStats?: (stats: Record<string, { added: number; removed: number }>) => void;
 }
 
+const MODELS = [
+  { id: "gpt-4.1",      label: "GPT-4.1",      badge: "Новый" },
+  { id: "gpt-4o",       label: "GPT-4o",        badge: null },
+  { id: "gpt-4o-mini",  label: "GPT-4o mini",   badge: "Быстрый" },
+  { id: "o3-mini",      label: "o3-mini",        badge: "Рассуждение" },
+];
+
 function playDoneSound() {
   try {
     const settingsRaw = localStorage.getItem("codesync_room_settings");
     const s = settingsRaw ? JSON.parse(settingsRaw) as { soundEnabled?: boolean; soundType?: string } : {};
     if (s.soundEnabled === false) return;
     const type = s.soundType ?? "chime";
-
     const ctx = new AudioContext();
     const now = ctx.currentTime;
     const vol = 0.15;
-
     if (type === "chime") {
       [880, 1100].forEach((freq, i) => {
         const osc = ctx.createOscillator(); const gain = ctx.createGain();
@@ -156,6 +151,8 @@ function SafeMarkdown({ text }: { text: string }) {
   );
 }
 
+type AiContextMenu = { x: number; y: number; idx: number } | null;
+
 export function AIChatFloat({
   roomId, fileId, fileContent, language, fileName, files = [],
   onFilesChanged, onContentRestored, onShowAiDiff, onClearAiDiff, onFileStream,
@@ -166,55 +163,32 @@ export function AIChatFloat({
   const [chatInput, setChatInput] = useState("");
   const [isChatLoading, setIsChatLoading] = useState(false);
   const [flashToast, setFlashToast] = useState<{ text: string; ok: boolean } | null>(null);
-  const [activeTab, setActiveTab] = useState<"chat" | "images">("chat");
-  const [imageQuery, setImageQuery] = useState("");
-  const [imageResults, setImageResults] = useState<ImageResult[]>([]);
-  const [isSearchingImages, setIsSearchingImages] = useState(false);
-  const [imageError, setImageError] = useState<string | null>(null);
   const [planMode, setPlanMode] = useState(false);
   const [selectedModel, setSelectedModel] = useState("gpt-4.1");
+  const [modelMenuOpen, setModelMenuOpen] = useState(false);
   const [attachedFile, setAttachedFile] = useState<{ name: string; content: string; mimeType: string } | null>(null);
   const [copiedMsgIdx, setCopiedMsgIdx] = useState<number | null>(null);
-  const [hoveredMsgIdx, setHoveredMsgIdx] = useState<number | null>(null);
-  const fileAttachRef = useRef<HTMLInputElement>(null);
-
-  // Panel position and size for drag/resize
-  const [panelPos, setPanelPos] = useState({ x: 0, y: 0 });
-  const [panelSize, setPanelSize] = useState({ w: DEFAULT_W, h: DEFAULT_H });
-  const posInitRef = useRef(false);
-  const isDraggingRef = useRef(false);
-  const isResizingRef = useRef(false);
+  const [aiContextMenu, setAiContextMenu] = useState<AiContextMenu>(null);
 
   const chatEndRef = useRef<HTMLDivElement>(null);
   const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const imageInputRef = useRef<HTMLInputElement>(null);
+  const fileAttachRef = useRef<HTMLInputElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
-
-  // Initialize panel position when first opened
-  useEffect(() => {
-    if (isOpen && !posInitRef.current) {
-      posInitRef.current = true;
-      setPanelPos({
-        x: Math.max(8, (window.innerWidth - panelSize.w) / 2),
-        y: Math.max(8, window.innerHeight - 76 - panelSize.h),
-      });
-    }
-  }, [isOpen, panelSize.w, panelSize.h]);
+  const modelMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isChatLoading]);
 
   useEffect(() => {
-    if (isOpen && activeTab === "chat") setTimeout(() => inputRef.current?.focus(), 200);
-  }, [isOpen, activeTab]);
+    if (isOpen) setTimeout(() => inputRef.current?.focus(), 200);
+  }, [isOpen]);
 
   useEffect(() => {
     if (prefillInput) {
       setChatInput(prefillInput);
       setIsOpen(true);
-      setActiveTab("chat");
       onPrefillUsed?.();
       setTimeout(() => {
         if (inputRef.current) {
@@ -224,6 +198,33 @@ export function AIChatFloat({
       }, 250);
     }
   }, [prefillInput]);
+
+  // Close model menu on outside click
+  useEffect(() => {
+    if (!modelMenuOpen) return;
+    function handler(e: MouseEvent) {
+      if (modelMenuRef.current && !modelMenuRef.current.contains(e.target as Node)) {
+        setModelMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [modelMenuOpen]);
+
+  // Close AI context menu
+  useEffect(() => {
+    if (!aiContextMenu) return;
+    function handler(e: MouseEvent | KeyboardEvent) {
+      if (e instanceof KeyboardEvent && e.key !== "Escape") return;
+      setAiContextMenu(null);
+    }
+    document.addEventListener("mousedown", handler);
+    document.addEventListener("keydown", handler);
+    return () => {
+      document.removeEventListener("mousedown", handler);
+      document.removeEventListener("keydown", handler);
+    };
+  }, [aiContextMenu]);
 
   function showFlash(text: string, ok: boolean) {
     if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
@@ -236,71 +237,6 @@ export function AIChatFloat({
     abortControllerRef.current?.abort();
   }, []);
 
-  // Drag header handler
-  const startDrag = useCallback((e: React.PointerEvent) => {
-    if (isResizingRef.current) return;
-    // Don't start drag when clicking on buttons, inputs, selects or any interactive element
-    const target = e.target as HTMLElement;
-    if (target.closest('button, input, textarea, select, a, [role="button"], [tabindex]')) return;
-    e.preventDefault();
-    isDraggingRef.current = true;
-    const startMouseX = e.clientX;
-    const startMouseY = e.clientY;
-    const startX = panelPos.x;
-    const startY = panelPos.y;
-
-    document.body.style.cursor = "move";
-    document.body.style.userSelect = "none";
-
-    function onMove(ev: PointerEvent) {
-      if (!isDraggingRef.current) return;
-      setPanelPos({
-        x: Math.max(0, Math.min(window.innerWidth - MIN_W, startX + ev.clientX - startMouseX)),
-        y: Math.max(0, Math.min(window.innerHeight - 60, startY + ev.clientY - startMouseY)),
-      });
-    }
-    function onUp() {
-      isDraggingRef.current = false;
-      document.body.style.cursor = "";
-      document.body.style.userSelect = "";
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
-    }
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp);
-  }, [panelPos]);
-
-  // Resize SE corner handler
-  function startResizeSE(e: React.MouseEvent) {
-    e.preventDefault();
-    e.stopPropagation();
-    isResizingRef.current = true;
-    const startX = e.clientX;
-    const startY = e.clientY;
-    const startW = panelSize.w;
-    const startH = panelSize.h;
-
-    document.body.style.cursor = "nwse-resize";
-    document.body.style.userSelect = "none";
-
-    function onMove(ev: MouseEvent) {
-      if (!isResizingRef.current) return;
-      setPanelSize({
-        w: Math.max(MIN_W, Math.min(window.innerWidth - panelPos.x - 8, startW + ev.clientX - startX)),
-        h: Math.max(MIN_H, Math.min(window.innerHeight - panelPos.y - 8, startH + ev.clientY - startY)),
-      });
-    }
-    function onUp() {
-      isResizingRef.current = false;
-      document.body.style.cursor = "";
-      document.body.style.userSelect = "";
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
-    }
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
-  }
-
   function getHeaders(): Record<string, string> {
     const h: Record<string, string> = { "Content-Type": "application/json" };
     const guestToken = localStorage.getItem("codesync_guest_token");
@@ -311,11 +247,7 @@ export function AIChatFloat({
   function handleAttachFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) {
-      alert("Файл слишком большой (макс. 5 МБ)");
-      e.target.value = "";
-      return;
-    }
+    if (file.size > 5 * 1024 * 1024) { alert("Файл слишком большой (макс. 5 МБ)"); e.target.value = ""; return; }
     const reader = new FileReader();
     reader.onload = (ev) => {
       const content = ev.target?.result as string ?? "";
@@ -338,7 +270,6 @@ export function AIChatFloat({
     setIsChatLoading(true);
     onClearAiDiff?.();
 
-    // Cancel any previous request
     abortControllerRef.current?.abort();
     const abort = new AbortController();
     abortControllerRef.current = abort;
@@ -359,24 +290,15 @@ export function AIChatFloat({
           fileId,
           usePlan: planMode,
           model: selectedModel,
-          // Exclude image files (base64 is huge) and truncate content to keep payload small
           allFiles: files
             .filter((f) => f.language !== "image")
-            .map((f) => ({
-              id: f.id,
-              name: f.name,
-              language: f.language,
-              content: (f.content ?? "").slice(0, 4000),
-            })),
+            .map((f) => ({ id: f.id, name: f.name, language: f.language, content: (f.content ?? "").slice(0, 4000) })),
         }),
       });
 
       if (!resp.ok) {
         let errText = `Ошибка ${resp.status}`;
-        try {
-          const errData = await resp.json() as { error?: string };
-          if (errData.error) errText = errData.error;
-        } catch (_) {}
+        try { const d = await resp.json() as { error?: string }; if (d.error) errText = d.error; } catch (_) {}
         throw new Error(errText);
       }
 
@@ -388,7 +310,6 @@ export function AIChatFloat({
       let editedFileId: string | null = null;
       let editedNewContent: string | null = null;
       let hadToolCalls = false;
-
       const opCounts = { create: 0, edit: 0, delete: 0, search: 0, download: 0 };
       const statsAcc: Record<string, { added: number; removed: number }> = {};
 
@@ -398,7 +319,6 @@ export function AIChatFloat({
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split("\n");
         buffer = lines.pop() ?? "";
-
         for (const line of lines) {
           if (!line.startsWith("data: ")) continue;
           const data = line.slice(6).trim();
@@ -410,17 +330,14 @@ export function AIChatFloat({
               toolCall?: ToolCallInfo;
               fileStream?: { toolName: string; fileId?: string; fileName?: string; content: string; done?: boolean };
             };
-
             if (parsed.fileStream) {
               const fs = parsed.fileStream;
               onFileStream?.(fs.fileId ?? null, fs.fileName ?? null, fs.content);
             }
-
             if (parsed.toolCall) {
               hadToolCalls = true;
               const tc = parsed.toolCall;
               onFilesChanged?.();
-
               if (tc.result?.success) {
                 if (tc.name === "create_file") {
                   opCounts.create++;
@@ -438,17 +355,10 @@ export function AIChatFloat({
                   newLines.forEach((l, i) => { if (l !== oldLines[i]) added++; });
                   oldLines.forEach((l, i) => { if (l !== newLines[i]) removed++; });
                   if (editedId) statsAcc[editedId] = { added, removed };
-                } else if (tc.name === "delete_file") {
-                  opCounts.delete++;
-                } else if (tc.name === "search_images") {
-                  opCounts.search++;
-                } else if (tc.name === "download_image") {
-                  opCounts.download++;
-                }
+                } else if (tc.name === "delete_file") { opCounts.delete++; }
               } else if (tc.result && !tc.result.success) {
                 showFlash(tc.result?.error ?? tc.name, false);
               }
-
               if (tc.name === "create_file" && tc.result?.success && tc.result?.fileId) {
                 onFileStream?.(tc.result.fileId, tc.result.name ?? null, (tc.args.content as string | undefined) ?? "");
               }
@@ -457,7 +367,6 @@ export function AIChatFloat({
                 editedNewContent = (tc.args.content as string | undefined) ?? null;
               }
             }
-
             if (parsed.content) {
               if (!addedAssistant) {
                 setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
@@ -475,16 +384,13 @@ export function AIChatFloat({
       }
 
       if (Object.keys(statsAcc).length > 0) onAiStats?.(statsAcc);
-
       if (editedFileId && editedNewContent !== null && fileId === editedFileId) {
         onContentRestored?.(editedNewContent);
         onShowAiDiff?.(contentBeforeEdit, editedNewContent);
       }
-
       if (!addedAssistant && !hadToolCalls) {
         setMessages((prev) => [...prev, { role: "assistant", content: "Готово!" }]);
       }
-
       playDoneSound();
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") return;
@@ -495,44 +401,6 @@ export function AIChatFloat({
     }
   }
 
-  async function searchImages() {
-    const q = imageQuery.trim();
-    if (!q || isSearchingImages) return;
-    setIsSearchingImages(true);
-    setImageError(null);
-    setImageResults([]);
-    try {
-      const resp = await fetch(`${basePath}/api/images/search?q=${encodeURIComponent(q)}`, {
-        headers: getHeaders(),
-      });
-      if (!resp.ok) throw new Error(`Ошибка ${resp.status}`);
-      const data = await resp.json() as { results?: ImageResult[]; error?: string };
-      if (data.error) throw new Error(data.error);
-      setImageResults(data.results ?? []);
-    } catch (err) {
-      setImageError(err instanceof Error ? err.message : "Ошибка поиска");
-    } finally {
-      setIsSearchingImages(false);
-    }
-  }
-
-  async function addImageToProject(img: ImageResult) {
-    try {
-      const resp = await fetch(`${basePath}/api/images/import`, {
-        method: "POST",
-        headers: getHeaders(),
-        body: JSON.stringify({ roomId, url: img.full, name: `image_${img.id}.jpg` }),
-      });
-      if (!resp.ok) throw new Error(`Ошибка ${resp.status}`);
-      const data = await resp.json() as { name?: string; error?: string };
-      if (data.error) throw new Error(data.error);
-      showFlash(`Добавил: ${data.name}`, true);
-      onFilesChanged?.();
-    } catch (err) {
-      showFlash(err instanceof Error ? err.message : "Ошибка", false);
-    }
-  }
-
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -540,34 +408,125 @@ export function AIChatFloat({
     }
   }
 
-  // Flash toast positioned via portal at panel's input area top
+  function stopGeneration() {
+    abortControllerRef.current?.abort();
+    setIsChatLoading(false);
+  }
+
+  function handleMsgContextMenu(e: React.MouseEvent, idx: number) {
+    e.preventDefault();
+    setAiContextMenu({ x: e.clientX, y: e.clientY, idx });
+  }
+
+  const currentModelLabel = MODELS.find((m) => m.id === selectedModel)?.label ?? selectedModel;
+
+  // Flash toast portal
   const flashToastEl = flashToast
     ? ReactDOM.createPortal(
-        <AnimatePresence>
-          {flashToast && (
-            <motion.div
-              key="flash"
-              initial={{ opacity: 0, y: 6, scale: 0.92 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 4, scale: 0.95 }}
+        <motion.div
+          key="flash"
+          initial={{ opacity: 0, y: 6, scale: 0.92 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: 4, scale: 0.95 }}
+          style={{
+            position: "fixed",
+            bottom: PANEL_H + 16,
+            right: 24,
+            background: flashToast.ok ? "rgba(22,38,22,0.97)" : "rgba(38,22,22,0.97)",
+            border: `1px solid ${flashToast.ok ? "rgba(63,185,80,0.5)" : "rgba(255,123,114,0.5)"}`,
+            color: flashToast.ok ? "#3FB950" : "#FF7B72",
+            borderRadius: 10, padding: "6px 16px", fontSize: 12,
+            whiteSpace: "nowrap", zIndex: 99999, backdropFilter: "blur(12px)",
+            boxShadow: "0 4px 20px rgba(0,0,0,0.5)",
+            pointerEvents: "none",
+          }}
+        >
+          {flashToast.ok ? "✓ " : "✗ "}{flashToast.text}
+        </motion.div>,
+        document.body,
+      )
+    : null;
+
+  // AI message context menu portal
+  const aiContextMenuEl = aiContextMenu
+    ? ReactDOM.createPortal(
+        <div
+          style={{
+            position: "fixed",
+            top: aiContextMenu.y,
+            left: aiContextMenu.x,
+            zIndex: 99999,
+            background: "#161B22",
+            border: "1px solid rgba(255,255,255,0.1)",
+            borderRadius: 10,
+            boxShadow: "0 8px 32px rgba(0,0,0,0.7)",
+            minWidth: 160,
+            overflow: "hidden",
+            padding: "4px",
+          }}
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          {[
+            {
+              label: copiedMsgIdx === aiContextMenu.idx ? "✓ Скопировано" : "Копировать",
+              icon: (
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                </svg>
+              ),
+              action: () => {
+                void navigator.clipboard.writeText(messages[aiContextMenu.idx]?.content ?? "");
+                setCopiedMsgIdx(aiContextMenu.idx);
+                setTimeout(() => setCopiedMsgIdx(null), 1500);
+                setAiContextMenu(null);
+              },
+            },
+            ...(messages[aiContextMenu.idx]?.role === "user" ? [{
+              label: "Повторить",
+              icon: (
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.51"/>
+                </svg>
+              ),
+              action: () => {
+                setChatInput(messages[aiContextMenu.idx].content);
+                setAiContextMenu(null);
+                setTimeout(() => inputRef.current?.focus(), 100);
+              },
+            }] : []),
+            {
+              label: "Удалить",
+              icon: (
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#FF7B72" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/>
+                </svg>
+              ),
+              action: () => {
+                setMessages((prev) => prev.filter((_, i) => i !== aiContextMenu.idx));
+                setAiContextMenu(null);
+              },
+              danger: true,
+            },
+          ].map((item) => (
+            <button
+              key={item.label}
+              onClick={item.action}
               style={{
-                position: "fixed",
-                top: panelPos.y + panelSize.h - 72,
-                left: panelPos.x + panelSize.w / 2,
-                transform: "translateX(-50%)",
-                background: flashToast.ok ? "rgba(22,38,22,0.97)" : "rgba(38,22,22,0.97)",
-                border: `1px solid ${flashToast.ok ? "rgba(63,185,80,0.5)" : "rgba(255,123,114,0.5)"}`,
-                color: flashToast.ok ? "#3FB950" : "#FF7B72",
-                borderRadius: 10, padding: "6px 16px", fontSize: 12,
-                whiteSpace: "nowrap", zIndex: 99999, backdropFilter: "blur(12px)",
-                boxShadow: "0 4px 20px rgba(0,0,0,0.5)",
-                pointerEvents: "none",
+                display: "flex", alignItems: "center", gap: 10,
+                width: "100%", padding: "8px 12px",
+                background: "transparent", border: "none", cursor: "pointer",
+                color: (item as { danger?: boolean }).danger ? "#FF7B72" : "rgba(255,255,255,0.8)",
+                fontSize: 12, borderRadius: 7, textAlign: "left",
+                transition: "background 0.1s",
               }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.07)")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
             >
-              {flashToast.ok ? "✓ " : "✗ "}{flashToast.text}
-            </motion.div>
-          )}
-        </AnimatePresence>,
+              {item.icon}
+              {item.label}
+            </button>
+          ))}
+        </div>,
         document.body,
       )
     : null;
@@ -577,16 +536,16 @@ export function AIChatFloat({
       {isOpen && (
         <motion.div
           key="ai-chat-panel"
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.95 }}
+          initial={{ opacity: 0, y: 20, scale: 0.97 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: 16, scale: 0.97 }}
           transition={{ type: "spring", stiffness: 420, damping: 32 }}
           style={{
             position: "fixed",
-            top: panelPos.y,
-            left: panelPos.x,
-            width: panelSize.w,
-            height: panelSize.h,
+            bottom: 72,
+            right: 16,
+            width: PANEL_W,
+            height: PANEL_H,
             background: "rgba(8,8,10,0.97)",
             border: "1px solid rgba(255,255,255,0.1)",
             borderRadius: 18,
@@ -605,18 +564,14 @@ export function AIChatFloat({
             pointerEvents: "none",
           }} />
 
-          {/* Header — draggable */}
-          <div
-            onPointerDown={startDrag}
-            style={{
-              display: "flex", alignItems: "center", gap: 10,
-              padding: "10px 14px",
-              borderBottom: "1px solid rgba(255,255,255,0.07)",
-              flexShrink: 0,
-              cursor: "move",
-              userSelect: "none",
-            }}
-          >
+          {/* ── Header ── */}
+          <div style={{
+            display: "flex", alignItems: "center", gap: 10,
+            padding: "10px 14px",
+            borderBottom: "1px solid rgba(255,255,255,0.07)",
+            flexShrink: 0,
+          }}>
+            {/* AI icon */}
             <div style={{
               width: 30, height: 30, borderRadius: 10, flexShrink: 0,
               background: "linear-gradient(135deg, #1a1d29 0%, #0d1117 100%)",
@@ -634,517 +589,430 @@ export function AIChatFloat({
                 </defs>
               </svg>
             </div>
+
+            {/* Title */}
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 13, fontWeight: 600, color: "#E6EDF3" }}>CodeSync AI</div>
               <div style={{ fontSize: 10, color: "rgba(255,255,255,0.28)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {isChatLoading ? "печатает..." : files.length > 0 ? `${files.length} файлов · перетащи панель` : "Глобальный контекст"}
+                {isChatLoading ? "печатает..." : files.length > 0 ? `${files.length} файлов в контексте` : "Глобальный контекст"}
               </div>
             </div>
 
-            {/* Tabs */}
-            <div
-              style={{ display: "flex", gap: 2, background: "rgba(255,255,255,0.05)", borderRadius: 8, padding: 2 }}
-              onPointerDown={(e) => e.stopPropagation()}
-            >
-              {([["chat", "Чат"], ["images", "Изображения"]] as const).map(([tab, label]) => (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  style={{
-                    padding: "3px 10px", borderRadius: 6, fontSize: 11, fontWeight: 500,
-                    background: activeTab === tab ? "rgba(255,255,255,0.1)" : "transparent",
-                    color: activeTab === tab ? "#E6EDF3" : "rgba(255,255,255,0.35)",
-                    border: "none", cursor: "pointer", transition: "all 0.15s",
-                  }}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-            {/* Model selector */}
-            <select
-              value={selectedModel}
-              onChange={(e) => setSelectedModel(e.target.value)}
-              title="Выбрать модель AI"
-              onPointerDown={(e) => e.stopPropagation()}
-              style={{
-                height: 24, padding: "0 6px", borderRadius: 7, fontSize: 10, fontWeight: 500,
-                background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)",
-                color: "rgba(255,255,255,0.55)", cursor: "pointer", outline: "none",
-                appearance: "none", WebkitAppearance: "none",
-              }}
-            >
-              <option value="gpt-4.1">GPT-4.1</option>
-              <option value="gpt-4o">GPT-4o</option>
-              <option value="gpt-4o-mini">GPT-4o mini</option>
-              <option value="o3-mini">o3-mini</option>
-            </select>
-
-            <div
-              style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: 4 }}
-              onPointerDown={(e) => e.stopPropagation()}
-            >
-              {activeTab === "chat" && messages.length > 0 && (
-                <button
-                  onClick={() => setMessages([])}
-                  style={{ background: "transparent", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.28)", fontSize: 11, padding: "2px 6px", borderRadius: 5 }}
-                >
-                  Очистить
-                </button>
-              )}
-              {isChatLoading && (
-                <button
-                  onClick={() => { abortControllerRef.current?.abort(); setIsChatLoading(false); }}
-                  title="Остановить генерацию"
-                  style={{
-                    height: 26, padding: "0 10px", borderRadius: 13,
-                    background: "linear-gradient(90deg, rgba(255,123,114,0.18), rgba(255,100,90,0.1))",
-                    border: "1px solid rgba(255,123,114,0.45)",
-                    cursor: "pointer", color: "#FF7B72",
-                    display: "flex", alignItems: "center", gap: 5,
-                    flexShrink: 0, fontSize: 10, fontWeight: 600,
-                    letterSpacing: "0.02em",
-                    boxShadow: "0 0 8px rgba(255,123,114,0.15)",
-                    animation: "stopPulse 1.8s ease-in-out infinite",
-                  }}
-                >
-                  <span style={{
-                    width: 7, height: 7, borderRadius: 2,
-                    background: "#FF7B72",
-                    display: "inline-block", flexShrink: 0,
-                  }} />
-                  Стоп
-                </button>
-              )}
+            {/* Clear history */}
+            {messages.length > 0 && !isChatLoading && (
               <button
-                onClick={() => setIsOpen(false)}
+                onClick={() => setMessages([])}
+                style={{ background: "transparent", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.28)", fontSize: 11, padding: "2px 6px", borderRadius: 5, flexShrink: 0 }}
+              >
+                Очистить
+              </button>
+            )}
+
+            {/* Custom model picker */}
+            <div ref={modelMenuRef} style={{ position: "relative", flexShrink: 0 }}>
+              <button
+                onClick={() => setModelMenuOpen((v) => !v)}
                 style={{
-                  width: 26, height: 26, borderRadius: 7,
-                  background: "rgba(255,255,255,0.07)",
-                  border: "1px solid rgba(255,255,255,0.09)",
-                  cursor: "pointer", color: "rgba(255,255,255,0.55)",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  flexShrink: 0, padding: 0,
+                  height: 26, padding: "0 10px", borderRadius: 7, fontSize: 10, fontWeight: 600,
+                  background: modelMenuOpen ? "rgba(88,166,255,0.14)" : "rgba(255,255,255,0.06)",
+                  border: `1px solid ${modelMenuOpen ? "rgba(88,166,255,0.4)" : "rgba(255,255,255,0.1)"}`,
+                  color: modelMenuOpen ? "#79C0FF" : "rgba(255,255,255,0.65)",
+                  cursor: "pointer", display: "flex", alignItems: "center", gap: 5,
+                  transition: "all 0.15s",
                 }}
               >
-                <svg width="9" height="9" viewBox="0 0 10 10" fill="none">
-                  <path d="M1 1l8 8M9 1L1 9" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+                <svg width="9" height="9" viewBox="0 0 16 16" fill="none">
+                  <path d="M8 1L9.5 5.5L14 7L9.5 8.5L8 13L6.5 8.5L2 7L6.5 5.5L8 1Z" fill="currentColor"/>
+                </svg>
+                {currentModelLabel}
+                <svg width="8" height="8" viewBox="0 0 10 10" fill="none" style={{ opacity: 0.5 }}>
+                  <path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
                 </svg>
               </button>
-            </div>
-          </div>
-
-          {/* Body */}
-          {activeTab === "chat" ? (
-            <>
-              {/* Messages */}
-              <div style={{ flex: 1, overflowY: "auto", padding: "12px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
-                {messages.length === 0 && (
+              <AnimatePresence>
+                {modelMenuOpen && (
                   <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    style={{ textAlign: "center", paddingTop: 40 }}
+                    initial={{ opacity: 0, y: -4, scale: 0.96 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -4, scale: 0.96 }}
+                    transition={{ duration: 0.12 }}
+                    style={{
+                      position: "absolute", top: "calc(100% + 6px)", right: 0,
+                      background: "#0D1117",
+                      border: "1px solid rgba(255,255,255,0.1)",
+                      borderRadius: 12,
+                      boxShadow: "0 12px 40px rgba(0,0,0,0.8), 0 0 0 1px rgba(88,166,255,0.06)",
+                      minWidth: 180, padding: 4, zIndex: 99999,
+                    }}
                   >
-                    <div style={{
-                      width: 48, height: 48, borderRadius: 16, margin: "0 auto 14px",
-                      background: "linear-gradient(135deg, rgba(88,166,255,0.15), rgba(63,185,80,0.1))",
-                      border: "1px solid rgba(88,166,255,0.2)",
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                    }}>
-                      <svg width="22" height="22" viewBox="0 0 16 16" fill="none">
-                        <path d="M8 1L9.5 5.5L14 7L9.5 8.5L8 13L6.5 8.5L2 7L6.5 5.5L8 1Z" fill="url(#ai-star-empty)" />
-                        <defs>
-                          <linearGradient id="ai-star-empty" x1="2" y1="1" x2="14" y2="13">
-                            <stop offset="0%" stopColor="#79C0FF"/>
-                            <stop offset="100%" stopColor="#56D364"/>
-                          </linearGradient>
-                        </defs>
-                      </svg>
-                    </div>
-                    <p style={{ fontSize: 13, color: "rgba(255,255,255,0.45)", fontWeight: 500 }}>CodeSync AI</p>
-                    <p style={{ fontSize: 11, color: "rgba(255,255,255,0.2)", marginTop: 6 }}>
-                      Задай вопрос по коду или попроси создать файл
-                    </p>
+                    {MODELS.map((m) => (
+                      <button
+                        key={m.id}
+                        onClick={() => { setSelectedModel(m.id); setModelMenuOpen(false); }}
+                        style={{
+                          display: "flex", alignItems: "center", gap: 8,
+                          width: "100%", padding: "8px 12px",
+                          background: selectedModel === m.id ? "rgba(88,166,255,0.1)" : "transparent",
+                          border: "none", borderRadius: 9, cursor: "pointer",
+                          textAlign: "left", transition: "background 0.1s",
+                        }}
+                        onMouseEnter={(e) => { if (selectedModel !== m.id) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)"; }}
+                        onMouseLeave={(e) => { if (selectedModel !== m.id) (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+                      >
+                        <span style={{ fontSize: 12, fontWeight: 500, color: selectedModel === m.id ? "#79C0FF" : "rgba(255,255,255,0.8)", flex: 1 }}>{m.label}</span>
+                        {m.badge && (
+                          <span style={{
+                            fontSize: 9, fontWeight: 600, padding: "1px 5px", borderRadius: 4,
+                            background: selectedModel === m.id ? "rgba(88,166,255,0.2)" : "rgba(255,255,255,0.07)",
+                            color: selectedModel === m.id ? "#79C0FF" : "rgba(255,255,255,0.35)",
+                          }}>{m.badge}</span>
+                        )}
+                        {selectedModel === m.id && (
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#79C0FF" strokeWidth="2.5" strokeLinecap="round">
+                            <polyline points="20 6 9 17 4 12"/>
+                          </svg>
+                        )}
+                      </button>
+                    ))}
                   </motion.div>
                 )}
+              </AnimatePresence>
+            </div>
 
-                {messages.map((msg, i) => (
-                  <motion.div
-                    key={i}
-                    initial={{ opacity: 0, y: 5 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.18 }}
-                  >
-                    <div
-                      style={{ display: "flex", justifyContent: msg.role === "user" ? "flex-end" : "flex-start", alignItems: "flex-start", gap: 8, position: "relative" }}
-                      onMouseEnter={() => setHoveredMsgIdx(i)}
-                      onMouseLeave={() => setHoveredMsgIdx(null)}
-                    >
-                      {msg.role === "assistant" && (
-                        <div style={{
-                          width: 22, height: 22, borderRadius: 7, flexShrink: 0, marginTop: 2,
-                          background: "#0D1117",
-                          border: "1px solid rgba(88,166,255,0.4)",
-                          boxShadow: "0 0 8px rgba(88,166,255,0.18)",
-                          display: "flex", alignItems: "center", justifyContent: "center",
-                        }}>
-                          <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
-                            <path d="M8 1L9.5 5.5L14 7L9.5 8.5L8 13L6.5 8.5L2 7L6.5 5.5L8 1Z" fill="url(#ai-star-sm)" />
-                            <defs>
-                              <linearGradient id="ai-star-sm" x1="2" y1="1" x2="14" y2="13">
-                                <stop offset="0%" stopColor="#79C0FF"/>
-                                <stop offset="100%" stopColor="#56D364"/>
-                              </linearGradient>
-                            </defs>
-                          </svg>
-                        </div>
-                      )}
-                      <div style={{ maxWidth: "83%", display: "flex", flexDirection: "column", gap: 4, alignItems: msg.role === "user" ? "flex-end" : "flex-start" }}>
-                        <div
-                          className="ai-prose"
-                          style={{
-                            borderRadius: msg.role === "user" ? "12px 12px 4px 12px" : "4px 12px 12px 12px",
-                            padding: "8px 12px", fontSize: 12, lineHeight: 1.65,
-                            background: msg.role === "user"
-                              ? "linear-gradient(135deg, rgba(88,166,255,0.18), rgba(88,166,255,0.1))"
-                              : "rgba(255,255,255,0.04)",
-                            border: `1px solid ${msg.role === "user" ? "rgba(88,166,255,0.3)" : "rgba(255,255,255,0.08)"}`,
-                            color: "#E6EDF3",
-                          }}
-                        >
-                          <SafeMarkdown text={msg.content} />
-                        </div>
-                        {hoveredMsgIdx === i && (
-                          <button
-                            onClick={() => {
-                              void navigator.clipboard.writeText(msg.content);
-                              setCopiedMsgIdx(i);
-                              setTimeout(() => setCopiedMsgIdx(null), 1500);
-                            }}
-                            style={{
-                              background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)",
-                              borderRadius: 6, padding: "2px 8px", fontSize: 10,
-                              color: copiedMsgIdx === i ? "#3FB950" : "rgba(255,255,255,0.4)",
-                              cursor: "pointer", transition: "all 0.12s",
-                            }}
-                          >
-                            {copiedMsgIdx === i ? "✓ Скопировано" : "⎘ Копировать"}
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </motion.div>
-                ))}
+            {/* Close */}
+            <button
+              onClick={() => setIsOpen(false)}
+              style={{
+                width: 26, height: 26, borderRadius: 7,
+                background: "rgba(255,255,255,0.07)",
+                border: "1px solid rgba(255,255,255,0.09)",
+                cursor: "pointer", color: "rgba(255,255,255,0.55)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                flexShrink: 0, padding: 0,
+              }}
+            >
+              <svg width="9" height="9" viewBox="0 0 10 10" fill="none">
+                <path d="M1 1l8 8M9 1L1 9" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+              </svg>
+            </button>
+          </div>
 
-                {isChatLoading && messages[messages.length - 1]?.role !== "assistant" && (
-                  <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+          {/* ── Messages ── */}
+          <div style={{ flex: 1, overflowY: "auto", padding: "12px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
+            {messages.length === 0 && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                style={{ textAlign: "center", paddingTop: 40 }}
+              >
+                <div style={{
+                  width: 48, height: 48, borderRadius: 16, margin: "0 auto 14px",
+                  background: "linear-gradient(135deg, rgba(88,166,255,0.15), rgba(63,185,80,0.1))",
+                  border: "1px solid rgba(88,166,255,0.2)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                }}>
+                  <svg width="22" height="22" viewBox="0 0 16 16" fill="none">
+                    <path d="M8 1L9.5 5.5L14 7L9.5 8.5L8 13L6.5 8.5L2 7L6.5 5.5L8 1Z" fill="url(#ai-star-empty)" />
+                    <defs>
+                      <linearGradient id="ai-star-empty" x1="2" y1="1" x2="14" y2="13">
+                        <stop offset="0%" stopColor="#79C0FF"/>
+                        <stop offset="100%" stopColor="#56D364"/>
+                      </linearGradient>
+                    </defs>
+                  </svg>
+                </div>
+                <p style={{ fontSize: 13, color: "rgba(255,255,255,0.45)", fontWeight: 500 }}>CodeSync AI</p>
+                <p style={{ fontSize: 11, color: "rgba(255,255,255,0.2)", marginTop: 6 }}>
+                  Задай вопрос по коду или попроси создать файл
+                </p>
+              </motion.div>
+            )}
+
+            {messages.map((msg, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.18 }}
+              >
+                <div style={{ display: "flex", justifyContent: msg.role === "user" ? "flex-end" : "flex-start", alignItems: "flex-start", gap: 8 }}>
+                  {msg.role === "assistant" && (
                     <div style={{
                       width: 22, height: 22, borderRadius: 7, flexShrink: 0, marginTop: 2,
-                      background: "#0D1117", border: "1px solid rgba(88,166,255,0.4)",
+                      background: "#0D1117",
+                      border: "1px solid rgba(88,166,255,0.4)",
                       boxShadow: "0 0 8px rgba(88,166,255,0.18)",
                       display: "flex", alignItems: "center", justifyContent: "center",
                     }}>
                       <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
-                        <path d="M8 1L9.5 5.5L14 7L9.5 8.5L8 13L6.5 8.5L2 7L6.5 5.5L8 1Z" fill="url(#ai-star-ld)" />
+                        <path d="M8 1L9.5 5.5L14 7L9.5 8.5L8 13L6.5 8.5L2 7L6.5 5.5L8 1Z" fill="url(#ai-star-sm)" />
                         <defs>
-                          <linearGradient id="ai-star-ld" x1="2" y1="1" x2="14" y2="13">
+                          <linearGradient id="ai-star-sm" x1="2" y1="1" x2="14" y2="13">
                             <stop offset="0%" stopColor="#79C0FF"/>
                             <stop offset="100%" stopColor="#56D364"/>
                           </linearGradient>
                         </defs>
                       </svg>
                     </div>
-                    <div style={{
-                      background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)",
-                      borderRadius: "4px 12px 12px 12px", padding: "8px 12px",
-                    }}>
-                      <TypingDots />
-                    </div>
-                  </div>
-                )}
-                <div ref={chatEndRef} />
-              </div>
-
-              {/* Input area */}
-              <div style={{ padding: "8px 12px 12px", flexShrink: 0, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-                <input
-                  ref={fileAttachRef}
-                  type="file"
-                  accept="text/*,.json,.md,.yaml,.yml,.ts,.tsx,.js,.jsx,.py,.go,.rs,.java,.cpp,.c,.cs,.rb,.php,.sql,.sh"
-                  style={{ display: "none" }}
-                  onChange={handleAttachFile}
-                />
-                {/* Attached file chip */}
-                {attachedFile && (
-                  <div style={{
-                    display: "flex", alignItems: "center", gap: 6, marginBottom: 6,
-                    padding: "4px 8px", borderRadius: 8,
-                    background: "rgba(88,166,255,0.08)", border: "1px solid rgba(88,166,255,0.2)",
-                  }}>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#58A6FF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
-                    </svg>
-                    <span style={{ fontSize: 11, color: "#58A6FF", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{attachedFile.name}</span>
-                    <button onClick={() => setAttachedFile(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.3)", fontSize: 14, lineHeight: 1, padding: 0 }}>×</button>
-                  </div>
-                )}
-                {/* Main input row */}
-                <div style={{
-                  display: "flex", gap: 8,
-                  background: isChatLoading ? "rgba(88,166,255,0.04)" : "rgba(255,255,255,0.04)",
-                  border: `1px solid ${isChatLoading ? "rgba(88,166,255,0.2)" : "rgba(255,255,255,0.09)"}`,
-                  borderRadius: 12, padding: "8px 10px",
-                  transition: "border-color 0.3s, background 0.3s",
-                  boxShadow: isChatLoading ? "0 0 0 1px rgba(88,166,255,0.1)" : "none",
-                }}>
-                  <textarea
-                    ref={inputRef}
-                    value={chatInput}
-                    onChange={(e) => setChatInput(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    placeholder={isChatLoading ? "AI пишет..." : planMode ? "Описать задачу для плана..." : "Спросить AI..."}
-                    rows={1}
+                  )}
+                  <div
+                    className="ai-prose"
+                    onContextMenu={(e) => handleMsgContextMenu(e, i)}
                     style={{
-                      flex: 1, background: "transparent", border: "none", outline: "none",
-                      color: isChatLoading ? "rgba(255,255,255,0.3)" : "#E6EDF3",
-                      fontSize: 13, fontFamily: "Inter, sans-serif",
-                      resize: "none", lineHeight: 1.5, maxHeight: 120, overflowY: "auto",
+                      maxWidth: "83%",
+                      borderRadius: msg.role === "user" ? "12px 12px 4px 12px" : "4px 12px 12px 12px",
+                      padding: "8px 12px", fontSize: 12, lineHeight: 1.65,
+                      background: msg.role === "user"
+                        ? "linear-gradient(135deg, rgba(88,166,255,0.18), rgba(88,166,255,0.1))"
+                        : "rgba(255,255,255,0.04)",
+                      border: `1px solid ${msg.role === "user" ? "rgba(88,166,255,0.3)" : "rgba(255,255,255,0.08)"}`,
+                      color: "#E6EDF3",
+                      cursor: "default",
+                      userSelect: "text",
                     }}
-                    disabled={isChatLoading}
-                  />
+                  >
+                    <SafeMarkdown text={msg.content} />
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+
+            {isChatLoading && messages[messages.length - 1]?.role !== "assistant" && (
+              <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+                <div style={{
+                  width: 22, height: 22, borderRadius: 7, flexShrink: 0, marginTop: 2,
+                  background: "#0D1117", border: "1px solid rgba(88,166,255,0.4)",
+                  boxShadow: "0 0 8px rgba(88,166,255,0.18)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                }}>
+                  <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+                    <path d="M8 1L9.5 5.5L14 7L9.5 8.5L8 13L6.5 8.5L2 7L6.5 5.5L8 1Z" fill="url(#ai-star-ld)" />
+                    <defs>
+                      <linearGradient id="ai-star-ld" x1="2" y1="1" x2="14" y2="13">
+                        <stop offset="0%" stopColor="#79C0FF"/>
+                        <stop offset="100%" stopColor="#56D364"/>
+                      </linearGradient>
+                    </defs>
+                  </svg>
+                </div>
+                <div style={{
+                  background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)",
+                  borderRadius: "4px 12px 12px 12px", padding: "8px 12px",
+                }}>
+                  <TypingDots />
+                </div>
+              </div>
+            )}
+            <div ref={chatEndRef} />
+          </div>
+
+          {/* ── Input area ── */}
+          <div style={{ padding: "8px 12px 12px", flexShrink: 0, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+            <input
+              ref={fileAttachRef}
+              type="file"
+              accept="text/*,.json,.md,.yaml,.yml,.ts,.tsx,.js,.jsx,.py,.go,.rs,.java,.cpp,.c,.cs,.rb,.php,.sql,.sh"
+              style={{ display: "none" }}
+              onChange={handleAttachFile}
+            />
+
+            {/* Attached file chip */}
+            {attachedFile && (
+              <div style={{
+                display: "flex", alignItems: "center", gap: 6, marginBottom: 6,
+                padding: "4px 8px", borderRadius: 8,
+                background: "rgba(88,166,255,0.08)", border: "1px solid rgba(88,166,255,0.2)",
+              }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#58A6FF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+                </svg>
+                <span style={{ fontSize: 11, color: "#58A6FF", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{attachedFile.name}</span>
+                <button onClick={() => setAttachedFile(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.3)", fontSize: 14, lineHeight: 1, padding: 0 }}>×</button>
+              </div>
+            )}
+
+            {/* Single big input box */}
+            <div style={{
+              position: "relative",
+              background: isChatLoading ? "rgba(88,166,255,0.04)" : "rgba(255,255,255,0.04)",
+              border: `1px solid ${isChatLoading ? "rgba(88,166,255,0.2)" : "rgba(255,255,255,0.09)"}`,
+              borderRadius: 14,
+              transition: "border-color 0.3s, background 0.3s",
+              boxShadow: isChatLoading ? "0 0 0 1px rgba(88,166,255,0.1)" : "none",
+            }}>
+              <textarea
+                ref={inputRef}
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={isChatLoading ? "AI пишет..." : planMode ? "Описать задачу для плана..." : "Спросить AI... (Enter — отправить, Shift+Enter — перенос)"}
+                rows={3}
+                style={{
+                  display: "block",
+                  width: "100%",
+                  background: "transparent", border: "none", outline: "none",
+                  color: isChatLoading ? "rgba(255,255,255,0.3)" : "#E6EDF3",
+                  fontSize: 13, fontFamily: "Inter, sans-serif",
+                  resize: "none", lineHeight: 1.5,
+                  padding: "12px 12px 40px",
+                  boxSizing: "border-box",
+                  maxHeight: 140, overflowY: "auto",
+                }}
+                disabled={isChatLoading}
+              />
+
+              {/* Bottom bar inside textarea box */}
+              <div style={{
+                position: "absolute", bottom: 0, left: 0, right: 0,
+                display: "flex", alignItems: "center",
+                padding: "0 8px 8px",
+                gap: 4,
+              }}>
+                {/* File attach — bottom left */}
+                <button
+                  onClick={() => fileAttachRef.current?.click()}
+                  title="Прикрепить файл"
+                  style={{
+                    width: 26, height: 26, borderRadius: 7, flexShrink: 0,
+                    background: attachedFile ? "rgba(88,166,255,0.12)" : "transparent",
+                    border: `1px solid ${attachedFile ? "rgba(88,166,255,0.3)" : "rgba(255,255,255,0.07)"}`,
+                    cursor: "pointer",
+                    color: attachedFile ? "#58A6FF" : "rgba(255,255,255,0.3)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    transition: "all 0.15s",
+                  }}
+                  onMouseEnter={(e) => { if (!attachedFile) { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.06)"; (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.6)"; } }}
+                  onMouseLeave={(e) => { if (!attachedFile) { (e.currentTarget as HTMLElement).style.background = "transparent"; (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.3)"; } }}
+                >
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+                  </svg>
+                </button>
+
+                <div style={{ flex: 1 }} />
+
+                {/* Plan button — bottom right, left of send */}
+                <button
+                  onClick={() => setPlanMode((p) => !p)}
+                  title="Режим плана"
+                  style={{
+                    height: 26, padding: "0 9px", borderRadius: 7, flexShrink: 0,
+                    background: planMode ? "rgba(210,168,255,0.15)" : "transparent",
+                    border: `1px solid ${planMode ? "rgba(210,168,255,0.4)" : "rgba(255,255,255,0.07)"}`,
+                    cursor: "pointer",
+                    color: planMode ? "#D2A8FF" : "rgba(255,255,255,0.3)",
+                    display: "flex", alignItems: "center", gap: 5,
+                    fontSize: 11, fontWeight: planMode ? 600 : 400,
+                    transition: "all 0.15s",
+                  }}
+                  onMouseEnter={(e) => { if (!planMode) { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)"; (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.55)"; } }}
+                  onMouseLeave={(e) => { if (!planMode) { (e.currentTarget as HTMLElement).style.background = "transparent"; (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.3)"; } }}
+                >
+                  {planMode && (
+                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                      <path d="M1.5 5L4 7.5L8.5 2.5" stroke="#D2A8FF" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  )}
+                  План
+                </button>
+
+                {/* Send / Stop button */}
+                {isChatLoading ? (
+                  <button
+                    onClick={stopGeneration}
+                    title="Остановить генерацию"
+                    style={{
+                      width: 30, height: 26, borderRadius: 7, flexShrink: 0,
+                      background: "rgba(255,123,114,0.15)",
+                      border: "1px solid rgba(255,123,114,0.4)",
+                      cursor: "pointer", color: "#FF7B72",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      animation: "stopPulse 1.8s ease-in-out infinite",
+                    }}
+                  >
+                    <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor">
+                      <rect x="1" y="1" width="8" height="8" rx="1.5"/>
+                    </svg>
+                  </button>
+                ) : (
                   <motion.button
                     onClick={() => void sendChat()}
-                    disabled={!chatInput.trim() || isChatLoading}
-                    whileHover={chatInput.trim() && !isChatLoading ? { scale: 1.08 } : {}}
-                    whileTap={chatInput.trim() && !isChatLoading ? { scale: 0.92 } : {}}
+                    disabled={!chatInput.trim()}
+                    whileHover={chatInput.trim() ? { scale: 1.07 } : {}}
+                    whileTap={chatInput.trim() ? { scale: 0.93 } : {}}
                     style={{
-                      width: 34, height: 34, borderRadius: 10,
-                      background: chatInput.trim() && !isChatLoading
-                        ? planMode ? "linear-gradient(135deg, #D2A8FF, #8957e5)" : "linear-gradient(135deg, #58A6FF, #3FB950)"
+                      width: 30, height: 26, borderRadius: 7, flexShrink: 0,
+                      background: chatInput.trim()
+                        ? planMode
+                          ? "linear-gradient(135deg, #D2A8FF, #8957e5)"
+                          : "linear-gradient(135deg, #58A6FF, #3FB950)"
                         : "rgba(255,255,255,0.06)",
                       border: "none",
-                      cursor: chatInput.trim() && !isChatLoading ? "pointer" : "default",
-                      color: chatInput.trim() && !isChatLoading ? "#0D1117" : "rgba(255,255,255,0.2)",
+                      cursor: chatInput.trim() ? "pointer" : "default",
+                      color: chatInput.trim() ? "#0D1117" : "rgba(255,255,255,0.2)",
                       display: "flex", alignItems: "center", justifyContent: "center",
-                      flexShrink: 0, alignSelf: "flex-end",
                       transition: "background 0.2s, color 0.2s",
                     }}
                   >
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
                     </svg>
                   </motion.button>
-                </div>
-                {/* Bottom toolbar: file attach icon + plan checkbox */}
-                <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 6, paddingLeft: 2 }}>
-                  {/* Attach file — icon only */}
-                  <button
-                    onClick={() => fileAttachRef.current?.click()}
-                    title="Прикрепить файл"
-                    style={{
-                      width: 26, height: 26, borderRadius: 7,
-                      background: attachedFile ? "rgba(88,166,255,0.12)" : "rgba(255,255,255,0.05)",
-                      border: `1px solid ${attachedFile ? "rgba(88,166,255,0.3)" : "rgba(255,255,255,0.08)"}`,
-                      cursor: "pointer", color: attachedFile ? "#58A6FF" : "rgba(255,255,255,0.35)",
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      transition: "all 0.15s", flexShrink: 0,
-                    }}
-                  >
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
-                    </svg>
-                  </button>
-                  {/* Plan mode — checkbox + label */}
-                  <label
-                    style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer", userSelect: "none" }}
-                    title="Режим плана: AI сначала составит план, затем выполнит"
-                  >
-                    <div
-                      onClick={() => setPlanMode((p) => !p)}
-                      style={{
-                        width: 14, height: 14, borderRadius: 3, flexShrink: 0,
-                        border: `1.5px solid ${planMode ? "#D2A8FF" : "rgba(255,255,255,0.25)"}`,
-                        background: planMode ? "rgba(210,168,255,0.18)" : "transparent",
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        transition: "all 0.15s",
-                      }}
-                    >
-                      {planMode && (
-                        <svg width="9" height="9" viewBox="0 0 10 10" fill="none">
-                          <path d="M1.5 5L4 7.5L8.5 2.5" stroke="#D2A8FF" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-                        </svg>
-                      )}
-                    </div>
-                    <span style={{ fontSize: 11, color: planMode ? "#D2A8FF" : "rgba(255,255,255,0.35)", transition: "color 0.15s" }}>
-                      План
-                    </span>
-                  </label>
-                </div>
-              </div>
-            </>
-          ) : (
-            /* Images tab */
-            <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-              <div style={{ padding: "10px 14px 8px", borderBottom: "1px solid rgba(255,255,255,0.06)", flexShrink: 0 }}>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <input
-                    ref={imageInputRef}
-                    value={imageQuery}
-                    onChange={(e) => setImageQuery(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter") void searchImages(); }}
-                    placeholder="Найти изображения..."
-                    style={{
-                      flex: 1, background: "rgba(255,255,255,0.04)",
-                      border: "1px solid rgba(255,255,255,0.09)",
-                      borderRadius: 10, padding: "7px 12px", fontSize: 12,
-                      color: "#E6EDF3", outline: "none", fontFamily: "Inter, sans-serif",
-                    }}
-                  />
-                  <motion.button
-                    onClick={() => void searchImages()}
-                    disabled={!imageQuery.trim() || isSearchingImages}
-                    whileTap={{ scale: 0.95 }}
-                    style={{
-                      padding: "7px 16px", borderRadius: 10, fontSize: 12, fontWeight: 600,
-                      background: "rgba(88,166,255,0.2)", border: "1px solid rgba(88,166,255,0.3)",
-                      color: "#58A6FF", cursor: "pointer",
-                    }}
-                  >
-                    {isSearchingImages ? "..." : "Найти"}
-                  </motion.button>
-                </div>
-                <p style={{ fontSize: 10, color: "rgba(255,255,255,0.2)", marginTop: 6 }}>
-                  Поиск через DuckDuckGo · Нажмите + чтобы добавить в проект
-                </p>
-              </div>
-
-              <div style={{ flex: 1, overflowY: "auto", padding: "10px 14px" }}>
-                {isSearchingImages && <div style={{ textAlign: "center", paddingTop: 40 }}><TypingDots /></div>}
-                {imageError && (
-                  <div style={{ padding: "10px 14px", borderRadius: 10, fontSize: 12, background: "rgba(255,123,114,0.08)", border: "1px solid rgba(255,123,114,0.2)", color: "#FF7B72" }}>
-                    {imageError}
-                  </div>
-                )}
-                {!isSearchingImages && !imageError && imageResults.length === 0 && (
-                  <div style={{ textAlign: "center", paddingTop: 48 }}>
-                    <p style={{ fontSize: 13, color: "rgba(255,255,255,0.25)" }}>Введите запрос для поиска изображений</p>
-                    <p style={{ fontSize: 11, color: "rgba(255,255,255,0.15)", marginTop: 6 }}>Например: nature, technology, city</p>
-                  </div>
-                )}
-                {imageResults.length > 0 && (
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
-                    {imageResults.map((img) => (
-                      <motion.div
-                        key={img.id}
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        style={{ position: "relative", borderRadius: 8, overflow: "hidden", cursor: "pointer" }}
-                        whileHover={{ scale: 1.03 }}
-                      >
-                        <img src={img.thumb} alt={img.description || "Image"} style={{ width: "100%", height: 90, objectFit: "cover", display: "block" }} />
-                        <div style={{
-                          position: "absolute", inset: 0, background: "rgba(0,0,0,0)", transition: "background 0.15s",
-                          display: "flex", alignItems: "center", justifyContent: "center",
-                        }}
-                          onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(0,0,0,0.5)")}
-                          onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(0,0,0,0)")}
-                        >
-                          <button
-                            onClick={() => void addImageToProject(img)}
-                            style={{
-                              background: "rgba(255,255,255,0.9)", border: "none", borderRadius: 6,
-                              padding: "4px 10px", fontSize: 11, fontWeight: 700, color: "#0D1117", cursor: "pointer", opacity: 0,
-                            }}
-                            onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
-                            onMouseLeave={(e) => (e.currentTarget.style.opacity = "0")}
-                          >
-                            + Добавить
-                          </button>
-                        </div>
-                      </motion.div>
-                    ))}
-                  </div>
                 )}
               </div>
             </div>
-          )}
-
-          {/* SE resize handle */}
-          <div
-            onMouseDown={startResizeSE}
-            style={{
-              position: "absolute", bottom: 0, right: 0,
-              width: 18, height: 18, cursor: "nwse-resize",
-              display: "flex", alignItems: "flex-end", justifyContent: "flex-end",
-              padding: "3px",
-            }}
-          >
-            <svg width="10" height="10" viewBox="0 0 10 10" fill="rgba(255,255,255,0.2)">
-              <path d="M9 1L1 9M9 5L5 9M9 9L9 9" stroke="rgba(255,255,255,0.2)" strokeWidth="1.5" strokeLinecap="round"/>
-            </svg>
           </div>
         </motion.div>
       )}
     </AnimatePresence>
   );
 
-  const trigger = (
-    <motion.button
-      onClick={() => {
-        setIsOpen((o) => !o);
-      }}
-      whileHover={{ scale: 1.04 }}
-      whileTap={{ scale: 0.96 }}
-      style={{
-        position: "fixed",
-        bottom: 22,
-        left: "calc(50% - 54px)",
-        width: 108,
-        height: 42,
-        borderRadius: 14,
-        background: isOpen
-          ? "rgba(20,20,26,0.95)"
-          : "linear-gradient(135deg, #1a6cf7 0%, #0ea86b 100%)",
-        border: isOpen ? "1px solid rgba(255,255,255,0.12)" : "1px solid rgba(255,255,255,0.08)",
-        color: isOpen ? "rgba(255,255,255,0.6)" : "#fff",
-        fontSize: 12,
-        fontWeight: 600,
-        cursor: "pointer",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 7,
-        boxShadow: isOpen ? "none" : "0 4px 24px rgba(26,108,247,0.35), 0 2px 8px rgba(0,0,0,0.3)",
-        zIndex: 8999,
-        backdropFilter: isOpen ? "blur(12px)" : "none",
-        letterSpacing: "0.01em",
-        transition: "background 0.2s, box-shadow 0.2s",
-      }}
-    >
-      {isOpen ? (
-        <>
-          <svg width="13" height="13" viewBox="0 0 10 10" fill="none">
-            <path d="M1 1l8 8M9 1L1 9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
-          </svg>
-          Закрыть
-        </>
-      ) : (
-        <>
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-            <path d="M8 1L9.5 5.5L14 7L9.5 8.5L8 13L6.5 8.5L2 7L6.5 5.5L8 1Z" fill="white" />
-          </svg>
-          Чат с AI
-        </>
-      )}
-    </motion.button>
-  );
-
-  return ReactDOM.createPortal(
+  return (
     <>
-      {trigger}
-      {panel}
+      {/* Toggle button */}
+      <motion.button
+        onClick={() => setIsOpen((v) => !v)}
+        whileHover={{ scale: 1.07 }}
+        whileTap={{ scale: 0.93 }}
+        style={{
+          position: "fixed", bottom: 20, right: 20,
+          width: 44, height: 44, borderRadius: 14,
+          background: isOpen
+            ? "linear-gradient(135deg, #1a253a, #0d1117)"
+            : "linear-gradient(135deg, #0f1923, #0a0f16)",
+          border: `1px solid ${isOpen ? "rgba(88,166,255,0.5)" : "rgba(88,166,255,0.3)"}`,
+          boxShadow: isOpen
+            ? "0 0 24px rgba(88,166,255,0.35), 0 8px 24px rgba(0,0,0,0.6)"
+            : "0 0 16px rgba(88,166,255,0.2), 0 4px 16px rgba(0,0,0,0.5)",
+          cursor: "pointer",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          zIndex: 8999,
+          transition: "border-color 0.2s, box-shadow 0.2s",
+        }}
+      >
+        <svg width="20" height="20" viewBox="0 0 16 16" fill="none">
+          <path d="M8 1L9.5 5.5L14 7L9.5 8.5L8 13L6.5 8.5L2 7L6.5 5.5L8 1Z" fill="url(#ai-btn-star)" />
+          <defs>
+            <linearGradient id="ai-btn-star" x1="2" y1="1" x2="14" y2="13">
+              <stop offset="0%" stopColor="#79C0FF"/>
+              <stop offset="100%" stopColor="#56D364"/>
+            </linearGradient>
+          </defs>
+        </svg>
+        {isChatLoading && (
+          <div style={{
+            position: "absolute", top: -3, right: -3,
+            width: 10, height: 10, borderRadius: "50%",
+            background: "#3FB950",
+            boxShadow: "0 0 6px #3FB950",
+            animation: "stopPulse 1.2s ease-in-out infinite",
+          }} />
+        )}
+      </motion.button>
+
+      {ReactDOM.createPortal(panel, document.body)}
       {flashToastEl}
-    </>,
-    document.body,
+      {aiContextMenuEl}
+    </>
   );
 }
