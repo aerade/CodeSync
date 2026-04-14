@@ -153,6 +153,13 @@ function SafeMarkdown({ text }: { text: string }) {
 
 type AiContextMenu = { x: number; y: number; idx: number } | null;
 
+function initBtnPos() {
+  return {
+    x: Math.round(window.innerWidth / 2 - 22),
+    y: window.innerHeight - 72,
+  };
+}
+
 export function AIChatFloat({
   roomId, fileId, fileContent, language, fileName, files = [],
   onFilesChanged, onContentRestored, onShowAiDiff, onClearAiDiff, onFileStream,
@@ -162,16 +169,16 @@ export function AIChatFloat({
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [isChatLoading, setIsChatLoading] = useState(false);
-  const [flashToast, setFlashToast] = useState<{ text: string; ok: boolean } | null>(null);
   const [planMode, setPlanMode] = useState(false);
   const [selectedModel, setSelectedModel] = useState("gpt-4.1");
   const [modelMenuOpen, setModelMenuOpen] = useState(false);
   const [attachedFile, setAttachedFile] = useState<{ name: string; content: string; mimeType: string } | null>(null);
   const [copiedMsgIdx, setCopiedMsgIdx] = useState<number | null>(null);
   const [aiContextMenu, setAiContextMenu] = useState<AiContextMenu>(null);
+  const [btnPos, setBtnPos] = useState(initBtnPos);
+  const btnDraggingRef = useRef(false);
 
   const chatEndRef = useRef<HTMLDivElement>(null);
-  const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileAttachRef = useRef<HTMLInputElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -226,14 +233,33 @@ export function AIChatFloat({
     };
   }, [aiContextMenu]);
 
-  function showFlash(text: string, ok: boolean) {
-    if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
-    setFlashToast({ text, ok });
-    flashTimerRef.current = setTimeout(() => setFlashToast(null), 2500);
-  }
+  const startBtnDrag = useCallback((e: React.PointerEvent) => {
+    e.preventDefault();
+    btnDraggingRef.current = false;
+    const startMX = e.clientX, startMY = e.clientY;
+    const startX = btnPos.x, startY = btnPos.y;
+    let moved = false;
+
+    function onMove(ev: PointerEvent) {
+      const dx = ev.clientX - startMX, dy = ev.clientY - startMY;
+      if (!moved && Math.abs(dx) < 4 && Math.abs(dy) < 4) return;
+      moved = true;
+      btnDraggingRef.current = true;
+      setBtnPos({
+        x: Math.max(0, Math.min(window.innerWidth - 44, startX + dx)),
+        y: Math.max(0, Math.min(window.innerHeight - 44, startY + dy)),
+      });
+    }
+    function onUp() {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      setTimeout(() => { btnDraggingRef.current = false; }, 0);
+    }
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  }, [btnPos]);
 
   useEffect(() => () => {
-    if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
     abortControllerRef.current?.abort();
   }, []);
 
@@ -356,8 +382,8 @@ export function AIChatFloat({
                   oldLines.forEach((l, i) => { if (l !== newLines[i]) removed++; });
                   if (editedId) statsAcc[editedId] = { added, removed };
                 } else if (tc.name === "delete_file") { opCounts.delete++; }
-              } else if (tc.result && !tc.result.success) {
-                showFlash(tc.result?.error ?? tc.name, false);
+              } else if (tc.result && !tc.result.success && tc.result.error) {
+                setMessages((prev) => [...prev, { role: "assistant", content: `⚠ ${tc.result.error}` }]);
               }
               if (tc.name === "create_file" && tc.result?.success && tc.result?.fileId) {
                 onFileStream?.(tc.result.fileId, tc.result.name ?? null, (tc.args.content as string | undefined) ?? "");
@@ -420,32 +446,9 @@ export function AIChatFloat({
 
   const currentModelLabel = MODELS.find((m) => m.id === selectedModel)?.label ?? selectedModel;
 
-  // Flash toast portal
-  const flashToastEl = flashToast
-    ? ReactDOM.createPortal(
-        <motion.div
-          key="flash"
-          initial={{ opacity: 0, y: 6, scale: 0.92 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: 4, scale: 0.95 }}
-          style={{
-            position: "fixed",
-            bottom: PANEL_H + 16,
-            right: 24,
-            background: flashToast.ok ? "rgba(22,38,22,0.97)" : "rgba(38,22,22,0.97)",
-            border: `1px solid ${flashToast.ok ? "rgba(63,185,80,0.5)" : "rgba(255,123,114,0.5)"}`,
-            color: flashToast.ok ? "#3FB950" : "#FF7B72",
-            borderRadius: 10, padding: "6px 16px", fontSize: 12,
-            whiteSpace: "nowrap", zIndex: 99999, backdropFilter: "blur(12px)",
-            boxShadow: "0 4px 20px rgba(0,0,0,0.5)",
-            pointerEvents: "none",
-          }}
-        >
-          {flashToast.ok ? "✓ " : "✗ "}{flashToast.text}
-        </motion.div>,
-        document.body,
-      )
-    : null;
+  // Panel position: open above/beside the button, clamped to viewport
+  const panelLeft = Math.max(4, Math.min(window.innerWidth - PANEL_W - 4, btnPos.x + 22 - PANEL_W / 2));
+  const panelTop = Math.max(4, btnPos.y - PANEL_H - 10);
 
   // AI message context menu portal
   const aiContextMenuEl = aiContextMenu
@@ -542,8 +545,8 @@ export function AIChatFloat({
           transition={{ type: "spring", stiffness: 420, damping: 32 }}
           style={{
             position: "fixed",
-            bottom: 72,
-            right: 16,
+            top: panelTop,
+            left: panelLeft,
             width: PANEL_W,
             height: PANEL_H,
             background: "rgba(8,8,10,0.97)",
@@ -971,11 +974,15 @@ export function AIChatFloat({
     <>
       {/* Toggle button */}
       <motion.button
-        onClick={() => setIsOpen((v) => !v)}
+        onPointerDown={startBtnDrag}
+        onClick={() => { if (!btnDraggingRef.current) setIsOpen((v) => !v); }}
         whileHover={{ scale: 1.07 }}
-        whileTap={{ scale: 0.93 }}
+        whileTap={{ scale: 0.95 }}
+        title="AI-ассистент (тяните для перемещения)"
         style={{
-          position: "fixed", bottom: 20, right: 20,
+          position: "fixed",
+          left: btnPos.x,
+          top: btnPos.y,
           width: 44, height: 44, borderRadius: 14,
           background: isOpen
             ? "linear-gradient(135deg, #1a253a, #0d1117)"
@@ -984,9 +991,10 @@ export function AIChatFloat({
           boxShadow: isOpen
             ? "0 0 24px rgba(88,166,255,0.35), 0 8px 24px rgba(0,0,0,0.6)"
             : "0 0 16px rgba(88,166,255,0.2), 0 4px 16px rgba(0,0,0,0.5)",
-          cursor: "pointer",
+          cursor: "grab",
           display: "flex", alignItems: "center", justifyContent: "center",
           zIndex: 8999,
+          touchAction: "none",
           transition: "border-color 0.2s, box-shadow 0.2s",
         }}
       >
@@ -1011,7 +1019,6 @@ export function AIChatFloat({
       </motion.button>
 
       {ReactDOM.createPortal(panel, document.body)}
-      {flashToastEl}
       {aiContextMenuEl}
     </>
   );

@@ -250,48 +250,47 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-function NumberPicker({ value, onChange, min, max, step = 1, label, options }: {
+function SliderPicker({ value, onChange, min, max, step = 1, label, marks }: {
   value: number; onChange: (v: number) => void;
   min: number; max: number; step?: number;
-  label: string; options?: number[];
+  label: string; marks?: number[];
 }) {
   return (
     <div style={{
-      display: "flex", alignItems: "center", gap: 12,
-      padding: "10px 14px", borderRadius: 10,
+      padding: "12px 14px", borderRadius: 10,
       background: "rgba(255,255,255,0.03)",
       border: "1px solid rgba(255,255,255,0.06)",
       marginBottom: 6,
     }}>
-      <div style={{ flex: 1, fontSize: 13, color: "rgba(255,255,255,0.85)", fontWeight: 500 }}>{label}</div>
-      {options ? (
-        <div style={{ display: "flex", gap: 4 }}>
-          {options.map((opt) => (
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+        <span style={{ fontSize: 13, color: "rgba(255,255,255,0.85)", fontWeight: 500 }}>{label}</span>
+        <span style={{
+          fontSize: 12, fontWeight: 700, color: "#79C0FF",
+          background: "rgba(88,166,255,0.1)", border: "1px solid rgba(88,166,255,0.2)",
+          borderRadius: 6, padding: "1px 8px",
+          fontFamily: "JetBrains Mono, monospace",
+        }}>{value}</span>
+      </div>
+      <input
+        type="range"
+        min={min} max={max} step={step}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        style={{ width: "100%", accentColor: "#58A6FF", height: 4, cursor: "pointer" }}
+      />
+      {marks && (
+        <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
+          {marks.map((m) => (
             <button
-              key={opt}
-              onClick={() => onChange(opt)}
+              key={m}
+              onClick={() => onChange(m)}
               style={{
-                width: 32, height: 26, borderRadius: 7,
-                border: `1px solid ${value === opt ? "rgba(88,166,255,0.4)" : "rgba(255,255,255,0.1)"}`,
-                background: value === opt ? "rgba(88,166,255,0.15)" : "rgba(255,255,255,0.03)",
-                color: value === opt ? "#58A6FF" : "rgba(255,255,255,0.5)",
-                fontSize: 12, fontWeight: 600, cursor: "pointer",
-                transition: "all 0.12s",
+                fontSize: 10, color: value === m ? "#79C0FF" : "rgba(255,255,255,0.25)",
+                background: "none", border: "none", cursor: "pointer", padding: 0,
+                fontFamily: "JetBrains Mono, monospace", fontWeight: value === m ? 700 : 400,
               }}
-            >{opt}</button>
+            >{m}</button>
           ))}
-        </div>
-      ) : (
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <button
-            onClick={() => onChange(Math.max(min, value - step))}
-            style={{ width: 24, height: 24, borderRadius: 6, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.6)", cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" }}
-          >-</button>
-          <span style={{ fontSize: 13, color: "#E6EDF3", fontWeight: 600, minWidth: 24, textAlign: "center", fontFamily: "JetBrains Mono, monospace" }}>{value}</span>
-          <button
-            onClick={() => onChange(Math.min(max, value + step))}
-            style={{ width: 24, height: 24, borderRadius: 6, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.6)", cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" }}
-          >+</button>
         </div>
       )}
     </div>
@@ -484,21 +483,21 @@ export function RoomSettings({ isOpen, onClose, settings, onChange }: Props) {
                       {section === "editor" && (
                         <div>
                           <SectionLabel>Размер шрифта</SectionLabel>
-                          <NumberPicker
+                          <SliderPicker
                             label="Размер шрифта (px)"
                             value={settings.fontSize}
                             onChange={(v) => set({ fontSize: v })}
-                            min={10} max={24}
-                            options={[12, 13, 14, 16, 18]}
+                            min={10} max={24} step={1}
+                            marks={[10, 12, 14, 16, 18, 20, 24]}
                           />
 
                           <SectionLabel>Отступы</SectionLabel>
-                          <NumberPicker
-                            label="Размер табуляции"
+                          <SliderPicker
+                            label="Размер табуляции (пробелов)"
                             value={settings.tabSize}
                             onChange={(v) => set({ tabSize: v })}
-                            min={1} max={8}
-                            options={[2, 4, 8]}
+                            min={1} max={8} step={1}
+                            marks={[1, 2, 4, 8]}
                           />
 
                           <SectionLabel>Поведение</SectionLabel>

@@ -9,7 +9,6 @@ import {
   getListRoomsQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { GridBackground } from "@/components/GridBackground";
 import { Logo } from "@/components/Logo";
 import {
   Dialog,
@@ -531,8 +530,18 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: "#030303", color: "#f0f0f0", overflow: "auto" }}>
-      <GridBackground />
+    <div className="min-h-screen flex flex-col" style={{ background: "#07090D", color: "#f0f0f0", overflow: "auto" }}>
+      {/* Subtle radial glow top-center */}
+      <div style={{
+        position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0,
+        background: "radial-gradient(ellipse 80% 40% at 50% -10%, rgba(40,80,160,0.18) 0%, transparent 70%)",
+      }} />
+      {/* Dot grid */}
+      <div style={{
+        position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0,
+        backgroundImage: "radial-gradient(rgba(255,255,255,0.06) 1px, transparent 1px)",
+        backgroundSize: "28px 28px",
+      }} />
 
       <div className="relative z-10 flex flex-col min-h-screen">
         {/* HEADER */}
