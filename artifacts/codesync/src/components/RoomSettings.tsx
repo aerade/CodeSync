@@ -106,18 +106,22 @@ export function playSound(type: string, volume = 0.15) {
 
 type SectionId = "appearance" | "editor" | "presence" | "sound" | "room" | "notifications" | "shortcuts";
 
-interface Section {
+interface SectionDef {
   id: SectionId;
   label: string;
+  desc: string;
+  color: string;
   icon: React.ReactNode;
 }
 
-const SECTIONS: Section[] = [
+const SECTIONS: SectionDef[] = [
   {
     id: "appearance",
     label: "Внешний вид",
+    desc: "Тема редактора",
+    color: "#A78BFA",
     icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <circle cx="12" cy="12" r="10"/>
         <path d="M12 2a14.5 14.5 0 0 0 0 20 10 10 0 0 0 0-20"/>
         <path d="M2 12h20"/>
@@ -127,8 +131,10 @@ const SECTIONS: Section[] = [
   {
     id: "editor",
     label: "Редактор",
+    desc: "Шрифт, отступы, поведение",
+    color: "#34D399",
     icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <polyline points="4 17 10 11 4 5"/>
         <line x1="12" y1="19" x2="20" y2="19"/>
       </svg>
@@ -137,8 +143,10 @@ const SECTIONS: Section[] = [
   {
     id: "presence",
     label: "Присутствие",
+    desc: "Видимость участников",
+    color: "#60A5FA",
     icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
         <circle cx="9" cy="7" r="4"/>
         <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
@@ -149,8 +157,10 @@ const SECTIONS: Section[] = [
   {
     id: "sound",
     label: "Звук",
+    desc: "Уведомления и сигналы",
+    color: "#FB923C",
     icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
         <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
         <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
@@ -160,8 +170,10 @@ const SECTIONS: Section[] = [
   {
     id: "room",
     label: "Комната",
+    desc: "Настройки и управление",
+    color: "#F472B6",
     icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
         <polyline points="9 22 9 12 15 12 15 22"/>
       </svg>
@@ -170,8 +182,10 @@ const SECTIONS: Section[] = [
   {
     id: "notifications",
     label: "Уведомления",
+    desc: "События в комнате",
+    color: "#FBBF24",
     icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
         <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
       </svg>
@@ -180,17 +194,13 @@ const SECTIONS: Section[] = [
   {
     id: "shortcuts",
     label: "Горячие клавиши",
+    desc: "Быстрые действия",
+    color: "#94A3B8",
     icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <rect x="2" y="4" width="20" height="16" rx="2" ry="2"/>
-        <path d="M6 8h.001"/>
-        <path d="M10 8h.001"/>
-        <path d="M14 8h.001"/>
-        <path d="M18 8h.001"/>
-        <path d="M8 12h.001"/>
-        <path d="M12 12h.001"/>
-        <path d="M16 12h.001"/>
         <path d="M7 16h10"/>
+        <path d="M6 8h.001M10 8h.001M14 8h.001M18 8h.001"/>
       </svg>
     ),
   },
@@ -213,44 +223,53 @@ interface Props {
 function Toggle({ value, onChange, label, desc }: { value: boolean; onChange: (v: boolean) => void; label: string; desc?: string }) {
   return (
     <div style={{
-      display: "flex", alignItems: "center", gap: 12,
-      padding: "10px 14px", borderRadius: 10,
-      background: "rgba(255,255,255,0.03)",
-      border: "1px solid rgba(255,255,255,0.06)",
-      marginBottom: 6,
-    }}>
+      display: "flex", alignItems: "center", gap: 14,
+      padding: "12px 16px", borderRadius: 12,
+      background: value ? "rgba(88,166,255,0.04)" : "rgba(255,255,255,0.02)",
+      border: `1px solid ${value ? "rgba(88,166,255,0.12)" : "rgba(255,255,255,0.05)"}`,
+      marginBottom: 6, transition: "all 0.15s", cursor: "pointer",
+    }} onClick={() => onChange(!value)}>
       <div style={{ flex: 1 }}>
-        <div style={{ fontSize: 13, color: "rgba(255,255,255,0.85)", fontWeight: 500 }}>{label}</div>
-        {desc && <div style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", marginTop: 2 }}>{desc}</div>}
+        <div style={{ fontSize: 13, color: value ? "rgba(255,255,255,0.92)" : "rgba(255,255,255,0.7)", fontWeight: 500 }}>{label}</div>
+        {desc && <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", marginTop: 2 }}>{desc}</div>}
       </div>
-      <button
-        onClick={() => onChange(!value)}
-        style={{
-          width: 40, height: 22, borderRadius: 11,
-          background: value ? "#3FB950" : "rgba(255,255,255,0.1)",
-          border: "none", cursor: "pointer", position: "relative",
-          transition: "background 0.2s", flexShrink: 0,
-        }}
-      >
+      <div style={{
+        width: 42, height: 24, borderRadius: 12,
+        background: value ? "linear-gradient(135deg, #58A6FF, #3B82F6)" : "rgba(255,255,255,0.08)",
+        border: `1px solid ${value ? "rgba(88,166,255,0.4)" : "rgba(255,255,255,0.1)"}`,
+        position: "relative", transition: "all 0.2s", flexShrink: 0,
+        boxShadow: value ? "0 0 12px rgba(88,166,255,0.3)" : "none",
+      }}>
         <span style={{
           position: "absolute", top: 3,
           left: value ? 20 : 3,
           width: 16, height: 16, borderRadius: "50%",
           background: "#fff",
           transition: "left 0.2s",
-          boxShadow: "0 1px 3px rgba(0,0,0,0.4)",
+          boxShadow: "0 1px 4px rgba(0,0,0,0.5)",
         }} />
-      </button>
+      </div>
     </div>
   );
 }
 
-function SectionLabel({ children }: { children: React.ReactNode }) {
+function Card({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{
+      padding: "14px 16px", borderRadius: 12,
+      background: "rgba(255,255,255,0.025)",
+      border: "1px solid rgba(255,255,255,0.06)",
+      marginBottom: 8,
+    }}>{children}</div>
+  );
+}
+
+function Label({ children }: { children: React.ReactNode }) {
   return (
     <div style={{
       fontSize: 10, fontWeight: 700, textTransform: "uppercase",
-      letterSpacing: "0.1em", color: "rgba(255,255,255,0.3)",
-      marginBottom: 8, marginTop: 16,
+      letterSpacing: "0.12em", color: "rgba(255,255,255,0.25)",
+      marginBottom: 8, marginTop: 18,
     }}>
       {children}
     </div>
@@ -263,45 +282,36 @@ function SliderPicker({ value, onChange, min, max, step = 1, label, presets }: {
   label: string; presets?: number[];
 }) {
   return (
-    <div style={{
-      padding: "12px 14px", borderRadius: 10,
-      background: "rgba(255,255,255,0.03)",
-      border: "1px solid rgba(255,255,255,0.06)",
-      marginBottom: 6,
-    }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-        <span style={{ fontSize: 13, color: "rgba(255,255,255,0.85)", fontWeight: 500 }}>{label}</span>
+    <Card>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+        <span style={{ fontSize: 13, color: "rgba(255,255,255,0.8)", fontWeight: 500 }}>{label}</span>
         <span style={{
           fontSize: 12, fontWeight: 700, color: "#79C0FF",
           background: "rgba(88,166,255,0.1)", border: "1px solid rgba(88,166,255,0.2)",
-          borderRadius: 6, padding: "1px 8px",
+          borderRadius: 6, padding: "2px 10px",
           fontFamily: "JetBrains Mono, monospace",
-          minWidth: 28, textAlign: "center",
         }}>{value}</span>
       </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <span style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", fontFamily: "JetBrains Mono, monospace", minWidth: 16, textAlign: "right" }}>{min}</span>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <span style={{ fontSize: 10, color: "rgba(255,255,255,0.25)", fontFamily: "JetBrains Mono, monospace", minWidth: 16, textAlign: "right" }}>{min}</span>
         <input
-          type="range"
-          min={min} max={max} step={step}
-          value={value}
+          type="range" min={min} max={max} step={step} value={value}
           onChange={(e) => onChange(Number(e.target.value))}
           style={{ flex: 1, accentColor: "#58A6FF", cursor: "pointer", height: 4 }}
         />
-        <span style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", fontFamily: "JetBrains Mono, monospace", minWidth: 16 }}>{max}</span>
+        <span style={{ fontSize: 10, color: "rgba(255,255,255,0.25)", fontFamily: "JetBrains Mono, monospace", minWidth: 16 }}>{max}</span>
       </div>
       {presets && (
-        <div style={{ display: "flex", gap: 4, marginTop: 8, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 4, marginTop: 10 }}>
           {presets.map((p) => (
             <button
-              key={p}
-              onClick={() => onChange(p)}
+              key={p} onClick={() => onChange(p)}
               style={{
-                fontSize: 10, padding: "2px 7px", borderRadius: 5, cursor: "pointer",
+                flex: 1, fontSize: 10, padding: "3px 0", borderRadius: 6, cursor: "pointer",
                 fontFamily: "JetBrains Mono, monospace",
                 background: value === p ? "rgba(88,166,255,0.15)" : "rgba(255,255,255,0.04)",
-                border: `1px solid ${value === p ? "rgba(88,166,255,0.35)" : "rgba(255,255,255,0.08)"}`,
-                color: value === p ? "#79C0FF" : "rgba(255,255,255,0.35)",
+                border: `1px solid ${value === p ? "rgba(88,166,255,0.35)" : "rgba(255,255,255,0.07)"}`,
+                color: value === p ? "#79C0FF" : "rgba(255,255,255,0.3)",
                 fontWeight: value === p ? 700 : 400,
                 transition: "all 0.12s",
               }}
@@ -309,7 +319,7 @@ function SliderPicker({ value, onChange, min, max, step = 1, label, presets }: {
           ))}
         </div>
       )}
-    </div>
+    </Card>
   );
 }
 
@@ -338,6 +348,7 @@ export function RoomSettings({ isOpen, onClose, settings, onChange, isOwner = fa
   const [ownerSaving, setOwnerSaving] = useState(false);
   const [ownerSaved, setOwnerSaved] = useState(false);
   const [ownerError, setOwnerError] = useState<string | null>(null);
+  const [section, setSection] = useState<SectionId>("appearance");
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => { setOwnerTitle(roomTitle); }, [roomTitle]);
@@ -363,7 +374,6 @@ export function RoomSettings({ isOpen, onClose, settings, onChange, isOwner = fa
       setOwnerError(e instanceof Error ? e.message : "Ошибка");
     } finally { setOwnerSaving(false); }
   }
-  const [section, setSection] = useState<SectionId>("appearance");
 
   useEffect(() => {
     if (!isOpen) return;
@@ -378,6 +388,15 @@ export function RoomSettings({ isOpen, onClose, settings, onChange, isOwner = fa
     saveSettings(next);
   }
 
+  const activeSection = SECTIONS.find((s) => s.id === section)!;
+
+  const inputStyle: React.CSSProperties = {
+    width: "100%", background: "rgba(255,255,255,0.03)",
+    border: "1px solid rgba(255,255,255,0.08)", borderRadius: 10,
+    padding: "9px 12px", fontSize: 13, color: "rgba(255,255,255,0.9)",
+    outline: "none", boxSizing: "border-box", transition: "border-color 0.15s",
+  };
+
   const modal = (
     <AnimatePresence>
       {isOpen && (
@@ -388,21 +407,21 @@ export function RoomSettings({ isOpen, onClose, settings, onChange, isOwner = fa
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 8000, backdropFilter: "blur(4px)" }}
+            style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 8000, backdropFilter: "blur(6px)" }}
           />
           <div style={{ position: "fixed", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", zIndex: 8001, pointerEvents: "none" }}>
             <motion.div
               key="settings-panel"
-              initial={{ opacity: 0, scale: 0.96, y: 8 }}
+              initial={{ opacity: 0, scale: 0.95, y: 12 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.96, y: 8 }}
-              transition={{ type: "spring", stiffness: 380, damping: 32 }}
+              exit={{ opacity: 0, scale: 0.95, y: 12 }}
+              transition={{ type: "spring", stiffness: 400, damping: 30 }}
               style={{
-                width: 720, height: 500,
-                background: "#080A0E",
-                border: "1px solid rgba(255,255,255,0.07)",
-                borderRadius: 18,
-                boxShadow: "0 32px 96px rgba(0,0,0,0.95)",
+                width: 760, height: 520,
+                background: "linear-gradient(145deg, #0C0E14 0%, #080A0F 100%)",
+                border: "1px solid rgba(255,255,255,0.08)",
+                borderRadius: 20,
+                boxShadow: "0 40px 120px rgba(0,0,0,0.95), 0 0 0 1px rgba(255,255,255,0.04), inset 0 1px 0 rgba(255,255,255,0.06)",
                 display: "flex", flexDirection: "column",
                 overflow: "hidden",
                 pointerEvents: "all",
@@ -410,45 +429,51 @@ export function RoomSettings({ isOpen, onClose, settings, onChange, isOwner = fa
             >
               {/* Header */}
               <div style={{
-                padding: "16px 20px 14px",
-                borderBottom: "1px solid rgba(255,255,255,0.06)",
-                display: "flex", alignItems: "center", gap: 10, flexShrink: 0,
+                padding: "18px 22px 16px",
+                borderBottom: "1px solid rgba(255,255,255,0.05)",
+                display: "flex", alignItems: "center", gap: 12, flexShrink: 0,
+                background: "rgba(255,255,255,0.015)",
               }}>
                 <div style={{
-                  width: 32, height: 32, borderRadius: 10,
-                  background: "rgba(255,255,255,0.05)",
-                  border: "1px solid rgba(255,255,255,0.08)",
+                  width: 36, height: 36, borderRadius: 11,
+                  background: `linear-gradient(135deg, ${activeSection.color}22, ${activeSection.color}11)`,
+                  border: `1px solid ${activeSection.color}30`,
                   display: "flex", alignItems: "center", justifyContent: "center",
+                  color: activeSection.color,
+                  transition: "all 0.2s",
                 }}>
-                  <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M10 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"/>
-                    <path d="M16.9 10a6.9 6.9 0 0 1-.07.93l2.02 1.58a.48.48 0 0 1 .12.62l-1.92 3.32a.48.48 0 0 1-.58.21l-2.39-.96a6.88 6.88 0 0 1-1.61.93l-.36 2.54a.47.47 0 0 1-.47.4H8.36a.47.47 0 0 1-.47-.4l-.36-2.54a6.88 6.88 0 0 1-1.61-.93l-2.39.96a.48.48 0 0 1-.58-.21L1.03 13.13a.47.47 0 0 1 .12-.62l2.02-1.58A6.94 6.94 0 0 1 3.1 10c0-.31.02-.62.07-.93L1.15 7.49a.48.48 0 0 1-.12-.62l1.92-3.32a.48.48 0 0 1 .58-.21l2.39.96a6.88 6.88 0 0 1 1.61-.93L7.89.83a.47.47 0 0 1 .47-.4h3.28c.23 0 .43.16.47.4l.36 2.54c.57.23 1.1.54 1.61.93l2.39-.96a.48.48 0 0 1 .58.21l1.92 3.32a.47.47 0 0 1-.12.62L16.83 9.07c.05.31.07.62.07.93z"/>
-                  </svg>
+                  {activeSection.icon}
                 </div>
-                <div>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: "rgba(255,255,255,0.92)" }}>Настройки комнаты</div>
-                  <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", marginTop: 1 }}>Персональные предпочтения для вашей сессии</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: "rgba(255,255,255,0.95)", letterSpacing: "-0.01em" }}>
+                    {activeSection.label}
+                  </div>
+                  <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", marginTop: 1 }}>{activeSection.desc}</div>
                 </div>
                 <button
                   onClick={onClose}
-                  style={{ marginLeft: "auto", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, cursor: "pointer", color: "rgba(255,255,255,0.5)", width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.12s" }}
-                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.1)"; (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.8)"; }}
-                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.06)"; (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.5)"; }}
+                  style={{
+                    background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)",
+                    borderRadius: 9, cursor: "pointer", color: "rgba(255,255,255,0.4)",
+                    width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center",
+                    transition: "all 0.15s",
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.1)"; e.currentTarget.style.color = "rgba(255,255,255,0.8)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.05)"; e.currentTarget.style.color = "rgba(255,255,255,0.4)"; }}
                 >
-                  <svg width="12" height="12" viewBox="0 0 10 10" fill="none">
-                    <path d="M1 1l8 8M9 1L1 9" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+                  <svg width="11" height="11" viewBox="0 0 10 10" fill="none">
+                    <path d="M1 1l8 8M9 1L1 9" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/>
                   </svg>
                 </button>
               </div>
 
-              {/* Body: sidebar + content */}
+              {/* Body */}
               <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
-                {/* Left sidebar navigation */}
+                {/* Sidebar */}
                 <div style={{
-                  width: 180, flexShrink: 0,
-                  borderRight: "1px solid rgba(255,255,255,0.05)",
-                  background: "rgba(0,0,0,0.5)",
-                  padding: "10px 8px",
+                  width: 192, flexShrink: 0,
+                  borderRight: "1px solid rgba(255,255,255,0.04)",
+                  padding: "12px 10px",
                   display: "flex", flexDirection: "column", gap: 2,
                   overflowY: "auto",
                 }}>
@@ -460,71 +485,81 @@ export function RoomSettings({ isOpen, onClose, settings, onChange, isOwner = fa
                         onClick={() => setSection(s.id)}
                         style={{
                           display: "flex", alignItems: "center", gap: 10,
-                          padding: "9px 12px", borderRadius: 10,
-                          background: isActive ? "rgba(88,166,255,0.12)" : "transparent",
-                          border: `1px solid ${isActive ? "rgba(88,166,255,0.2)" : "transparent"}`,
+                          padding: "9px 12px", borderRadius: 11,
+                          background: isActive ? `${s.color}14` : "transparent",
+                          border: `1px solid ${isActive ? `${s.color}28` : "transparent"}`,
                           cursor: "pointer", textAlign: "left",
-                          color: isActive ? "#58A6FF" : "rgba(255,255,255,0.5)",
-                          transition: "all 0.12s",
-                          width: "100%",
+                          transition: "all 0.13s", width: "100%",
                         }}
                         onMouseEnter={(e) => {
-                          if (!isActive) {
-                            (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.04)";
-                            (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.75)";
-                          }
+                          if (!isActive) { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; }
                         }}
                         onMouseLeave={(e) => {
-                          if (!isActive) {
-                            (e.currentTarget as HTMLElement).style.background = "transparent";
-                            (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.5)";
-                          }
+                          if (!isActive) { e.currentTarget.style.background = "transparent"; }
                         }}
                       >
-                        <span style={{ flexShrink: 0, lineHeight: 0, opacity: isActive ? 1 : 0.7 }}>{s.icon}</span>
-                        <span style={{ fontSize: 12, fontWeight: 500, whiteSpace: "nowrap" }}>{s.label}</span>
+                        <div style={{
+                          width: 28, height: 28, borderRadius: 8, flexShrink: 0,
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          background: isActive ? `${s.color}18` : "rgba(255,255,255,0.04)",
+                          color: isActive ? s.color : "rgba(255,255,255,0.35)",
+                          transition: "all 0.13s",
+                        }}>
+                          {s.icon}
+                        </div>
+                        <span style={{
+                          fontSize: 12, fontWeight: isActive ? 600 : 500,
+                          color: isActive ? "rgba(255,255,255,0.92)" : "rgba(255,255,255,0.45)",
+                          whiteSpace: "nowrap", transition: "color 0.13s",
+                        }}>{s.label}</span>
+                        {isActive && (
+                          <div style={{ marginLeft: "auto", width: 4, height: 4, borderRadius: "50%", background: s.color, flexShrink: 0 }} />
+                        )}
                       </button>
                     );
                   })}
                 </div>
 
-                {/* Right content */}
-                <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px" }}>
+                {/* Content */}
+                <div style={{ flex: 1, overflowY: "auto", padding: "18px 22px" }}>
                   <AnimatePresence mode="wait">
                     <motion.div
                       key={section}
-                      initial={{ opacity: 0, x: 8 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -8 }}
-                      transition={{ duration: 0.15 }}
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -6 }}
+                      transition={{ duration: 0.14 }}
                     >
+
                       {/* APPEARANCE */}
                       {section === "appearance" && (
                         <div>
-                          <SectionLabel>Тема редактора</SectionLabel>
+                          <Label>Тема редактора</Label>
                           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
-                            {EDITOR_THEMES.map((t) => (
-                              <button
-                                key={t.id}
-                                onClick={() => set({ editorTheme: t.id })}
-                                style={{
-                                  padding: "10px 14px", borderRadius: 10, cursor: "pointer", textAlign: "left",
-                                  background: settings.editorTheme === t.id ? "rgba(88,166,255,0.12)" : "rgba(255,255,255,0.04)",
-                                  border: `1px solid ${settings.editorTheme === t.id ? "rgba(88,166,255,0.35)" : "rgba(255,255,255,0.07)"}`,
-                                  color: settings.editorTheme === t.id ? "#58A6FF" : "rgba(255,255,255,0.6)",
-                                  fontSize: 12, fontWeight: 500, transition: "all 0.12s",
-                                }}
-                              >
-                                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                  {settings.editorTheme === t.id && (
-                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                            {EDITOR_THEMES.map((t) => {
+                              const active = settings.editorTheme === t.id;
+                              return (
+                                <button
+                                  key={t.id}
+                                  onClick={() => set({ editorTheme: t.id })}
+                                  style={{
+                                    padding: "10px 14px", borderRadius: 10, cursor: "pointer", textAlign: "left",
+                                    background: active ? "rgba(167,139,250,0.1)" : "rgba(255,255,255,0.03)",
+                                    border: `1px solid ${active ? "rgba(167,139,250,0.3)" : "rgba(255,255,255,0.06)"}`,
+                                    color: active ? "#A78BFA" : "rgba(255,255,255,0.5)",
+                                    fontSize: 12, fontWeight: 500, transition: "all 0.12s",
+                                    display: "flex", alignItems: "center", gap: 8,
+                                  }}
+                                >
+                                  {active && (
+                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                                       <polyline points="20 6 9 17 4 12"/>
                                     </svg>
                                   )}
-                                  <span>{t.label}</span>
-                                </div>
-                              </button>
-                            ))}
+                                  {t.label}
+                                </button>
+                              );
+                            })}
                           </div>
                         </div>
                       )}
@@ -532,120 +567,69 @@ export function RoomSettings({ isOpen, onClose, settings, onChange, isOwner = fa
                       {/* EDITOR */}
                       {section === "editor" && (
                         <div>
-                          <SectionLabel>Размер шрифта</SectionLabel>
-                          <SliderPicker
-                            label="Размер шрифта (px)"
-                            value={settings.fontSize}
-                            onChange={(v) => set({ fontSize: v })}
-                            min={10} max={24} step={1}
-                            presets={[12, 14, 16, 18, 20]}
-                          />
-
-                          <SectionLabel>Отступы</SectionLabel>
-                          <SliderPicker
-                            label="Размер табуляции (пробелов)"
-                            value={settings.tabSize}
-                            onChange={(v) => set({ tabSize: v })}
-                            min={1} max={8} step={1}
-                            presets={[2, 4, 8]}
-                          />
-
-                          <SectionLabel>Поведение</SectionLabel>
-                          <Toggle
-                            value={settings.wordWrap}
-                            onChange={(v) => set({ wordWrap: v })}
-                            label="Перенос строк"
-                            desc="Автоматически переносить длинные строки"
-                          />
-                          <Toggle
-                            value={settings.autoSave}
-                            onChange={(v) => set({ autoSave: v })}
-                            label="Автосохранение"
-                            desc="Сохранять файл при изменениях"
-                          />
-                          <Toggle
-                            value={settings.showMinimap}
-                            onChange={(v) => set({ showMinimap: v })}
-                            label="Миникарта кода"
-                            desc="Показывать обзор кода в правой части редактора"
-                          />
+                          <Label>Размер шрифта</Label>
+                          <SliderPicker label="Размер (px)" value={settings.fontSize} onChange={(v) => set({ fontSize: v })} min={10} max={24} presets={[12, 14, 16, 18, 20]} />
+                          <Label>Отступы</Label>
+                          <SliderPicker label="Табуляция (пробелов)" value={settings.tabSize} onChange={(v) => set({ tabSize: v })} min={1} max={8} presets={[2, 4, 8]} />
+                          <Label>Поведение</Label>
+                          <Toggle value={settings.wordWrap} onChange={(v) => set({ wordWrap: v })} label="Перенос строк" desc="Автоматически переносить длинные строки" />
+                          <Toggle value={settings.autoSave} onChange={(v) => set({ autoSave: v })} label="Автосохранение" desc="Сохранять файл при изменениях" />
+                          <Toggle value={settings.showMinimap} onChange={(v) => set({ showMinimap: v })} label="Миникарта кода" desc="Показывать обзор кода справа" />
                         </div>
                       )}
 
                       {/* PRESENCE */}
                       {section === "presence" && (
                         <div>
-                          <SectionLabel>Видимость действий пользователей</SectionLabel>
-                          <Toggle
-                            value={settings.showMouseCursors}
-                            onChange={(v) => set({ showMouseCursors: v })}
-                            label="Курсоры мыши"
-                            desc="Видеть где находится мышь других участников"
-                          />
-                          <Toggle
-                            value={settings.showFilePresence}
-                            onChange={(v) => set({ showFilePresence: v })}
-                            label="Присутствие в файлах"
-                            desc="Показывать в каком файле находится участник"
-                          />
-                          <Toggle
-                            value={settings.showEditorCursors}
-                            onChange={(v) => set({ showEditorCursors: v })}
-                            label="Курсоры в редакторе"
-                            desc="Позиция текстового курсора в редакторе"
-                          />
-                          <Toggle
-                            value={settings.showChatMessages}
-                            onChange={(v) => set({ showChatMessages: v })}
-                            label="Чат участников"
-                            desc="Получать сообщения чата от других участников"
-                          />
+                          <Label>Видимость действий</Label>
+                          <Toggle value={settings.showMouseCursors} onChange={(v) => set({ showMouseCursors: v })} label="Курсоры мыши" desc="Видеть курсор мыши участников" />
+                          <Toggle value={settings.showFilePresence} onChange={(v) => set({ showFilePresence: v })} label="Файловое присутствие" desc="Показывать в каком файле участник" />
+                          <Toggle value={settings.showEditorCursors} onChange={(v) => set({ showEditorCursors: v })} label="Курсоры в редакторе" desc="Позиция курсора в коде" />
+                          <Toggle value={settings.showChatMessages} onChange={(v) => set({ showChatMessages: v })} label="Сообщения чата" desc="Получать сообщения от участников" />
                         </div>
                       )}
 
                       {/* SOUND */}
                       {section === "sound" && (
                         <div>
-                          <SectionLabel>Уведомления</SectionLabel>
-                          <Toggle
-                            value={settings.soundEnabled}
-                            onChange={(v) => set({ soundEnabled: v })}
-                            label="Звук завершения ИИ"
-                            desc="Воспроизводить звук когда ИИ заканчивает ответ"
-                          />
+                          <Label>Звуковые уведомления</Label>
+                          <Toggle value={settings.soundEnabled} onChange={(v) => set({ soundEnabled: v })} label="Звук завершения ИИ" desc="Сигнал когда ИИ заканчивает ответ" />
                           {settings.soundEnabled && (
                             <>
-                              <SectionLabel>Тип звука</SectionLabel>
-                              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                                {SOUND_OPTIONS.map((s) => (
-                                  <button
-                                    key={s.id}
-                                    onClick={() => { set({ soundType: s.id }); playSound(s.id); }}
-                                    style={{
-                                      display: "flex", alignItems: "center", gap: 12,
-                                      padding: "10px 14px", borderRadius: 10, cursor: "pointer", textAlign: "left",
-                                      background: settings.soundType === s.id ? "rgba(88,166,255,0.1)" : "rgba(255,255,255,0.03)",
-                                      border: `1px solid ${settings.soundType === s.id ? "rgba(88,166,255,0.3)" : "rgba(255,255,255,0.06)"}`,
-                                      transition: "all 0.12s",
-                                    }}
-                                  >
-                                    <div style={{ width: 32, height: 32, borderRadius: 9, background: settings.soundType === s.id ? "rgba(88,166,255,0.15)" : "rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={settings.soundType === s.id ? "#58A6FF" : "rgba(255,255,255,0.4)"} strokeWidth="2" strokeLinecap="round">
-                                        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
-                                        <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
-                                      </svg>
-                                    </div>
-                                    <div>
-                                      <div style={{ fontSize: 13, fontWeight: 500, color: settings.soundType === s.id ? "#58A6FF" : "rgba(255,255,255,0.75)" }}>{s.label}</div>
-                                      <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", marginTop: 1 }}>{s.desc}</div>
-                                    </div>
-                                    {settings.soundType === s.id && (
-                                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#58A6FF" strokeWidth="2.5" strokeLinecap="round" style={{ marginLeft: "auto" }}>
-                                        <polyline points="20 6 9 17 4 12"/>
-                                      </svg>
-                                    )}
-                                  </button>
-                                ))}
+                              <Label>Тип звука</Label>
+                              <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                                {SOUND_OPTIONS.map((s) => {
+                                  const active = settings.soundType === s.id;
+                                  return (
+                                    <button
+                                      key={s.id}
+                                      onClick={() => { set({ soundType: s.id }); playSound(s.id); }}
+                                      style={{
+                                        display: "flex", alignItems: "center", gap: 12,
+                                        padding: "10px 14px", borderRadius: 11, cursor: "pointer", textAlign: "left",
+                                        background: active ? "rgba(251,146,60,0.08)" : "rgba(255,255,255,0.02)",
+                                        border: `1px solid ${active ? "rgba(251,146,60,0.25)" : "rgba(255,255,255,0.05)"}`,
+                                        transition: "all 0.12s",
+                                      }}
+                                    >
+                                      <div style={{ width: 32, height: 32, borderRadius: 9, background: active ? "rgba(251,146,60,0.15)" : "rgba(255,255,255,0.04)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={active ? "#FB923C" : "rgba(255,255,255,0.35)"} strokeWidth="2" strokeLinecap="round">
+                                          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                                          <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                                        </svg>
+                                      </div>
+                                      <div style={{ flex: 1 }}>
+                                        <div style={{ fontSize: 13, fontWeight: 500, color: active ? "#FB923C" : "rgba(255,255,255,0.7)" }}>{s.label}</div>
+                                        <div style={{ fontSize: 11, color: "rgba(255,255,255,0.28)", marginTop: 1 }}>{s.desc}</div>
+                                      </div>
+                                      {active && (
+                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#FB923C" strokeWidth="2.5" strokeLinecap="round">
+                                          <polyline points="20 6 9 17 4 12"/>
+                                        </svg>
+                                      )}
+                                    </button>
+                                  );
+                                })}
                               </div>
                             </>
                           )}
@@ -657,80 +641,64 @@ export function RoomSettings({ isOpen, onClose, settings, onChange, isOwner = fa
                         <div>
                           {isOwner ? (
                             <>
-                              <SectionLabel>Управление комнатой</SectionLabel>
-                              {/* Room name */}
+                              <Label>Управление комнатой</Label>
+
+                              {/* Title */}
                               <div style={{ marginBottom: 8 }}>
-                                <label style={{ fontSize: 11, color: "rgba(255,255,255,0.45)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", display: "block", marginBottom: 5 }}>Название</label>
+                                <div style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 5 }}>Название</div>
                                 <input
-                                  value={ownerTitle}
-                                  onChange={(e) => setOwnerTitle(e.target.value)}
-                                  maxLength={64}
-                                  style={{
-                                    width: "100%", background: "rgba(255,255,255,0.04)",
-                                    border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8,
-                                    padding: "7px 10px", fontSize: 13, color: "#fff",
-                                    outline: "none", boxSizing: "border-box",
-                                  }}
-                                  onFocus={(e) => (e.currentTarget.style.borderColor = "rgba(88,166,255,0.5)")}
-                                  onBlur={(e) => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)")}
+                                  value={ownerTitle} onChange={(e) => setOwnerTitle(e.target.value)}
+                                  maxLength={64} style={inputStyle}
+                                  onFocus={(e) => (e.currentTarget.style.borderColor = "rgba(244,114,182,0.4)")}
+                                  onBlur={(e) => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)")}
                                 />
                               </div>
-                              {/* Room description */}
+
+                              {/* Description */}
                               <div style={{ marginBottom: 8 }}>
-                                <label style={{ fontSize: 11, color: "rgba(255,255,255,0.45)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", display: "block", marginBottom: 5 }}>Описание</label>
+                                <div style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 5 }}>Описание</div>
                                 <textarea
-                                  value={ownerDesc}
-                                  onChange={(e) => setOwnerDesc(e.target.value)}
-                                  maxLength={256}
-                                  rows={2}
-                                  style={{
-                                    width: "100%", background: "rgba(255,255,255,0.04)",
-                                    border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8,
-                                    padding: "7px 10px", fontSize: 13, color: "#fff",
-                                    outline: "none", resize: "none", boxSizing: "border-box",
-                                    fontFamily: "inherit",
-                                  }}
-                                  onFocus={(e) => (e.currentTarget.style.borderColor = "rgba(88,166,255,0.5)")}
-                                  onBlur={(e) => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)")}
+                                  value={ownerDesc} onChange={(e) => setOwnerDesc(e.target.value)}
+                                  maxLength={256} rows={2}
+                                  style={{ ...inputStyle, resize: "none", fontFamily: "inherit" }}
+                                  onFocus={(e) => (e.currentTarget.style.borderColor = "rgba(244,114,182,0.4)")}
+                                  onBlur={(e) => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)")}
                                 />
                               </div>
-                              {/* Max users slider */}
-                              <div style={{ marginBottom: 8, padding: "12px 14px", borderRadius: 10, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
-                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-                                  <label style={{ fontSize: 13, color: "rgba(255,255,255,0.85)", fontWeight: 500 }}>Макс. участников</label>
-                                  <span style={{ fontSize: 12, fontWeight: 700, color: "#79C0FF", background: "rgba(88,166,255,0.1)", border: "1px solid rgba(88,166,255,0.2)", borderRadius: 6, padding: "1px 8px", fontFamily: "JetBrains Mono, monospace", minWidth: 24, textAlign: "center" }}>{ownerMaxUsers}</span>
+
+                              {/* Max Users */}
+                              <Card>
+                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                                  <span style={{ fontSize: 13, color: "rgba(255,255,255,0.8)", fontWeight: 500 }}>Макс. участников</span>
+                                  <span style={{ fontSize: 13, fontWeight: 700, color: "#F472B6", background: "rgba(244,114,182,0.1)", border: "1px solid rgba(244,114,182,0.2)", borderRadius: 7, padding: "2px 10px", fontFamily: "JetBrains Mono, monospace" }}>{ownerMaxUsers}</span>
                                 </div>
-                                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                  <span style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", fontFamily: "JetBrains Mono, monospace", minWidth: 10 }}>1</span>
-                                  <input
-                                    type="range" min={1} max={5} step={1}
-                                    value={ownerMaxUsers}
-                                    onChange={(e) => setOwnerMaxUsers(Number(e.target.value))}
-                                    style={{ flex: 1, accentColor: "#58A6FF", cursor: "pointer", height: 4 }}
-                                  />
-                                  <span style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", fontFamily: "JetBrains Mono, monospace", minWidth: 10 }}>5</span>
+                                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                                  <span style={{ fontSize: 10, color: "rgba(255,255,255,0.25)", fontFamily: "JetBrains Mono, monospace" }}>1</span>
+                                  <input type="range" min={1} max={5} step={1} value={ownerMaxUsers} onChange={(e) => setOwnerMaxUsers(Number(e.target.value))} style={{ flex: 1, accentColor: "#F472B6", cursor: "pointer", height: 4 }} />
+                                  <span style={{ fontSize: 10, color: "rgba(255,255,255,0.25)", fontFamily: "JetBrains Mono, monospace" }}>5</span>
                                 </div>
-                                <div style={{ display: "flex", gap: 4, marginTop: 8 }}>
+                                <div style={{ display: "flex", gap: 5, marginTop: 10 }}>
                                   {[1,2,3,4,5].map((n) => (
-                                    <button key={n} onClick={() => setOwnerMaxUsers(n)} style={{ flex: 1, fontSize: 10, padding: "2px 0", borderRadius: 5, cursor: "pointer", fontFamily: "JetBrains Mono, monospace", background: ownerMaxUsers === n ? "rgba(88,166,255,0.15)" : "rgba(255,255,255,0.04)", border: `1px solid ${ownerMaxUsers === n ? "rgba(88,166,255,0.35)" : "rgba(255,255,255,0.08)"}`, color: ownerMaxUsers === n ? "#79C0FF" : "rgba(255,255,255,0.35)", fontWeight: ownerMaxUsers === n ? 700 : 400, transition: "all 0.12s" }}>{n}</button>
+                                    <button key={n} onClick={() => setOwnerMaxUsers(n)} style={{ flex: 1, fontSize: 11, padding: "4px 0", borderRadius: 7, cursor: "pointer", fontFamily: "JetBrains Mono, monospace", fontWeight: ownerMaxUsers === n ? 700 : 400, background: ownerMaxUsers === n ? "rgba(244,114,182,0.15)" : "rgba(255,255,255,0.04)", border: `1px solid ${ownerMaxUsers === n ? "rgba(244,114,182,0.35)" : "rgba(255,255,255,0.07)"}`, color: ownerMaxUsers === n ? "#F472B6" : "rgba(255,255,255,0.3)", transition: "all 0.12s" }}>{n}</button>
                                   ))}
                                 </div>
-                              </div>
+                              </Card>
+
                               {/* Password */}
                               <div style={{ marginBottom: 8 }}>
-                                <label style={{ fontSize: 11, color: "rgba(255,255,255,0.45)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", display: "block", marginBottom: 5 }}>Пароль (необязательно)</label>
+                                <div style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 5 }}>Пароль <span style={{ color: "rgba(255,255,255,0.2)", fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>(необязательно)</span></div>
                                 <div style={{ position: "relative" }}>
                                   <input
                                     type={showPassword ? "text" : "password"}
-                                    value={ownerPassword}
-                                    onChange={(e) => setOwnerPassword(e.target.value)}
-                                    maxLength={64}
-                                    placeholder="Оставьте пустым, чтобы убрать пароль"
-                                    style={{ width: "100%", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "7px 36px 7px 10px", fontSize: 13, color: "#fff", outline: "none", boxSizing: "border-box", fontFamily: "JetBrains Mono, monospace" }}
-                                    onFocus={(e) => (e.currentTarget.style.borderColor = "rgba(88,166,255,0.5)")}
-                                    onBlur={(e) => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)")}
+                                    value={ownerPassword} onChange={(e) => setOwnerPassword(e.target.value)}
+                                    maxLength={64} placeholder="Оставьте пустым чтобы убрать пароль"
+                                    style={{ ...inputStyle, padding: "9px 38px 9px 12px", fontFamily: "JetBrains Mono, monospace" }}
+                                    onFocus={(e) => (e.currentTarget.style.borderColor = "rgba(244,114,182,0.4)")}
+                                    onBlur={(e) => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)")}
                                   />
-                                  <button onClick={() => setShowPassword((v) => !v)} style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.35)", padding: 2, lineHeight: 0 }}>
+                                  <button onClick={() => setShowPassword((v) => !v)} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.3)", padding: 2, lineHeight: 0, transition: "color 0.12s" }}
+                                    onMouseEnter={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.7)")}
+                                    onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.3)")}>
                                     {showPassword ? (
                                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
                                     ) : (
@@ -739,61 +707,45 @@ export function RoomSettings({ isOpen, onClose, settings, onChange, isOwner = fa
                                   </button>
                                 </div>
                               </div>
-                              {/* Private toggle */}
-                              <Toggle
-                                value={ownerPrivate}
-                                onChange={setOwnerPrivate}
-                                label="Приватная комната"
-                                desc="Только по приглашению или инвайт-коду"
-                              />
+
+                              {/* Private */}
+                              <Toggle value={ownerPrivate} onChange={setOwnerPrivate} label="Приватная комната" desc="Только по приглашению или инвайт-коду" />
+
                               {/* Save button */}
                               <button
-                                onClick={handleOwnerSave}
-                                disabled={ownerSaving}
+                                onClick={handleOwnerSave} disabled={ownerSaving}
                                 style={{
-                                  marginTop: 10, width: "100%", padding: "8px",
-                                  background: ownerSaved ? "rgba(63,185,80,0.2)" : "rgba(88,166,255,0.15)",
-                                  border: `1px solid ${ownerSaved ? "rgba(63,185,80,0.4)" : "rgba(88,166,255,0.3)"}`,
-                                  borderRadius: 8, cursor: ownerSaving ? "not-allowed" : "pointer",
+                                  marginTop: 12, width: "100%", padding: "10px",
+                                  background: ownerSaved
+                                    ? "linear-gradient(135deg, rgba(52,211,153,0.15), rgba(52,211,153,0.08))"
+                                    : "linear-gradient(135deg, rgba(244,114,182,0.15), rgba(244,114,182,0.08))",
+                                  border: `1px solid ${ownerSaved ? "rgba(52,211,153,0.3)" : "rgba(244,114,182,0.3)"}`,
+                                  borderRadius: 10, cursor: ownerSaving ? "not-allowed" : "pointer",
                                   fontSize: 13, fontWeight: 600,
-                                  color: ownerSaved ? "#3FB950" : "#58A6FF",
-                                  transition: "all 0.2s",
+                                  color: ownerSaved ? "#34D399" : "#F472B6",
+                                  transition: "all 0.2s", letterSpacing: "-0.01em",
                                 }}
                               >
                                 {ownerSaving ? "Сохранение…" : ownerSaved ? "✓ Сохранено" : "Сохранить изменения"}
                               </button>
-                              {ownerError && <div style={{ fontSize: 11, color: "#FF7B72", marginTop: 6 }}>{ownerError}</div>}
+                              {ownerError && <div style={{ fontSize: 11, color: "#FF7B72", marginTop: 8, padding: "6px 10px", background: "rgba(255,123,114,0.08)", border: "1px solid rgba(255,123,114,0.15)", borderRadius: 7 }}>{ownerError}</div>}
                             </>
                           ) : (
                             <>
-                              <SectionLabel>О комнате</SectionLabel>
-                              <div style={{
-                                padding: "14px 16px", borderRadius: 12,
-                                background: "rgba(255,255,255,0.03)",
-                                border: "1px solid rgba(255,255,255,0.07)",
-                                marginBottom: 8,
-                              }}>
-                                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", marginBottom: 6 }}>Настройки комнаты управляются владельцем</div>
-                                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", lineHeight: 1.7 }}>
-                                  • Имя, описание и приватность комнаты<br/>
+                              <Label>О комнате</Label>
+                              <Card>
+                                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", marginBottom: 8 }}>Настройки комнаты управляются владельцем</div>
+                                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", lineHeight: 1.8 }}>
+                                  • Название, описание и приватность<br/>
                                   • Максимальное количество участников<br/>
-                                  • Права доступа для гостей
+                                  • Пароль и права доступа
                                 </div>
-                              </div>
+                              </Card>
                             </>
                           )}
-                          <div style={{
-                            padding: "10px 14px", borderRadius: 10,
-                            background: "rgba(88,166,255,0.05)",
-                            border: "1px solid rgba(88,166,255,0.15)",
-                            display: "flex", alignItems: "center", gap: 10,
-                          }}>
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#58A6FF" strokeWidth="2" strokeLinecap="round">
-                              <circle cx="12" cy="12" r="10"/>
-                              <line x1="12" y1="8" x2="12" y2="12"/>
-                              <line x1="12" y1="16" x2="12.01" y2="16"/>
-                            </svg>
-                            <span style={{ fontSize: 12, color: "rgba(88,166,255,0.9)" }}>Личные настройки сохраняются в браузере</span>
+                          <div style={{ marginTop: 8, padding: "10px 14px", borderRadius: 10, background: "rgba(244,114,182,0.04)", border: "1px solid rgba(244,114,182,0.1)", display: "flex", alignItems: "center", gap: 9 }}>
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#F472B6" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                            <span style={{ fontSize: 11, color: "rgba(244,114,182,0.8)" }}>Личные настройки сохраняются в браузере</span>
                           </div>
                         </div>
                       )}
@@ -801,49 +753,34 @@ export function RoomSettings({ isOpen, onClose, settings, onChange, isOwner = fa
                       {/* NOTIFICATIONS */}
                       {section === "notifications" && (
                         <div>
-                          <SectionLabel>Уведомления о событиях</SectionLabel>
-                          <Toggle
-                            value={settings.notifyOnJoin}
-                            onChange={(v) => set({ notifyOnJoin: v })}
-                            label="Подключение участников"
-                            desc="Уведомлять когда кто-то подключается к комнате"
-                          />
-                          <Toggle
-                            value={settings.notifyOnMessage}
-                            onChange={(v) => set({ notifyOnMessage: v })}
-                            label="Новые сообщения"
-                            desc="Уведомлять о новых сообщениях в чате"
-                          />
-                          <Toggle
-                            value={settings.showChatMessages}
-                            onChange={(v) => set({ showChatMessages: v })}
-                            label="Показывать сообщения чата"
-                            desc="Отображать сообщения от участников комнаты"
-                          />
+                          <Label>События</Label>
+                          <Toggle value={settings.notifyOnJoin} onChange={(v) => set({ notifyOnJoin: v })} label="Подключение участников" desc="Уведомлять когда кто-то входит" />
+                          <Toggle value={settings.notifyOnMessage} onChange={(v) => set({ notifyOnMessage: v })} label="Новые сообщения" desc="Уведомлять о сообщениях в чате" />
+                          <Toggle value={settings.showChatMessages} onChange={(v) => set({ showChatMessages: v })} label="Показывать чат" desc="Отображать сообщения от участников" />
                         </div>
                       )}
 
                       {/* SHORTCUTS */}
                       {section === "shortcuts" && (
                         <div>
-                          <SectionLabel>Горячие клавиши редактора</SectionLabel>
-                          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                          <Label>Горячие клавиши редактора</Label>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
                             {SHORTCUTS.map(({ keys, desc }) => (
                               <div key={desc} style={{
                                 display: "flex", alignItems: "center", justifyContent: "space-between",
-                                padding: "8px 12px", borderRadius: 8,
-                                background: "rgba(255,255,255,0.03)",
-                                border: "1px solid rgba(255,255,255,0.05)",
+                                padding: "9px 14px", borderRadius: 9,
+                                background: "rgba(255,255,255,0.02)",
+                                border: "1px solid rgba(255,255,255,0.04)",
                               }}>
-                                <span style={{ fontSize: 12, color: "rgba(255,255,255,0.6)" }}>{desc}</span>
+                                <span style={{ fontSize: 12, color: "rgba(255,255,255,0.55)" }}>{desc}</span>
                                 <div style={{ display: "flex", gap: 3 }}>
                                   {keys.map((k, i) => (
                                     <span key={i} style={{
-                                      padding: "2px 6px", borderRadius: 5,
-                                      background: "rgba(255,255,255,0.08)",
-                                      border: "1px solid rgba(255,255,255,0.12)",
+                                      padding: "2px 7px", borderRadius: 5,
+                                      background: "rgba(255,255,255,0.06)",
+                                      border: "1px solid rgba(255,255,255,0.1)",
                                       fontSize: 10, fontWeight: 600,
-                                      color: "rgba(255,255,255,0.7)",
+                                      color: "rgba(255,255,255,0.6)",
                                       fontFamily: "JetBrains Mono, monospace",
                                     }}>{k}</span>
                                   ))}
@@ -853,6 +790,7 @@ export function RoomSettings({ isOpen, onClose, settings, onChange, isOwner = fa
                           </div>
                         </div>
                       )}
+
                     </motion.div>
                   </AnimatePresence>
                 </div>

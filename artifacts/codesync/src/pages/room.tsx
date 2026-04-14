@@ -1429,6 +1429,12 @@ export default function RoomPage() {
         if (streamFileId) {
           const streamedFile = files.find((f) => f.id === streamFileId);
           if (streamedFile?.isFolder || streamedFile?.language === "image") return;
+          // Also skip by filename if file not yet in cache (freshly created)
+          if (!streamedFile) {
+            const isImageExt = /\.(jpg|jpeg|png|gif|webp|svg|ico|bmp|avif)$/i.test(streamFileName ?? "");
+            const hasNoExtension = !(streamFileName ?? "").includes(".");
+            if (isImageExt || hasNoExtension) return;
+          }
         }
 
         // Switch to the streamed file if it's a real file (not just content update)

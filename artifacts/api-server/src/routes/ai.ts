@@ -539,13 +539,14 @@ ${context ? `\nТекущий файл (${language}):\n\`\`\`${language}\n${cont
     while (attempts < MAX_TOOL_ROUNDS) {
       attempts++;
 
+      const isO3Model = selectedModel === "o3" || selectedModel === "o3-mini";
       const stream = await openai.chat.completions.create({
         model: selectedModel,
         messages: allMessages as Parameters<typeof openai.chat.completions.create>[0]["messages"],
-        max_tokens: 4096,
+        ...(isO3Model ? { max_completion_tokens: 16000 } : { max_tokens: 4096 }),
         tools,
         stream: true,
-      });
+      } as Parameters<typeof openai.chat.completions.create>[0]);
 
       let currentContent = "";
       let finishReason = "";

@@ -367,9 +367,15 @@ export function AIChatFloat({
               toolCall?: ToolCallInfo;
               fileStream?: { toolName: string; fileId?: string; fileName?: string; content: string; done?: boolean };
             };
+            if (parsed.error) {
+              setMessages((prev) => [...prev, { role: "assistant", content: `⚠ ${parsed.error}` }]);
+            }
             if (parsed.fileStream) {
               const fs = parsed.fileStream;
-              onFileStream?.(fs.fileId ?? null, fs.fileName ?? null, fs.content);
+              const isImageFile = /\.(jpg|jpeg|png|gif|webp|svg|ico|bmp|avif)$/i.test(fs.fileName ?? "");
+              if (!isImageFile) {
+                onFileStream?.(fs.fileId ?? null, fs.fileName ?? null, fs.content);
+              }
             }
             if (parsed.toolCall) {
               hadToolCalls = true;
@@ -397,7 +403,12 @@ export function AIChatFloat({
                 setMessages((prev) => [...prev, { role: "assistant", content: `⚠ ${tc.result.error}` }]);
               }
               if (tc.name === "create_file" && tc.result?.success && tc.result?.fileId) {
-                onFileStream?.(tc.result.fileId, tc.result.name ?? null, (tc.args.content as string | undefined) ?? "");
+                const createdName = (tc.result.name ?? tc.args.name ?? "") as string;
+                const isImageFile = /\.(jpg|jpeg|png|gif|webp|svg|ico|bmp|avif)$/i.test(createdName);
+                const isEmptyFolder = !createdName.includes(".") && !((tc.args.content as string | undefined) ?? "").trim();
+                if (!isImageFile && !isEmptyFolder) {
+                  onFileStream?.(tc.result.fileId, createdName, (tc.args.content as string | undefined) ?? "");
+                }
               }
               if (tc.name === "edit_file" && tc.result?.success && tc.args?.fileId === fileId) {
                 editedFileId = tc.args.fileId as string;
