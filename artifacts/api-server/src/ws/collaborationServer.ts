@@ -11,6 +11,7 @@ interface CollaboratorInfo {
   username: string;
   color: string;
   isGuest: boolean;
+  activeFileId?: string;
 }
 
 interface AwarenessState {
@@ -91,7 +92,7 @@ export function getActiveUserCountForRoom(roomId: string): number {
  * This ensures participants editing different files still see each other.
  */
 function broadcastRoomAwareness(roomId: string) {
-  const states: Record<string, AwarenessState & { userId: string; username: string; color: string; isGuest: boolean }> = {};
+  const states: Record<string, AwarenessState & { userId: string; username: string; color: string; isGuest: boolean; activeFileId?: string }> = {};
 
   for (const [key, fr] of fileRooms) {
     if (!key.startsWith(`${roomId}:`)) continue;
@@ -103,6 +104,7 @@ function broadcastRoomAwareness(roomId: string) {
         username: info.username,
         color: info.color,
         isGuest: info.isGuest,
+        activeFileId: info.activeFileId,
       };
     }
   }
@@ -225,6 +227,9 @@ interface WsMessage {
   position?: { lineNumber: number; column: number };
   message?: string;
   imageDataUrl?: string;
+  mouseX?: number;
+  mouseY?: number;
+  activeFileId?: string;
 }
 
 export function setupWebSocketServer(wss: WebSocketServer) {
@@ -397,6 +402,37 @@ export function setupWebSocketServer(wss: WebSocketServer) {
             color: info.color,
             position: msg.position,
           }, ws);
+        }
+      } else if (msg.type === "mouse-cursor") {
+        const info = fileRoom.clients.get(ws);
+        if (info) {
+          // Update activeFileId on this collaborator info object
+          if (msg.activeFileId) info.activeFileId = msg.activeFileId;
+          const mouseMsg = JSON.stringify({
+            type: "mouse-cursor",
+            userId: info.userId,
+            username: info.username,
+            color: info.color,
+            mouseX: msg.mouseX,
+            mouseY: msg.mouseY,
+            activeFileId: info.activeFileId,
+            isTyping: msg.activeFileId === fileId,
+          });
+          // Broadcast to all users in the room across all file-rooms
+          for (const [rKey, fr] of fileRooms) {
+            if (!rKey.startsWith(`${roomId}:`)) continue;
+            for (const [client, clientInfo] of fr.clients) {
+              if (client !== ws && client.readyState === WebSocket.OPEN && clientInfo.userId !== info.userId) {
+                client.send(mouseMsg);
+              }
+            }
+          }
+        }
+      } else if (msg.type === "file-presence") {
+        const info = fileRoom.clients.get(ws);
+        if (info && msg.activeFileId) {
+          info.activeFileId = msg.activeFileId;
+          broadcastRoomAwareness(roomId);
         }
       } else if (msg.type === "chat" && msg.message) {
         const info = fileRoom.clients.get(ws);

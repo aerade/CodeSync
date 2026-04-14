@@ -1,12 +1,11 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useParams, useLocation } from "wouter";
 import { motion } from "framer-motion";
-import ReactDOM from "react-dom";
 import Editor, { OnMount } from "@monaco-editor/react";
 import type * as MonacoType from "monaco-editor";
 import * as Y from "yjs";
 import { PreviewPanel } from "@/components/PreviewPanel";
-import { EDITOR_THEMES, registerCustomThemes } from "@/lib/editorThemes";
+import { registerCustomThemes } from "@/lib/editorThemes";
 import {
   useGetRoom,
   useGetRoomFiles,
@@ -19,6 +18,7 @@ import { AIPanel } from "@/components/AIPanel";
 import { AIChatFloat } from "@/components/AIChatFloat";
 import { Terminal, TerminalHandle } from "@/components/Terminal";
 import { SessionSidebar, RoomChatMessage } from "@/components/SessionSidebar";
+import { RoomSettings, loadSettings, type RoomSettingsData } from "@/components/RoomSettings";
 import { useUser, useAuth } from "@clerk/react";
 
 
@@ -46,6 +46,7 @@ interface WSMessage {
     username: string;
     color: string;
     isGuest?: boolean;
+    activeFileId?: string;
   }>;
   userId?: string;
   username?: string;
@@ -54,6 +55,21 @@ interface WSMessage {
   message?: string;
   imageDataUrl?: string;
   timestamp?: number;
+  mouseX?: number;
+  mouseY?: number;
+  activeFileId?: string;
+  isTyping?: boolean;
+}
+
+interface MouseCursorInfo {
+  userId: string;
+  username: string;
+  color: string;
+  x: number;
+  y: number;
+  activeFileId?: string;
+  isTyping: boolean;
+  lastSeen: number;
 }
 
 interface RoomFile {
@@ -93,36 +109,13 @@ export default function RoomPage() {
 
   const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
 
-  const [editorTheme, setEditorTheme] = useState<string>(
-    () => localStorage.getItem("codesync_editor_theme") ?? "vs-dark"
-  );
-  const [themeMenuOpen, setThemeMenuOpen] = useState(false);
-  const [themeMenuPos, setThemeMenuPos] = useState<{ top: number; right: number } | null>(null);
-  const themeBtnRef = useRef<HTMLButtonElement>(null);
+  const [settings, setSettings] = useState<RoomSettingsData>(() => loadSettings());
+  const editorTheme = settings.editorTheme;
 
-  function openThemeMenu() {
-    if (!themeBtnRef.current) return;
-    const rect = themeBtnRef.current.getBoundingClientRect();
-    setThemeMenuPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
-    setThemeMenuOpen((o) => !o);
-  }
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
-  function handleThemeChange(themeId: string) {
-    setEditorTheme(themeId);
-    localStorage.setItem("codesync_editor_theme", themeId);
-    setThemeMenuOpen(false);
-  }
-
-  // Close theme menu when clicking outside
-  useEffect(() => {
-    if (!themeMenuOpen) return;
-    function close(e: MouseEvent) {
-      const t = e.target as Element;
-      if (!t.closest("[data-theme-selector]")) setThemeMenuOpen(false);
-    }
-    document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
-  }, [themeMenuOpen]);
+  // Mouse cursors: track remote users' screen positions
+  const [mouseCursors, setMouseCursors] = useState<Record<string, MouseCursorInfo>>({});
 
   const [activeFileId, setActiveFileId] = useState<string | null>(null);
   const activeFileIdRef = useRef<string | null>(null);
@@ -160,7 +153,7 @@ export default function RoomPage() {
       document.body.style.userSelect = "";
     };
   }, []);
-  const [connectedMembers, setConnectedMembers] = useState<{ userId: string; username: string; color: string; isGuest: boolean }[]>([]);
+  const [connectedMembers, setConnectedMembers] = useState<{ userId: string; username: string; color: string; isGuest: boolean; activeFileId?: string }[]>([]);
   const [chatMessages, setChatMessages] = useState<RoomChatMessage[]>([]);
   const myUserIdRef = useRef<string>("");
   const [inviteCopied, setInviteCopied] = useState(false);
@@ -190,24 +183,96 @@ export default function RoomPage() {
     }
   }, [files, activeFileId]);
 
+  // Broadcast file presence when active file changes
+  useEffect(() => {
+    if (!activeFileId || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+    wsRef.current.send(JSON.stringify({ type: "file-presence", activeFileId }));
+  }, [activeFileId]);
+
+  // Mouse cursor tracking — throttled to 30fps
+  useEffect(() => {
+    const THROTTLE_MS = 33;
+    let lastSent = 0;
+    let rafId: number | null = null;
+    let pendingX = 0;
+    let pendingY = 0;
+
+    function send() {
+      rafId = null;
+      if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+      const now = Date.now();
+      if (now - lastSent < THROTTLE_MS) return;
+      lastSent = now;
+      wsRef.current.send(JSON.stringify({
+        type: "mouse-cursor",
+        mouseX: pendingX,
+        mouseY: pendingY,
+        activeFileId: activeFileIdRef.current,
+      }));
+    }
+
+    function onMove(e: MouseEvent) {
+      pendingX = e.clientX;
+      pendingY = e.clientY;
+      if (!rafId) rafId = requestAnimationFrame(send);
+    }
+
+    document.addEventListener("mousemove", onMove, { passive: true });
+
+    // Stale cursor cleanup every 3 seconds
+    const cleanupInterval = setInterval(() => {
+      const now = Date.now();
+      setMouseCursors((prev) => {
+        const next = { ...prev };
+        let changed = false;
+        for (const uid of Object.keys(next)) {
+          if (now - next[uid].lastSeen > 5000) { delete next[uid]; changed = true; }
+        }
+        return changed ? next : prev;
+      });
+    }, 3000);
+
+    return () => {
+      document.removeEventListener("mousemove", onMove);
+      clearInterval(cleanupInterval);
+      if (rafId) cancelAnimationFrame(rafId);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Compute file presence map: fileId -> list of users in that file
+  const filePresenceMap = useMemo(() => {
+    const map: Record<string, { userId: string; username: string; color: string }[]> = {};
+    for (const m of connectedMembers) {
+      if (m.userId === myUserIdRef.current) continue;
+      if (m.activeFileId) {
+        if (!map[m.activeFileId]) map[m.activeFileId] = [];
+        map[m.activeFileId].push({ userId: m.userId, username: m.username, color: m.color });
+      }
+    }
+    return map;
+  }, [connectedMembers]);
+
   // Update collaborator cursor decorations
   useEffect(() => {
     if (!editorRef.current || !monacoRef.current) return;
     const editor = editorRef.current;
     const monaco = monacoRef.current;
 
-    const newDecorations: MonacoType.editor.IModelDeltaDecoration[] = cursors.map((c) => ({
-      range: new monaco.Range(c.lineNumber, c.column, c.lineNumber, c.column + 1),
-      options: {
-        afterContentClassName: "collab-cursor",
-        stickiness: monaco.editor.TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
-        overviewRuler: { color: c.color, position: monaco.editor.OverviewRulerLane.Right },
-        minimap: { color: c.color, position: monaco.editor.MinimapPosition.Gutter },
-      },
-    }));
+    const newDecorations: MonacoType.editor.IModelDeltaDecoration[] = settings.showEditorCursors
+      ? cursors.map((c) => ({
+          range: new monaco.Range(c.lineNumber, c.column, c.lineNumber, c.column + 1),
+          options: {
+            afterContentClassName: "collab-cursor",
+            stickiness: monaco.editor.TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
+            overviewRuler: { color: c.color, position: monaco.editor.OverviewRulerLane.Right },
+            minimap: { color: c.color, position: monaco.editor.MinimapPosition.Gutter },
+          },
+        }))
+      : [];
 
     decorationIds.current = editor.deltaDecorations(decorationIds.current, newDecorations);
-  }, [cursors]);
+  }, [cursors, settings.showEditorCursors]);
 
   useEffect(() => {
     if (!activeFileId) return;
@@ -314,6 +379,7 @@ export default function RoomPage() {
               username: s.username,
               color: s.color,
               isGuest: s.isGuest ?? false,
+              activeFileId: s.activeFileId,
             }));
             setConnectedMembers(list);
           } else if (msg.type === "joined" && msg.userId) {
@@ -333,18 +399,36 @@ export default function RoomPage() {
               return next;
             });
           } else if (msg.type === "chat" && msg.userId && msg.message) {
-            setChatMessages((prev) => [
+            const settingsRaw = localStorage.getItem("codesync_room_settings");
+            const currentSettings = settingsRaw ? JSON.parse(settingsRaw) as { showChatMessages?: boolean } : {};
+            if (currentSettings.showChatMessages !== false) {
+              setChatMessages((prev) => [
+                ...prev,
+                {
+                  id: `chat_${msg.timestamp ?? Date.now()}_${msg.userId}`,
+                  userId: msg.userId!,
+                  username: msg.username ?? "Аноним",
+                  color: msg.color ?? "#58A6FF",
+                  content: msg.message!,
+                  imageDataUrl: msg.imageDataUrl,
+                  timestamp: msg.timestamp ?? Date.now(),
+                },
+              ]);
+            }
+          } else if (msg.type === "mouse-cursor" && msg.userId) {
+            setMouseCursors((prev) => ({
               ...prev,
-              {
-                id: `chat_${msg.timestamp ?? Date.now()}_${msg.userId}`,
+              [msg.userId!]: {
                 userId: msg.userId!,
                 username: msg.username ?? "Аноним",
                 color: msg.color ?? "#58A6FF",
-                content: msg.message!,
-                imageDataUrl: msg.imageDataUrl,
-                timestamp: msg.timestamp ?? Date.now(),
+                x: msg.mouseX ?? 0,
+                y: msg.mouseY ?? 0,
+                activeFileId: msg.activeFileId,
+                isTyping: msg.isTyping ?? false,
+                lastSeen: Date.now(),
               },
-            ]);
+            }));
           }
         } catch (err) {
           console.error("WS message error:", err);
@@ -354,6 +438,7 @@ export default function RoomPage() {
       ws.onclose = () => {
         setConnectedMembers([]);
         setCursors([]);
+        setMouseCursors({});
       };
     })();
 
@@ -549,54 +634,6 @@ export default function RoomPage() {
     );
   }
 
-  const themeMenuPortal = themeMenuOpen && themeMenuPos
-    ? ReactDOM.createPortal(
-        <div
-          data-theme-selector=""
-          style={{
-            position: "fixed",
-            top: themeMenuPos.top,
-            right: themeMenuPos.right,
-            zIndex: 99999,
-            background: "rgba(10,10,10,0.97)",
-            border: "1px solid rgba(255,255,255,0.12)",
-            boxShadow: "0 16px 48px rgba(0,0,0,0.8)",
-            minWidth: 170,
-            borderRadius: 10,
-            overflow: "hidden",
-            backdropFilter: "blur(16px)",
-          }}
-        >
-          {EDITOR_THEMES.map((theme) => (
-            <button
-              key={theme.id}
-              onClick={() => handleThemeChange(theme.id)}
-              style={{
-                width: "100%",
-                textAlign: "left",
-                padding: "8px 12px",
-                fontSize: 12,
-                color: theme.id === editorTheme ? "#fff" : "rgba(255,255,255,0.5)",
-                background: theme.id === editorTheme ? "rgba(255,255,255,0.08)" : "transparent",
-                border: "none",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                transition: "background 0.12s",
-              }}
-            >
-              {theme.id === editorTheme
-                ? <span style={{ color: "#3FB950", fontSize: 10 }}>✓</span>
-                : <span style={{ width: 14, display: "inline-block" }} />
-              }
-              {theme.label}
-            </button>
-          ))}
-        </div>,
-        document.body
-      )
-    : null;
 
   return (
     <>
@@ -694,32 +731,26 @@ export default function RoomPage() {
         </div>
 
         <div className="ml-auto flex items-center gap-1">
-          {/* Theme selector */}
-          <div data-theme-selector="">
-            <button
-              ref={themeBtnRef}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-md transition-colors hover:bg-white/8"
-              style={{
-                color: "#8B949E",
-                border: "1px solid rgba(255,255,255,0.08)",
-                background: "rgba(255,255,255,0.03)",
-                cursor: "pointer",
-                fontSize: 11,
-              }}
-              onClick={openThemeMenu}
-              title="Тема редактора"
-              data-testid="btn-theme-selector"
-            >
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="3"/>
-                <path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/>
-              </svg>
-              <span>{EDITOR_THEMES.find((t) => t.id === editorTheme)?.label ?? "Тема"}</span>
-              <svg width="9" height="9" viewBox="0 0 16 16" fill="currentColor" style={{ opacity: 0.5 }}>
-                <path d="M8 10.94L2.53 5.47a.75.75 0 0 0-1.06 1.06l6 6a.75.75 0 0 0 1.06 0l6-6a.75.75 0 0 0-1.06-1.06L8 10.94z"/>
-              </svg>
-            </button>
-            </div>
+          {/* Settings button */}
+          <button
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-md transition-colors hover:bg-white/8"
+            style={{
+              color: "#8B949E",
+              border: "1px solid rgba(255,255,255,0.08)",
+              background: "rgba(255,255,255,0.03)",
+              cursor: "pointer",
+              fontSize: 11,
+            }}
+            onClick={() => setSettingsOpen(true)}
+            title="Настройки комнаты"
+            data-testid="btn-room-settings"
+          >
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14M12 2v2m0 16v2m8-10h2M2 12H0m17.66-5.66L19.07 4.93M4.93 19.07l-1.41 1.41m0-14.14L4.93 4.93m14.14 14.14-1.41 1.41"/>
+            </svg>
+            <span>Настройки</span>
+          </button>
 
           <button
             className="text-xs px-2 py-0.5 rounded hover:bg-white/5 transition-colors"
@@ -755,6 +786,8 @@ export default function RoomPage() {
               files={files}
               activeFileId={activeFileId}
               fileStats={fileStats}
+              userPresence={filePresenceMap}
+              showFilePresence={settings.showFilePresence}
               onFileSelect={(file) => {
                 setActiveFileId(file.id);
                 setFileContent(file.content ?? "");
@@ -1079,7 +1112,59 @@ export default function RoomPage() {
       </div>
     </div>
 
-    {themeMenuPortal}
+    <RoomSettings
+      isOpen={settingsOpen}
+      onClose={() => setSettingsOpen(false)}
+      settings={settings}
+      onChange={setSettings}
+    />
+
+    {/* Mouse cursor overlays (fixed, full screen) */}
+    {settings.showMouseCursors && Object.values(mouseCursors).map((mc) => (
+      <div
+        key={mc.userId}
+        className="pointer-events-none"
+        style={{
+          position: "fixed",
+          left: mc.x,
+          top: mc.y,
+          zIndex: 9999,
+          transform: "translate(-2px, -2px)",
+        }}
+      >
+        {mc.isTyping ? (
+          /* Text cursor (I-beam) */
+          <svg width="10" height="20" viewBox="0 0 10 20" style={{ display: "block" }}>
+            <line x1="5" y1="0" x2="5" y2="20" stroke={mc.color} strokeWidth="2"/>
+            <line x1="2" y1="0" x2="8" y2="0" stroke={mc.color} strokeWidth="2"/>
+            <line x1="2" y1="20" x2="8" y2="20" stroke={mc.color} strokeWidth="2"/>
+          </svg>
+        ) : (
+          /* Mouse cursor arrow */
+          <svg width="16" height="20" viewBox="0 0 16 20" fill="none" style={{ display: "block", filter: `drop-shadow(0 1px 2px rgba(0,0,0,0.5))` }}>
+            <path d="M2 2L13 10L8.5 11L11 18L8.5 19L6 12L2 15V2Z" fill={mc.color} stroke="#0D1117" strokeWidth="1"/>
+          </svg>
+        )}
+        {/* Name label */}
+        <div style={{
+          position: "absolute",
+          left: mc.isTyping ? 12 : 14,
+          top: mc.isTyping ? -2 : 14,
+          background: mc.color,
+          color: "#0D1117",
+          fontSize: 10,
+          fontWeight: 700,
+          padding: "1px 5px",
+          borderRadius: 4,
+          whiteSpace: "nowrap",
+          fontFamily: "system-ui, sans-serif",
+          lineHeight: 1.5,
+          boxShadow: "0 1px 4px rgba(0,0,0,0.4)",
+        }}>
+          {mc.username}
+        </div>
+      </div>
+    ))}
 
     <AIChatFloat
       roomId={roomId}

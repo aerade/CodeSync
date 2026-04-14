@@ -6,31 +6,153 @@ import { useQueryClient } from "@tanstack/react-query";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-const LANG_ICONS: Record<string, { icon: string; color: string }> = {
-  javascript: { icon: "JS", color: "#F2CC60" },
-  typescript: { icon: "TS", color: "#58A6FF" },
-  python: { icon: "PY", color: "#3FB950" },
-  go: { icon: "GO", color: "#79C0FF" },
-  rust: { icon: "RS", color: "#FFA657" },
-  java: { icon: "JV", color: "#FF7B72" },
-  cpp: { icon: "C+", color: "#D2A8FF" },
-  c: { icon: "C", color: "#D2A8FF" },
-  csharp: { icon: "C#", color: "#D2A8FF" },
-  ruby: { icon: "RB", color: "#FF7B72" },
-  php: { icon: "PHP", color: "#79C0FF" },
-  html: { icon: "HTM", color: "#FFA657" },
-  css: { icon: "CSS", color: "#58A6FF" },
-  json: { icon: "{}", color: "#F2CC60" },
-  markdown: { icon: "MD", color: "#8B949E" },
-  shell: { icon: "$_", color: "#3FB950" },
-  bash: { icon: "$_", color: "#3FB950" },
-  sql: { icon: "SQL", color: "#79C0FF" },
-  plaintext: { icon: "TXT", color: "#8B949E" },
-  image: { icon: "IMG", color: "#F78166" },
-};
-
-function getLangIcon(language: string) {
-  return LANG_ICONS[language] ?? { icon: "•", color: "#8B949E" };
+// SVG file type icons — each returns a small JSX element
+function LangIcon({ language }: { language: string }) {
+  const s = { width: 16, height: 16, flexShrink: 0 } as const;
+  switch (language) {
+    case "javascript":
+      return (
+        <svg {...s} viewBox="0 0 16 16">
+          <rect width="16" height="16" rx="3" fill="#F2CC60"/>
+          <text x="2" y="12" fontSize="8" fontWeight="700" fill="#1a1a00" fontFamily="monospace">JS</text>
+        </svg>
+      );
+    case "typescript":
+      return (
+        <svg {...s} viewBox="0 0 16 16">
+          <rect width="16" height="16" rx="3" fill="#3178C6"/>
+          <text x="2" y="12" fontSize="8" fontWeight="700" fill="#fff" fontFamily="monospace">TS</text>
+        </svg>
+      );
+    case "python":
+      return (
+        <svg {...s} viewBox="0 0 16 16">
+          <rect width="16" height="16" rx="3" fill="#3572A5"/>
+          <circle cx="5.5" cy="5" r="1.5" fill="#FFD444"/>
+          <circle cx="10.5" cy="11" r="1.5" fill="#FFD444"/>
+          <path d="M8 2.5C5.5 2.5 4 3.5 4 5v1.5h4V7H3C1.5 7 1 8 1 9.5S1.5 12 3 12h1v-1.5c0-1 .5-2 2-2h4c1.5 0 2-1 2-2V5c0-1.5-1.5-2.5-4-2.5z" fill="#FFD444" opacity="0.9"/>
+          <path d="M8 13.5C10.5 13.5 12 12.5 12 11V9.5H8V9h5c1.5 0 2-1 2-2.5S14.5 4 13 4h-1v1.5c0 1-.5 2-2 2H6c-1.5 0-2 1-2 2V11c0 1.5 1.5 2.5 4 2.5z" fill="#3572A5"/>
+        </svg>
+      );
+    case "html":
+      return (
+        <svg {...s} viewBox="0 0 16 16">
+          <rect width="16" height="16" rx="3" fill="#E34F26"/>
+          <path d="M3 2l1 10 4 1 4-1 1-10H3zm7.5 3.5H5.5L5.7 7h4.6l-.3 3L8 10.5 5.7 10l-.15-1.5h1.5l.1.8 1 .25 1-.25.1-1.35H5.55l-.2-2H10.5L10.2 7z" fill="#fff" transform="scale(0.75) translate(2,1)"/>
+        </svg>
+      );
+    case "css":
+      return (
+        <svg {...s} viewBox="0 0 16 16">
+          <rect width="16" height="16" rx="3" fill="#264DE4"/>
+          <path d="M3 2l1 10 4 1 4-1 1-10H3zm7.2 3.5l-.1.9H5.5L5.7 8h4.2l-.4 3-1.5.4-1.5-.4-.1-1.2h1.5l.05.7.55.15.55-.15.15-1.45H5.4l-.4-4.4h6z" fill="#fff" transform="scale(0.75) translate(2,1)"/>
+        </svg>
+      );
+    case "json":
+      return (
+        <svg {...s} viewBox="0 0 16 16">
+          <rect width="16" height="16" rx="3" fill="#2b2b2b"/>
+          <text x="2" y="11" fontSize="7.5" fontWeight="700" fill="#F2CC60" fontFamily="monospace">{"{}"}</text>
+        </svg>
+      );
+    case "markdown":
+      return (
+        <svg {...s} viewBox="0 0 16 16">
+          <rect width="16" height="16" rx="3" fill="#484F58"/>
+          <path d="M2 5v6h2V7l2 2 2-2v4h2V5h-2L8 7 6 5H2zm8 3l2-2v4h-2V8zm2-3l2 3h-4l2-3z" fill="#fff" transform="scale(0.65) translate(1.5,1)"/>
+        </svg>
+      );
+    case "go":
+      return (
+        <svg {...s} viewBox="0 0 16 16">
+          <rect width="16" height="16" rx="3" fill="#00ACD7"/>
+          <text x="2" y="12" fontSize="8.5" fontWeight="700" fill="#fff" fontFamily="monospace">Go</text>
+        </svg>
+      );
+    case "rust":
+      return (
+        <svg {...s} viewBox="0 0 16 16">
+          <rect width="16" height="16" rx="3" fill="#CE422B"/>
+          <text x="2" y="12" fontSize="7.5" fontWeight="700" fill="#fff" fontFamily="monospace">RS</text>
+        </svg>
+      );
+    case "java":
+      return (
+        <svg {...s} viewBox="0 0 16 16">
+          <rect width="16" height="16" rx="3" fill="#B07219"/>
+          <text x="2" y="12" fontSize="7" fontWeight="700" fill="#fff" fontFamily="monospace">Java</text>
+        </svg>
+      );
+    case "cpp":
+      return (
+        <svg {...s} viewBox="0 0 16 16">
+          <rect width="16" height="16" rx="3" fill="#6295CB"/>
+          <text x="1.5" y="12" fontSize="7" fontWeight="700" fill="#fff" fontFamily="monospace">C++</text>
+        </svg>
+      );
+    case "c":
+      return (
+        <svg {...s} viewBox="0 0 16 16">
+          <rect width="16" height="16" rx="3" fill="#A8B9CC"/>
+          <text x="4" y="12" fontSize="9" fontWeight="700" fill="#222" fontFamily="monospace">C</text>
+        </svg>
+      );
+    case "csharp":
+      return (
+        <svg {...s} viewBox="0 0 16 16">
+          <rect width="16" height="16" rx="3" fill="#68217A"/>
+          <text x="2.5" y="12" fontSize="7.5" fontWeight="700" fill="#fff" fontFamily="monospace">C#</text>
+        </svg>
+      );
+    case "ruby":
+      return (
+        <svg {...s} viewBox="0 0 16 16">
+          <rect width="16" height="16" rx="3" fill="#CC342D"/>
+          <text x="2" y="12" fontSize="7.5" fontWeight="700" fill="#fff" fontFamily="monospace">RB</text>
+        </svg>
+      );
+    case "php":
+      return (
+        <svg {...s} viewBox="0 0 16 16">
+          <rect width="16" height="16" rx="3" fill="#4F5D95"/>
+          <text x="1" y="12" fontSize="7" fontWeight="700" fill="#fff" fontFamily="monospace">PHP</text>
+        </svg>
+      );
+    case "shell":
+    case "bash":
+      return (
+        <svg {...s} viewBox="0 0 16 16">
+          <rect width="16" height="16" rx="3" fill="#1d1d1d"/>
+          <text x="2" y="11" fontSize="9" fontWeight="700" fill="#3FB950" fontFamily="monospace">$_</text>
+        </svg>
+      );
+    case "sql":
+      return (
+        <svg {...s} viewBox="0 0 16 16">
+          <rect width="16" height="16" rx="3" fill="#336791"/>
+          <text x="1" y="12" fontSize="6.5" fontWeight="700" fill="#fff" fontFamily="monospace">SQL</text>
+        </svg>
+      );
+    case "image":
+      return (
+        <svg {...s} viewBox="0 0 16 16">
+          <rect width="16" height="16" rx="3" fill="#F78166"/>
+          <rect x="2" y="3" width="12" height="10" rx="1.5" fill="rgba(255,255,255,0.2)"/>
+          <circle cx="5.5" cy="6.5" r="1.2" fill="#fff"/>
+          <path d="M2.5 11.5l3.5-3.5 2.5 2.5 2-2 3 3H2.5z" fill="#fff" opacity="0.85"/>
+        </svg>
+      );
+    default:
+      return (
+        <svg {...s} viewBox="0 0 16 16">
+          <rect x="2" y="1" width="10" height="14" rx="1.5" fill="rgba(255,255,255,0.12)" stroke="rgba(255,255,255,0.2)" strokeWidth="0.8"/>
+          <path d="M10 1v3.5H13.5" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="0.8"/>
+          <rect x="3.5" y="7" width="7" height="1" rx="0.5" fill="rgba(255,255,255,0.3)"/>
+          <rect x="3.5" y="9.5" width="5" height="1" rx="0.5" fill="rgba(255,255,255,0.2)"/>
+          <rect x="3.5" y="12" width="6" height="1" rx="0.5" fill="rgba(255,255,255,0.2)"/>
+        </svg>
+      );
+  }
 }
 
 function detectLanguage(filename: string): string {
@@ -65,11 +187,19 @@ interface FileStatEntry {
   errors?: number;
 }
 
+interface UserPresenceEntry {
+  userId: string;
+  username: string;
+  color: string;
+}
+
 interface Props {
   roomId: string;
   files: FileItem[];
   activeFileId: string | null;
   fileStats?: Record<string, FileStatEntry>;
+  userPresence?: Record<string, UserPresenceEntry[]>;
+  showFilePresence?: boolean;
   onFileSelect: (file: FileItem) => void;
   onFilesChange: () => void;
   isReadOnly?: boolean;
@@ -79,7 +209,7 @@ interface ContextMenuState {
   x: number; y: number; fileId: string; fileName: string; isFolder: boolean;
 }
 
-export function FileTree({ roomId, files, activeFileId, fileStats = {}, onFileSelect, onFilesChange, isReadOnly = false }: Props) {
+export function FileTree({ roomId, files, activeFileId, fileStats = {}, userPresence = {}, showFilePresence = true, onFileSelect, onFilesChange, isReadOnly = false }: Props) {
   const qc = useQueryClient();
   const createFile = useCreateFile();
   const deleteFile = useDeleteFile();
@@ -315,18 +445,22 @@ export function FileTree({ roomId, files, activeFileId, fileStats = {}, onFileSe
   };
 
   function renderFileItem(file: FileItem, depth = 0, visItems?: FileItem[]) {
-    const icon = getLangIcon(file.language);
     const isActive = activeFileId === file.id;
     const isRenaming = renamingFileId === file.id;
     const isSelected = selectedFileIds.has(file.id);
 
     // Block-selection: compute adjacent selection for unified rect look
+    // Active file is treated same as selected for adjacency purposes
+    const isHighlighted = isActive || isSelected;
     const vi = visItems ?? [];
     const visIdx = vi.findIndex((v) => v.id === file.id);
-    const prevSel = isSelected && visIdx > 0 && selectedFileIds.has(vi[visIdx - 1]?.id ?? "");
-    const nextSel = isSelected && visIdx >= 0 && visIdx < vi.length - 1 && selectedFileIds.has(vi[visIdx + 1]?.id ?? "");
-    const selRadius = isSelected
-      ? `${prevSel ? 0 : 6}px ${prevSel ? 0 : 6}px ${nextSel ? 0 : 6}px ${nextSel ? 0 : 6}px`
+    const prevHighlighted = isHighlighted && visIdx > 0 &&
+      (selectedFileIds.has(vi[visIdx - 1]?.id ?? "") || activeFileId === vi[visIdx - 1]?.id);
+    const nextHighlighted = isHighlighted && visIdx >= 0 && visIdx < vi.length - 1 &&
+      (selectedFileIds.has(vi[visIdx + 1]?.id ?? "") || activeFileId === vi[visIdx + 1]?.id);
+
+    const selRadius = isHighlighted
+      ? `${prevHighlighted ? 0 : 6}px ${prevHighlighted ? 0 : 6}px ${nextHighlighted ? 0 : 6}px ${nextHighlighted ? 0 : 6}px`
       : "6px";
 
     const bg = isSelected && isActive
@@ -334,7 +468,7 @@ export function FileTree({ roomId, files, activeFileId, fileStats = {}, onFileSe
       : isSelected
         ? "rgba(88,166,255,0.16)"
         : isActive
-          ? "rgba(88,166,255,0.1)"
+          ? "rgba(88,166,255,0.18)"
           : "transparent";
 
     return (
@@ -350,20 +484,18 @@ export function FileTree({ roomId, files, activeFileId, fileStats = {}, onFileSe
         className="file-tree-item"
         style={{
           display: "flex", alignItems: "center", gap: 7,
-          padding: "4px 10px", paddingLeft: (10 + depth * 14) + (isActive ? 8 : 10),
+          padding: "4px 10px", paddingLeft: 10 + depth * 14,
           cursor: "pointer", borderRadius: selRadius,
           background: bg,
-          borderLeft: isActive ? "2px solid rgba(88,166,255,0.7)" : "2px solid transparent",
+          border: "none",
           transition: "background 0.1s",
-          marginBottom: nextSel ? 0 : 1,
+          marginBottom: nextHighlighted ? 0 : 1,
         }}
-        onMouseEnter={(e) => { if (!isSelected && !isActive) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)"; }}
+        onMouseEnter={(e) => { if (!isHighlighted) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)"; }}
         onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = bg; }}
         data-testid={`file-item-${file.id}`}
       >
-        <span style={{ fontSize: 9, fontWeight: 700, color: icon.color, fontFamily: "JetBrains Mono, monospace", minWidth: 20, textAlign: "center" }}>
-          {icon.icon}
-        </span>
+        <LangIcon language={file.language} />
         {isRenaming ? (
           <input
             ref={renameInputRef}
@@ -378,6 +510,22 @@ export function FileTree({ roomId, files, activeFileId, fileStats = {}, onFileSe
         ) : (
           <span className="text-xs truncate flex-1" style={{ color: isActive ? "#E6EDF3" : "rgba(255,255,255,0.65)" }}>
             {file.name}
+          </span>
+        )}
+        {/* User presence dots */}
+        {showFilePresence && !isRenaming && userPresence[file.id] && userPresence[file.id].length > 0 && (
+          <span style={{ display: "flex", gap: 2, alignItems: "center", flexShrink: 0 }}>
+            {userPresence[file.id].slice(0, 3).map((u) => (
+              <span
+                key={u.userId}
+                title={u.username}
+                style={{
+                  width: 6, height: 6, borderRadius: "50%",
+                  background: u.color, flexShrink: 0,
+                  boxShadow: `0 0 4px ${u.color}60`,
+                }}
+              />
+            ))}
           </span>
         )}
         {/* AI edit stats indicator */}

@@ -47,22 +47,53 @@ interface Props {
 
 function playDoneSound() {
   try {
+    const settingsRaw = localStorage.getItem("codesync_room_settings");
+    const s = settingsRaw ? JSON.parse(settingsRaw) as { soundEnabled?: boolean; soundType?: string } : {};
+    if (s.soundEnabled === false) return;
+    const type = s.soundType ?? "chime";
+
     const ctx = new AudioContext();
     const now = ctx.currentTime;
-    [880, 1100].forEach((freq, i) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.type = "sine";
-      osc.frequency.value = freq;
-      gain.gain.setValueAtTime(0, now + i * 0.13);
-      gain.gain.linearRampToValueAtTime(0.12, now + i * 0.13 + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.13 + 0.32);
-      osc.start(now + i * 0.13);
-      osc.stop(now + i * 0.13 + 0.32);
-    });
-    setTimeout(() => ctx.close(), 1000);
+    const vol = 0.15;
+
+    if (type === "chime") {
+      [880, 1100].forEach((freq, i) => {
+        const osc = ctx.createOscillator(); const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.type = "sine"; osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0, now + i * 0.13);
+        gain.gain.linearRampToValueAtTime(vol, now + i * 0.13 + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.13 + 0.32);
+        osc.start(now + i * 0.13); osc.stop(now + i * 0.13 + 0.32);
+      });
+    } else if (type === "pop") {
+      const osc = ctx.createOscillator(); const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.type = "sine"; osc.frequency.setValueAtTime(400, now);
+      osc.frequency.exponentialRampToValueAtTime(200, now + 0.08);
+      gain.gain.setValueAtTime(vol * 1.2, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+      osc.start(now); osc.stop(now + 0.08);
+    } else if (type === "bell") {
+      [523, 659, 784].forEach((freq, i) => {
+        const osc = ctx.createOscillator(); const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.type = "triangle"; osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0, now + i * 0.09);
+        gain.gain.linearRampToValueAtTime(vol, now + i * 0.09 + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.09 + 0.4);
+        osc.start(now + i * 0.09); osc.stop(now + i * 0.09 + 0.4);
+      });
+    } else if (type === "soft") {
+      const osc = ctx.createOscillator(); const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.type = "sine"; osc.frequency.value = 660;
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.linearRampToValueAtTime(vol * 0.6, now + 0.04);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+      osc.start(now); osc.stop(now + 0.4);
+    }
+    setTimeout(() => ctx.close(), 1500);
   } catch (_) {}
 }
 
@@ -411,16 +442,6 @@ export function AIChatFloat({
       }
 
       if (Object.keys(statsAcc).length > 0) onAiStats?.(statsAcc);
-
-      if (hadToolCalls) {
-        const parts: string[] = [];
-        if (opCounts.search) parts.push("Нашёл изображения");
-        if (opCounts.download) parts.push(`Скачал ${opCounts.download} изобр.`);
-        if (opCounts.create) parts.push(`Создал ${opCounts.create} файл${opCounts.create > 1 ? "а" : ""}`);
-        if (opCounts.edit) parts.push(`Изменил ${opCounts.edit} файл${opCounts.edit > 1 ? "а" : ""}`);
-        if (opCounts.delete) parts.push(`Удалил ${opCounts.delete} файл${opCounts.delete > 1 ? "а" : ""}`);
-        if (parts.length > 0) showFlash(parts.join(" · "), true);
-      }
 
       if (editedFileId && editedNewContent !== null && fileId === editedFileId) {
         onContentRestored?.(editedNewContent);
