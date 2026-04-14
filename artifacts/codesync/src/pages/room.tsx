@@ -201,6 +201,10 @@ export default function RoomPage() {
   const files: RoomFile[] = rawFiles as RoomFile[];
   const activeFile = files.find((f) => f.id === activeFileId) ?? null;
 
+  // Determine if the current user is the room owner
+  const myClerkId = clerkUser?.id ?? null;
+  const isOwner = !!(myClerkId && room && (room as { ownerId?: string }).ownerId === myClerkId);
+
   useEffect(() => {
     if (files.length > 0 && !activeFileId) {
       const first = files[0];
@@ -939,14 +943,19 @@ export default function RoomPage() {
             className="flex items-center gap-2 px-3"
             style={{ height: 32, borderBottom: "1px solid #30363D", background: "#1C2128", flexShrink: 0 }}
           >
-            <button
-              className="text-xs hover:bg-white/5 px-1.5 rounded transition-colors"
-              style={{ color: "#8B949E", background: "transparent", border: "none", cursor: "pointer" }}
-              onClick={() => setIsLeftOpen(!isLeftOpen)}
-              data-testid="btn-toggle-filetree"
-            >
-              {isLeftOpen ? "◀" : "▶"}
-            </button>
+            {activeFileId && (
+              <button
+                className="text-xs hover:bg-white/5 px-1.5 rounded transition-colors flex items-center gap-1"
+                style={{ color: "#8B949E", background: "transparent", border: "none", cursor: "pointer" }}
+                onClick={() => { setActiveFileId(null); setFileContent(""); }}
+                title="Закрыть файл"
+                data-testid="btn-leave-file"
+              >
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                  <path d="M1 1l8 8M9 1L1 9" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+                </svg>
+              </button>
+            )}
             <span className="text-xs" style={{ color: "#8B949E" }}>
               {activeFile?.name ?? "Выберите файл"}
             </span>
@@ -1293,6 +1302,12 @@ export default function RoomPage() {
       onClose={() => setSettingsOpen(false)}
       settings={settings}
       onChange={setSettings}
+      isOwner={isOwner}
+      roomId={roomId}
+      roomTitle={(room as { title?: string })?.title ?? ""}
+      roomDescription={(room as { description?: string })?.description ?? ""}
+      roomIsPrivate={(room as { isPrivate?: boolean })?.isPrivate ?? false}
+      roomMaxUsers={(room as { maxUsers?: number })?.maxUsers ?? 20}
     />
 
     {/* Mouse cursor overlays (fixed, full screen) — only show cursors in the same file */}

@@ -368,4 +368,25 @@ roomsRouter.get("/rooms/:roomId/members", async (req, res) => {
   })));
 });
 
+roomsRouter.patch("/rooms/:roomId", async (req, res) => {
+  const user = await resolveUser(req);
+  if (!user || user.isGuest) return res.status(401).json({ error: "Требуется авторизация" });
+
+  const { roomId } = req.params as { roomId: string };
+  const room = await db.query.roomsTable.findFirst({ where: eq(roomsTable.id, roomId) });
+  if (!room) return res.status(404).json({ error: "Комната не найдена" });
+  if (room.ownerId !== user.userId) return res.status(403).json({ error: "Только владелец может изменять настройки комнаты" });
+
+  const body = req.body as { title?: unknown; description?: unknown; isPrivate?: unknown; maxUsers?: unknown; allowGuestWrite?: unknown };
+  const updates: Partial<typeof room> = {};
+  if (typeof body.title === "string" && body.title.trim()) updates.title = body.title.trim();
+  if (typeof body.description === "string") updates.description = body.description.trim() || null;
+  if (typeof body.isPrivate === "boolean") updates.isPrivate = body.isPrivate;
+  if (typeof body.maxUsers === "number" && body.maxUsers >= 1 && body.maxUsers <= 100) updates.maxUsers = body.maxUsers;
+
+  const [updated] = await db.update(roomsTable).set({ ...updates, updatedAt: new Date() })
+    .where(eq(roomsTable.id, roomId)).returning();
+  return res.json(updated);
+});
+
 export default roomsRouter;

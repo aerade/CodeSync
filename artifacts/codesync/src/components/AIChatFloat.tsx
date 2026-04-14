@@ -37,11 +37,14 @@ interface Props {
 }
 
 const MODELS = [
-  { id: "gpt-4.1",      label: "GPT-4.1",      badge: "Новый" },
-  { id: "o3",           label: "o3",             badge: "Умный" },
-  { id: "gpt-4o",       label: "GPT-4o",        badge: null },
-  { id: "gpt-4o-mini",  label: "GPT-4o mini",   badge: "Быстрый" },
-  { id: "o3-mini",      label: "o3-mini",        badge: "Рассуждение" },
+  { id: "gpt-4.1",            label: "GPT-4.1",         badge: "Новый" },
+  { id: "o3",                 label: "o3",               badge: "Умный" },
+  { id: "gpt-4o",             label: "GPT-4o",           badge: null },
+  { id: "gpt-4o-mini",        label: "GPT-4o mini",      badge: "Быстрый" },
+  { id: "o3-mini",            label: "o3-mini",           badge: "Рассуждение" },
+  { id: "claude-sonnet-4-6",  label: "Claude Sonnet 4",  badge: "Claude" },
+  { id: "claude-sonnet-4-5",  label: "Claude Sonnet",    badge: "Claude" },
+  { id: "claude-haiku-4-5",   label: "Claude Haiku",     badge: "Быстрый" },
 ];
 
 function playDoneSound() {

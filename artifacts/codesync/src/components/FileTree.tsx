@@ -137,7 +137,7 @@ interface Props {
 }
 
 interface ContextMenuState {
-  x: number; y: number; fileId: string; fileName: string; isFolder: boolean;
+  x: number; y: number; fileId: string; fileName: string; isFolder: boolean; isEmpty?: boolean;
 }
 
 export function FileTree({ roomId, files, activeFileId, fileStats = {}, userPresence = {}, showFilePresence = true, onFileSelect, onFilesChange, onLeaveFile, isReadOnly = false }: Props) {
@@ -693,6 +693,14 @@ export function FileTree({ roomId, files, activeFileId, fileStats = {}, userPres
         onDragOver={(e) => handleDragOver(e, null)}
         onDragLeave={handleDragLeave}
         onDrop={(e) => handleDrop(e, null)}
+        onContextMenu={(e) => {
+          if (!isReadOnly && e.target === e.currentTarget) {
+            e.preventDefault();
+            const x = Math.min(e.clientX, window.innerWidth - 180);
+            const y = Math.min(e.clientY, window.innerHeight - 100);
+            setContextMenu({ x, y, fileId: "", fileName: "", isFolder: false, isEmpty: true });
+          }
+        }}
       >
         <AnimatePresence>
           {rootFolders.map((folder, fi) => {
@@ -777,39 +785,66 @@ export function FileTree({ roomId, files, activeFileId, fileStats = {}, userPres
             border: "1px solid rgba(255,255,255,0.1)",
             backdropFilter: "blur(16px)",
             boxShadow: "0 16px 48px rgba(0,0,0,0.6)",
-            minWidth: 160,
+            minWidth: 168,
           }}
           onClick={(e) => e.stopPropagation()}
         >
-          {contextMenu.isFolder && (
-            <button
-              className="w-full text-left px-3 py-2 text-xs hover:bg-white/5 transition-colors"
-              style={{ color: "rgba(255,255,255,0.75)", background: "none", border: "none", cursor: "pointer" }}
-              onClick={() => {
-                setIsCreatingFile(true); setNewFileName("");
-                setCreatingInFolderId(contextMenu.fileId);
-                setExpandedFolders((prev) => new Set(prev).add(contextMenu.fileId));
-                setContextMenu(null);
-              }}
-            >
-              Новый файл в папке
-            </button>
+          {/* Empty space context menu */}
+          {contextMenu.isEmpty && (
+            <>
+              <button
+                className="w-full text-left px-3 py-2 text-xs hover:bg-white/5 transition-colors flex items-center gap-2"
+                style={{ color: "rgba(255,255,255,0.8)", background: "none", border: "none", cursor: "pointer" }}
+                onClick={() => { setIsCreatingFile(true); setNewFileName(""); setCreatingInFolderId(null); setContextMenu(null); }}
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+                Новый файл
+              </button>
+              <button
+                className="w-full text-left px-3 py-2 text-xs hover:bg-white/5 transition-colors flex items-center gap-2"
+                style={{ color: "rgba(255,255,255,0.8)", background: "none", border: "none", cursor: "pointer" }}
+                onClick={() => { setIsCreatingFolder(true); setNewFolderName(""); setContextMenu(null); }}
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></svg>
+                Новая папка
+              </button>
+            </>
           )}
-          <button
-            className="w-full text-left px-3 py-2 text-xs hover:bg-white/5 transition-colors"
-            style={{ color: "rgba(255,255,255,0.75)", background: "none", border: "none", cursor: "pointer" }}
-            onClick={() => startRename(contextMenu.fileId, contextMenu.fileName)}
-          >
-            Переименовать
-          </button>
-          <div style={{ borderTop: "1px solid rgba(255,255,255,0.07)", margin: "3px 0" }} />
-          <button
-            className="w-full text-left px-3 py-2 text-xs hover:bg-white/5 transition-colors"
-            style={{ color: "#FF7B72", background: "none", border: "none", cursor: "pointer" }}
-            onClick={() => handleDeleteFile(contextMenu.fileId)}
-          >
-            Удалить
-          </button>
+
+          {/* File/folder context menu */}
+          {!contextMenu.isEmpty && (
+            <>
+              {contextMenu.isFolder && (
+                <button
+                  className="w-full text-left px-3 py-2 text-xs hover:bg-white/5 transition-colors"
+                  style={{ color: "rgba(255,255,255,0.75)", background: "none", border: "none", cursor: "pointer" }}
+                  onClick={() => {
+                    setIsCreatingFile(true); setNewFileName("");
+                    setCreatingInFolderId(contextMenu.fileId);
+                    setExpandedFolders((prev) => new Set(prev).add(contextMenu.fileId));
+                    setContextMenu(null);
+                  }}
+                >
+                  Новый файл в папке
+                </button>
+              )}
+              <button
+                className="w-full text-left px-3 py-2 text-xs hover:bg-white/5 transition-colors"
+                style={{ color: "rgba(255,255,255,0.75)", background: "none", border: "none", cursor: "pointer" }}
+                onClick={() => startRename(contextMenu.fileId, contextMenu.fileName)}
+              >
+                Переименовать
+              </button>
+              <div style={{ borderTop: "1px solid rgba(255,255,255,0.07)", margin: "3px 0" }} />
+              <button
+                className="w-full text-left px-3 py-2 text-xs hover:bg-white/5 transition-colors"
+                style={{ color: "#FF7B72", background: "none", border: "none", cursor: "pointer" }}
+                onClick={() => handleDeleteFile(contextMenu.fileId)}
+              >
+                Удалить
+              </button>
+            </>
+          )}
         </motion.div>
       )}
     </div>

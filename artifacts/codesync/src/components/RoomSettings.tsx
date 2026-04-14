@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import ReactDOM from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { EDITOR_THEMES } from "@/lib/editorThemes";
@@ -201,6 +201,12 @@ interface Props {
   onClose: () => void;
   settings: RoomSettingsData;
   onChange: (s: RoomSettingsData) => void;
+  isOwner?: boolean;
+  roomId?: string;
+  roomTitle?: string;
+  roomDescription?: string;
+  roomIsPrivate?: boolean;
+  roomMaxUsers?: number;
 }
 
 function Toggle({ value, onChange, label, desc }: { value: boolean; onChange: (v: boolean) => void; label: string; desc?: string }) {
@@ -321,7 +327,38 @@ const SHORTCUTS = [
   { keys: ["Ctrl", "G"], desc: "Перейти к строке" },
 ];
 
-export function RoomSettings({ isOpen, onClose, settings, onChange }: Props) {
+export function RoomSettings({ isOpen, onClose, settings, onChange, isOwner = false, roomId, roomTitle = "", roomDescription = "", roomIsPrivate = false, roomMaxUsers = 20 }: Props) {
+  const [ownerTitle, setOwnerTitle] = useState(roomTitle);
+  const [ownerDesc, setOwnerDesc] = useState(roomDescription);
+  const [ownerPrivate, setOwnerPrivate] = useState(roomIsPrivate);
+  const [ownerMaxUsers, setOwnerMaxUsers] = useState(roomMaxUsers);
+  const [ownerSaving, setOwnerSaving] = useState(false);
+  const [ownerSaved, setOwnerSaved] = useState(false);
+  const [ownerError, setOwnerError] = useState<string | null>(null);
+  const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => { setOwnerTitle(roomTitle); }, [roomTitle]);
+  useEffect(() => { setOwnerDesc(roomDescription); }, [roomDescription]);
+  useEffect(() => { setOwnerPrivate(roomIsPrivate); }, [roomIsPrivate]);
+  useEffect(() => { setOwnerMaxUsers(roomMaxUsers); }, [roomMaxUsers]);
+
+  async function handleOwnerSave() {
+    if (!roomId) return;
+    setOwnerSaving(true); setOwnerError(null);
+    try {
+      const res = await fetch(`/api/rooms/${roomId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: ownerTitle, description: ownerDesc, isPrivate: ownerPrivate, maxUsers: ownerMaxUsers }),
+      });
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error || "Ошибка сохранения"); }
+      setOwnerSaved(true);
+      if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+      savedTimerRef.current = setTimeout(() => setOwnerSaved(false), 2500);
+    } catch (e) {
+      setOwnerError(e instanceof Error ? e.message : "Ошибка");
+    } finally { setOwnerSaving(false); }
+  }
   const [section, setSection] = useState<SectionId>("appearance");
 
   useEffect(() => {
@@ -614,20 +651,105 @@ export function RoomSettings({ isOpen, onClose, settings, onChange }: Props) {
                       {/* ROOM */}
                       {section === "room" && (
                         <div>
-                          <SectionLabel>О комнате</SectionLabel>
-                          <div style={{
-                            padding: "14px 16px", borderRadius: 12,
-                            background: "rgba(255,255,255,0.03)",
-                            border: "1px solid rgba(255,255,255,0.07)",
-                            marginBottom: 8,
-                          }}>
-                            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", marginBottom: 6 }}>Настройки комнаты управляются владельцем</div>
-                            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", lineHeight: 1.7 }}>
-                              • Имя, описание и приватность комнаты<br/>
-                              • Максимальное количество участников<br/>
-                              • Права доступа для гостей
-                            </div>
-                          </div>
+                          {isOwner ? (
+                            <>
+                              <SectionLabel>Управление комнатой</SectionLabel>
+                              {/* Room name */}
+                              <div style={{ marginBottom: 8 }}>
+                                <label style={{ fontSize: 11, color: "rgba(255,255,255,0.45)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", display: "block", marginBottom: 5 }}>Название</label>
+                                <input
+                                  value={ownerTitle}
+                                  onChange={(e) => setOwnerTitle(e.target.value)}
+                                  maxLength={64}
+                                  style={{
+                                    width: "100%", background: "rgba(255,255,255,0.04)",
+                                    border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8,
+                                    padding: "7px 10px", fontSize: 13, color: "#fff",
+                                    outline: "none", boxSizing: "border-box",
+                                  }}
+                                  onFocus={(e) => (e.currentTarget.style.borderColor = "rgba(88,166,255,0.5)")}
+                                  onBlur={(e) => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)")}
+                                />
+                              </div>
+                              {/* Room description */}
+                              <div style={{ marginBottom: 8 }}>
+                                <label style={{ fontSize: 11, color: "rgba(255,255,255,0.45)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", display: "block", marginBottom: 5 }}>Описание</label>
+                                <textarea
+                                  value={ownerDesc}
+                                  onChange={(e) => setOwnerDesc(e.target.value)}
+                                  maxLength={256}
+                                  rows={2}
+                                  style={{
+                                    width: "100%", background: "rgba(255,255,255,0.04)",
+                                    border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8,
+                                    padding: "7px 10px", fontSize: 13, color: "#fff",
+                                    outline: "none", resize: "none", boxSizing: "border-box",
+                                    fontFamily: "inherit",
+                                  }}
+                                  onFocus={(e) => (e.currentTarget.style.borderColor = "rgba(88,166,255,0.5)")}
+                                  onBlur={(e) => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)")}
+                                />
+                              </div>
+                              {/* Max users */}
+                              <div style={{ marginBottom: 8 }}>
+                                <label style={{ fontSize: 11, color: "rgba(255,255,255,0.45)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", display: "block", marginBottom: 5 }}>Макс. участников</label>
+                                <input
+                                  type="number" min={1} max={100}
+                                  value={ownerMaxUsers}
+                                  onChange={(e) => setOwnerMaxUsers(Math.max(1, Math.min(100, parseInt(e.target.value) || 1)))}
+                                  style={{
+                                    width: 80, background: "rgba(255,255,255,0.04)",
+                                    border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8,
+                                    padding: "7px 10px", fontSize: 13, color: "#fff",
+                                    outline: "none",
+                                  }}
+                                  onFocus={(e) => (e.currentTarget.style.borderColor = "rgba(88,166,255,0.5)")}
+                                  onBlur={(e) => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)")}
+                                />
+                              </div>
+                              {/* Privt toggle */}
+                              <Toggle
+                                value={ownerPrivate}
+                                onChange={setOwnerPrivate}
+                                label="Приватная комната"
+                                desc="Только по приглашению или инвайт-коду"
+                              />
+                              {/* Save button */}
+                              <button
+                                onClick={handleOwnerSave}
+                                disabled={ownerSaving}
+                                style={{
+                                  marginTop: 10, width: "100%", padding: "8px",
+                                  background: ownerSaved ? "rgba(63,185,80,0.2)" : "rgba(88,166,255,0.15)",
+                                  border: `1px solid ${ownerSaved ? "rgba(63,185,80,0.4)" : "rgba(88,166,255,0.3)"}`,
+                                  borderRadius: 8, cursor: ownerSaving ? "not-allowed" : "pointer",
+                                  fontSize: 13, fontWeight: 600,
+                                  color: ownerSaved ? "#3FB950" : "#58A6FF",
+                                  transition: "all 0.2s",
+                                }}
+                              >
+                                {ownerSaving ? "Сохранение…" : ownerSaved ? "✓ Сохранено" : "Сохранить изменения"}
+                              </button>
+                              {ownerError && <div style={{ fontSize: 11, color: "#FF7B72", marginTop: 6 }}>{ownerError}</div>}
+                            </>
+                          ) : (
+                            <>
+                              <SectionLabel>О комнате</SectionLabel>
+                              <div style={{
+                                padding: "14px 16px", borderRadius: 12,
+                                background: "rgba(255,255,255,0.03)",
+                                border: "1px solid rgba(255,255,255,0.07)",
+                                marginBottom: 8,
+                              }}>
+                                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", marginBottom: 6 }}>Настройки комнаты управляются владельцем</div>
+                                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", lineHeight: 1.7 }}>
+                                  • Имя, описание и приватность комнаты<br/>
+                                  • Максимальное количество участников<br/>
+                                  • Права доступа для гостей
+                                </div>
+                              </div>
+                            </>
+                          )}
                           <div style={{
                             padding: "10px 14px", borderRadius: 10,
                             background: "rgba(88,166,255,0.05)",
@@ -639,7 +761,7 @@ export function RoomSettings({ isOpen, onClose, settings, onChange }: Props) {
                               <line x1="12" y1="8" x2="12" y2="12"/>
                               <line x1="12" y1="16" x2="12.01" y2="16"/>
                             </svg>
-                            <span style={{ fontSize: 12, color: "rgba(88,166,255,0.9)" }}>Эти настройки сохраняются локально для вашего браузера</span>
+                            <span style={{ fontSize: 12, color: "rgba(88,166,255,0.9)" }}>Личные настройки сохраняются в браузере</span>
                           </div>
                         </div>
                       )}

@@ -36,7 +36,7 @@ export interface RoomChatMessage {
   reactions?: Record<string, string[]>;
 }
 
-const QUICK_EMOJIS = ["👍", "❤️", "😂", "😮", "🔥", "👀"];
+const QUICK_EMOJIS = ["👍", "❤️", "🔥", "🎉", "😂", "😮", "😢", "👏", "🤔", "💯", "⭐", "🚀", "💀", "🤝", "😍", "👎"];
 
 interface Props {
   members: Member[];
@@ -272,33 +272,14 @@ export function SessionSidebar({ members, chatMessages, myUserId, onSendMessage,
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95 }}
                 style={{ display: "flex", flexDirection: "column", alignItems: isMe ? "flex-end" : "flex-start", position: "relative" }}
-                onMouseEnter={() => setEmojiPickerFor(null)}
                 onContextMenu={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  const x = Math.min(e.clientX, window.innerWidth - 160);
-                  const y = Math.min(e.clientY, window.innerHeight - (isMe ? 130 : 100));
+                  const x = Math.min(e.clientX, window.innerWidth - 220);
+                  const y = Math.min(e.clientY, window.innerHeight - (isMe ? 170 : 140));
                   setContextMenu({ x, y, message: msg });
                 }}
               >
-                {/* Emoji reaction trigger button */}
-                <button
-                  onClick={() => setEmojiPickerFor(emojiPickerFor === msg.id ? null : msg.id)}
-                  style={{
-                    position: "absolute",
-                    top: 0,
-                    right: isMe ? "auto" : -20,
-                    left: isMe ? -20 : "auto",
-                    background: "none", border: "none", cursor: "pointer",
-                    fontSize: 13, lineHeight: 1, padding: 2, opacity: 0.35,
-                    borderRadius: 4, color: "white",
-                  }}
-                  title="Реакция"
-                  onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.8")}
-                  onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.35")}
-                >
-                  🙂
-                </button>
                 {/* Username (for others) */}
                 {!isMe && (
                   <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 2, paddingLeft: 2 }}>
@@ -398,9 +379,9 @@ export function SessionSidebar({ members, chatMessages, myUserId, onSendMessage,
                   </span>
                 </div>
 
-                {/* Reactions */}
+                {/* Telegram-style reaction pills */}
                 {msg.reactions && Object.keys(msg.reactions).length > 0 && (
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 4 }}>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 3, marginTop: 3, paddingLeft: isMe ? 0 : 2 }}>
                     {Object.entries(msg.reactions).map(([emoji, userIds]) => {
                       const iMine = userIds.includes(myUserId);
                       return (
@@ -408,44 +389,21 @@ export function SessionSidebar({ members, chatMessages, myUserId, onSendMessage,
                           key={emoji}
                           onClick={() => onReact(msg.id, emoji, iMine)}
                           style={{
-                            display: "flex", alignItems: "center", gap: 3,
-                            background: iMine ? "rgba(88,166,255,0.18)" : "rgba(255,255,255,0.07)",
-                            border: iMine ? "1px solid rgba(88,166,255,0.4)" : "1px solid rgba(255,255,255,0.12)",
-                            borderRadius: 10, padding: "2px 6px", cursor: "pointer",
-                            fontSize: 12, lineHeight: 1.4, color: "rgba(255,255,255,0.75)",
+                            display: "inline-flex", alignItems: "center", gap: 4,
+                            background: iMine ? "rgba(88,166,255,0.22)" : "rgba(255,255,255,0.06)",
+                            border: `1px solid ${iMine ? "rgba(88,166,255,0.45)" : "rgba(255,255,255,0.1)"}`,
+                            borderRadius: 100, padding: "2px 8px 2px 5px", cursor: "pointer",
+                            fontSize: 13, lineHeight: 1, color: iMine ? "#58A6FF" : "rgba(255,255,255,0.7)",
+                            transition: "all 0.15s",
+                            boxShadow: iMine ? "0 0 0 1px rgba(88,166,255,0.15)" : "none",
                           }}
-                        >
-                          <span>{emoji}</span>
-                          <span style={{ fontSize: 10 }}>{userIds.length}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {/* Emoji picker (shown on hover via emojiPickerFor state) */}
-                {emojiPickerFor === msg.id && (
-                  <div
-                    style={{
-                      display: "flex", gap: 2, marginTop: 4,
-                      background: "rgba(18,18,22,0.96)", border: "1px solid rgba(255,255,255,0.1)",
-                      borderRadius: 10, padding: "4px 6px", boxShadow: "0 4px 16px rgba(0,0,0,0.5)",
-                    }}
-                    onMouseLeave={() => setEmojiPickerFor(null)}
-                  >
-                    {QUICK_EMOJIS.map((emoji) => {
-                      const iMine = (msg.reactions?.[emoji] ?? []).includes(myUserId);
-                      return (
-                        <button
-                          key={emoji}
-                          onClick={() => { onReact(msg.id, emoji, iMine); setEmojiPickerFor(null); }}
                           title={iMine ? "Убрать реакцию" : "Добавить реакцию"}
-                          style={{
-                            background: iMine ? "rgba(88,166,255,0.2)" : "none",
-                            border: "none", borderRadius: 6, cursor: "pointer",
-                            fontSize: 15, padding: "2px 3px", lineHeight: 1, transition: "background 0.15s",
-                          }}
-                        >{emoji}</button>
+                        >
+                          <span style={{ fontSize: 14, lineHeight: 1 }}>{emoji}</span>
+                          {userIds.length > 1 && (
+                            <span style={{ fontSize: 10, fontWeight: 600, lineHeight: 1 }}>{userIds.length}</span>
+                          )}
+                        </button>
                       );
                     })}
                   </div>
@@ -515,10 +473,40 @@ export function SessionSidebar({ members, chatMessages, myUserId, onSendMessage,
               borderRadius: 12,
               boxShadow: "0 8px 32px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.04)",
               padding: "4px",
-              minWidth: 152,
+              minWidth: 220,
               backdropFilter: "blur(20px)",
             }}
           >
+            {(() => {
+              const msg = contextMenu.message;
+              const isMe = msg.userId === myUserId;
+              return (
+                <>
+                  {/* Telegram-style emoji row at the top */}
+                  <div style={{ display: "flex", gap: 2, padding: "6px 6px 4px", borderBottom: "1px solid rgba(255,255,255,0.06)", marginBottom: 2 }}>
+                    {QUICK_EMOJIS.slice(0, 8).map((emoji) => {
+                      const iMine = (msg.reactions?.[emoji] ?? []).includes(myUserId);
+                      return (
+                        <button
+                          key={emoji}
+                          onClick={() => { onReact(msg.id, emoji, iMine); setContextMenu(null); }}
+                          title={iMine ? "Убрать реакцию" : "Добавить реакцию"}
+                          style={{
+                            background: iMine ? "rgba(88,166,255,0.2)" : "transparent",
+                            border: iMine ? "1px solid rgba(88,166,255,0.4)" : "1px solid transparent",
+                            borderRadius: 8, cursor: "pointer", fontSize: 16,
+                            padding: "3px 4px", lineHeight: 1, transition: "all 0.12s",
+                            transform: iMine ? "scale(1.15)" : "scale(1)",
+                          }}
+                          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.08)"; (e.currentTarget as HTMLElement).style.transform = "scale(1.2)"; }}
+                          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = iMine ? "rgba(88,166,255,0.2)" : "transparent"; (e.currentTarget as HTMLElement).style.transform = iMine ? "scale(1.15)" : "scale(1)"; }}
+                        >{emoji}</button>
+                      );
+                    })}
+                  </div>
+                </>
+              );
+            })()}
             {(() => {
               const msg = contextMenu.message;
               const isMe = msg.userId === myUserId;

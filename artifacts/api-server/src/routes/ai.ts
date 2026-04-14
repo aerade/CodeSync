@@ -4,6 +4,7 @@ import { db } from "@workspace/db";
 import { usersTable, filesTable, eventsTable, roomsTable, roomMembersTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { openai } from "@workspace/integrations-openai-ai-server";
+import { anthropic } from "@workspace/integrations-anthropic-ai";
 import { saveFileSnapshot } from "./snapshots";
 
 const aiRouter = Router();
@@ -323,9 +324,11 @@ async function chatHandler(req: Request, res: Response): Promise<void> {
   const language = typeof body.language === "string" ? body.language : "code";
   const roomId = typeof body.roomId === "string" ? body.roomId : "";
   const usePlan = body.usePlan === true;
-  const ALLOWED_MODELS = ["gpt-4.1", "gpt-4o", "gpt-4o-mini", "o3-mini", "o3"];
+  const CLAUDE_MODELS = ["claude-sonnet-4-6", "claude-sonnet-4-5", "claude-haiku-4-5", "claude-opus-4-6"];
+  const ALLOWED_MODELS = ["gpt-4.1", "gpt-4o", "gpt-4o-mini", "o3-mini", "o3", ...CLAUDE_MODELS];
   const requestedModel = typeof body.model === "string" ? body.model : "gpt-4.1";
   const selectedModel = ALLOWED_MODELS.includes(requestedModel) ? requestedModel : "gpt-4.1";
+  const isClaudeModel = selectedModel.startsWith("claude-");
 
   // Parallel access check
   const [accessResult, roomFilesResult] = await Promise.all([
@@ -391,6 +394,36 @@ ${context ? `\nТекущий файл (${language}):\n\`\`\`${language}\n${cont
   res.flushHeaders();
 
   try {
+    // ── Claude branch ──────────────────────────────────────────────────────────
+    if (isClaudeModel) {
+      const claudeMessages = chatMessages
+        .filter((m) => m.role === "user" || m.role === "assistant")
+        .map((m) => ({ role: m.role as "user" | "assistant", content: m.content }));
+
+      if (claudeMessages.length === 0) {
+        res.write(`data: ${JSON.stringify({ error: "Нет сообщений для Claude" })}\n\n`);
+        res.write("data: [DONE]\n\n");
+        return;
+      }
+
+      const stream = anthropic.messages.stream({
+        model: selectedModel,
+        max_tokens: 8192,
+        system: systemPrompt,
+        messages: claudeMessages,
+      });
+
+      for await (const event of stream) {
+        if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
+          res.write(`data: ${JSON.stringify({ content: event.delta.text })}\n\n`);
+        }
+      }
+
+      res.write("data: [DONE]\n\n");
+      return;
+    }
+
+    // ── OpenAI branch ──────────────────────────────────────────────────────────
     const allMessages: Array<{ role: string; content: string }> = [
       { role: "system", content: systemPrompt },
       ...chatMessages,
