@@ -325,13 +325,6 @@ const SHORTCUTS = [
   { keys: ["Ctrl", "G"], desc: "Перейти к строке" },
 ];
 
-function FieldLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.09em", marginBottom: 5 }}>
-      {children}
-    </div>
-  );
-}
 
 export function RoomSettings({ isOpen, onClose, settings, onChange, isOwner = false, roomId, roomTitle = "", roomDescription = "", roomIsPrivate = false, roomMaxUsers = 5, roomPassword = "" }: Props) {
   const [ownerTitle, setOwnerTitle] = useState(roomTitle);
@@ -384,12 +377,6 @@ export function RoomSettings({ isOpen, onClose, settings, onChange, isOwner = fa
     saveSettings(next);
   }
 
-  const inputBase: React.CSSProperties = {
-    width: "100%", background: "rgba(255,255,255,0.04)",
-    border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8,
-    padding: "8px 11px", fontSize: 13, color: "#fff",
-    outline: "none", boxSizing: "border-box", transition: "border-color 0.15s",
-  };
 
   const modal = (
     <AnimatePresence>
@@ -612,107 +599,131 @@ export function RoomSettings({ isOpen, onClose, settings, onChange, isOwner = fa
                         </div>
                       )}
 
-                      {/* ROOM — redesigned */}
+                      {/* ROOM */}
                       {section === "room" && (
                         <div>
                           {isOwner ? (
                             <>
                               <SectionLabel>Управление комнатой</SectionLabel>
 
-                              {/* Title + Description side-by-side banner */}
-                              <div style={{
-                                borderRadius: 12,
-                                background: "rgba(255,255,255,0.03)",
-                                border: "1px solid rgba(255,255,255,0.07)",
-                                padding: "14px 16px",
-                                marginBottom: 8,
-                              }}>
-                                <FieldLabel>Название</FieldLabel>
+                              {/* Название */}
+                              <div style={{ marginBottom: 8 }}>
+                                <label style={{ fontSize: 11, color: "rgba(255,255,255,0.45)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", display: "block", marginBottom: 5 }}>Название</label>
                                 <input
                                   value={ownerTitle}
                                   onChange={(e) => setOwnerTitle(e.target.value)}
                                   maxLength={64}
-                                  placeholder="Название комнаты"
-                                  style={inputBase}
+                                  style={{
+                                    width: "100%", background: "rgba(255,255,255,0.04)",
+                                    border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8,
+                                    padding: "7px 10px", fontSize: 13, color: "#fff",
+                                    outline: "none", boxSizing: "border-box",
+                                  }}
                                   onFocus={(e) => (e.currentTarget.style.borderColor = "rgba(88,166,255,0.5)")}
                                   onBlur={(e) => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)")}
                                 />
-                                <div style={{ marginTop: 10 }}>
-                                  <FieldLabel>Описание</FieldLabel>
-                                  <textarea
-                                    value={ownerDesc}
-                                    onChange={(e) => setOwnerDesc(e.target.value)}
-                                    maxLength={256}
-                                    rows={2}
-                                    placeholder="Краткое описание (необязательно)"
-                                    style={{ ...inputBase, resize: "none", fontFamily: "inherit" }}
-                                    onFocus={(e) => (e.currentTarget.style.borderColor = "rgba(88,166,255,0.5)")}
-                                    onBlur={(e) => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)")}
-                                  />
-                                </div>
                               </div>
 
-                              {/* Max Users + Password in a 2-col grid */}
-                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
-                                {/* Max Users */}
-                                <div style={{ borderRadius: 12, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", padding: "12px 14px" }}>
-                                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-                                    <FieldLabel>Участников макс.</FieldLabel>
-                                    <span style={{ fontSize: 13, fontWeight: 700, color: "#79C0FF", background: "rgba(88,166,255,0.1)", border: "1px solid rgba(88,166,255,0.2)", borderRadius: 6, padding: "0 8px", fontFamily: "JetBrains Mono, monospace" }}>{ownerMaxUsers}</span>
-                                  </div>
+                              {/* Описание */}
+                              <div style={{ marginBottom: 8 }}>
+                                <label style={{ fontSize: 11, color: "rgba(255,255,255,0.45)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", display: "block", marginBottom: 5 }}>Описание</label>
+                                <textarea
+                                  value={ownerDesc}
+                                  onChange={(e) => setOwnerDesc(e.target.value)}
+                                  maxLength={256}
+                                  rows={2}
+                                  style={{
+                                    width: "100%", background: "rgba(255,255,255,0.04)",
+                                    border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8,
+                                    padding: "7px 10px", fontSize: 13, color: "#fff",
+                                    outline: "none", resize: "none", boxSizing: "border-box",
+                                    fontFamily: "inherit",
+                                  }}
+                                  onFocus={(e) => (e.currentTarget.style.borderColor = "rgba(88,166,255,0.5)")}
+                                  onBlur={(e) => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)")}
+                                />
+                              </div>
+
+                              {/* Макс. участников — только ползунок */}
+                              <div style={{ marginBottom: 8, padding: "12px 14px", borderRadius: 10, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                                  <label style={{ fontSize: 13, color: "rgba(255,255,255,0.85)", fontWeight: 500 }}>Макс. участников</label>
+                                  <span style={{ fontSize: 12, fontWeight: 700, color: "#79C0FF", background: "rgba(88,166,255,0.1)", border: "1px solid rgba(88,166,255,0.2)", borderRadius: 6, padding: "1px 8px", fontFamily: "JetBrains Mono, monospace", minWidth: 24, textAlign: "center" }}>{ownerMaxUsers}</span>
+                                </div>
+                                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                  <span style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", fontFamily: "JetBrains Mono, monospace" }}>1</span>
                                   <input
                                     type="range" min={1} max={5} step={1}
                                     value={ownerMaxUsers}
                                     onChange={(e) => setOwnerMaxUsers(Number(e.target.value))}
-                                    style={{ width: "100%", accentColor: "#58A6FF", cursor: "pointer", height: 4, display: "block" }}
+                                    style={{ flex: 1, accentColor: "#58A6FF", cursor: "pointer", height: 4 }}
                                   />
-                                  <div style={{ display: "flex", gap: 4, marginTop: 8 }}>
-                                    {[1,2,3,4,5].map((n) => (
-                                      <button key={n} onClick={() => setOwnerMaxUsers(n)} style={{ flex: 1, fontSize: 10, padding: "3px 0", borderRadius: 5, cursor: "pointer", fontFamily: "JetBrains Mono, monospace", background: ownerMaxUsers === n ? "rgba(88,166,255,0.15)" : "rgba(255,255,255,0.04)", border: `1px solid ${ownerMaxUsers === n ? "rgba(88,166,255,0.35)" : "rgba(255,255,255,0.08)"}`, color: ownerMaxUsers === n ? "#79C0FF" : "rgba(255,255,255,0.35)", fontWeight: ownerMaxUsers === n ? 700 : 400, transition: "all 0.12s" }}>{n}</button>
-                                    ))}
-                                  </div>
-                                </div>
-
-                                {/* Password */}
-                                <div style={{ borderRadius: 12, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", padding: "12px 14px" }}>
-                                  <FieldLabel>Пароль <span style={{ color: "rgba(255,255,255,0.2)", fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>(необяз.)</span></FieldLabel>
-                                  <div style={{ position: "relative" }}>
-                                    <input
-                                      type={showPassword ? "text" : "password"}
-                                      value={ownerPassword}
-                                      onChange={(e) => setOwnerPassword(e.target.value)}
-                                      maxLength={64}
-                                      placeholder="Не задан"
-                                      style={{ ...inputBase, padding: "8px 34px 8px 11px", fontFamily: "JetBrains Mono, monospace", fontSize: 12 }}
-                                      onFocus={(e) => (e.currentTarget.style.borderColor = "rgba(88,166,255,0.5)")}
-                                      onBlur={(e) => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)")}
-                                    />
-                                    <button
-                                      onClick={() => setShowPassword((v) => !v)}
-                                      style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.3)", padding: 2, lineHeight: 0 }}
-                                    >
-                                      {showPassword ? (
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-                                      ) : (
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                                      )}
-                                    </button>
-                                  </div>
-                                  <div style={{ marginTop: 8 }}>
-                                    <Toggle value={ownerPrivate} onChange={setOwnerPrivate} label="Приватная" desc="Только по инвайту" />
-                                  </div>
+                                  <span style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", fontFamily: "JetBrains Mono, monospace" }}>5</span>
                                 </div>
                               </div>
 
-                              {/* Save */}
+                              {/* Пароль */}
+                              <div style={{ marginBottom: 8 }}>
+                                <label style={{ fontSize: 11, color: "rgba(255,255,255,0.45)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", display: "block", marginBottom: 5 }}>Пароль <span style={{ color: "rgba(255,255,255,0.22)", fontWeight: 400, textTransform: "none", letterSpacing: 0, fontSize: 10 }}>(необязательно)</span></label>
+                                <div style={{
+                                  display: "flex", alignItems: "center",
+                                  background: "rgba(255,255,255,0.04)",
+                                  border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8,
+                                  overflow: "hidden", transition: "border-color 0.15s",
+                                }}
+                                  onFocusCapture={(e) => (e.currentTarget.style.borderColor = "rgba(88,166,255,0.5)")}
+                                  onBlurCapture={(e) => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)")}
+                                >
+                                  <div style={{ display: "flex", alignItems: "center", padding: "0 10px", color: "rgba(255,255,255,0.2)", flexShrink: 0 }}>
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                      <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                                      <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                                    </svg>
+                                  </div>
+                                  <input
+                                    type={showPassword ? "text" : "password"}
+                                    value={ownerPassword}
+                                    onChange={(e) => setOwnerPassword(e.target.value)}
+                                    maxLength={64}
+                                    placeholder="Оставьте пустым, чтобы убрать пароль"
+                                    style={{
+                                      flex: 1, background: "transparent", border: "none",
+                                      padding: "8px 4px 8px 0", fontSize: 13, color: "#fff",
+                                      outline: "none", fontFamily: "JetBrains Mono, monospace",
+                                    }}
+                                  />
+                                  <button
+                                    onClick={() => setShowPassword((v) => !v)}
+                                    style={{ background: "none", border: "none", cursor: "pointer", padding: "0 10px", color: "rgba(255,255,255,0.3)", lineHeight: 0, flexShrink: 0, transition: "color 0.12s", height: "100%" }}
+                                    onMouseEnter={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.7)")}
+                                    onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.3)")}
+                                  >
+                                    {showPassword ? (
+                                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                                    ) : (
+                                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                    )}
+                                  </button>
+                                </div>
+                              </div>
+
+                              {/* Приватная */}
+                              <Toggle
+                                value={ownerPrivate}
+                                onChange={setOwnerPrivate}
+                                label="Приватная комната"
+                                desc="Только по приглашению или инвайт-коду"
+                              />
+
+                              {/* Сохранить */}
                               <button
                                 onClick={handleOwnerSave}
                                 disabled={ownerSaving}
                                 style={{
-                                  width: "100%", padding: "9px",
-                                  background: ownerSaved ? "rgba(63,185,80,0.15)" : "rgba(88,166,255,0.12)",
-                                  border: `1px solid ${ownerSaved ? "rgba(63,185,80,0.35)" : "rgba(88,166,255,0.25)"}`,
-                                  borderRadius: 9, cursor: ownerSaving ? "not-allowed" : "pointer",
+                                  marginTop: 10, width: "100%", padding: "8px",
+                                  background: ownerSaved ? "rgba(63,185,80,0.2)" : "rgba(88,166,255,0.15)",
+                                  border: `1px solid ${ownerSaved ? "rgba(63,185,80,0.4)" : "rgba(88,166,255,0.3)"}`,
+                                  borderRadius: 8, cursor: ownerSaving ? "not-allowed" : "pointer",
                                   fontSize: 13, fontWeight: 600,
                                   color: ownerSaved ? "#3FB950" : "#58A6FF",
                                   transition: "all 0.2s",
@@ -720,16 +731,16 @@ export function RoomSettings({ isOpen, onClose, settings, onChange, isOwner = fa
                               >
                                 {ownerSaving ? "Сохранение…" : ownerSaved ? "✓ Сохранено" : "Сохранить изменения"}
                               </button>
-                              {ownerError && (
-                                <div style={{ fontSize: 11, color: "#FF7B72", marginTop: 6, padding: "5px 9px", background: "rgba(255,123,114,0.08)", border: "1px solid rgba(255,123,114,0.15)", borderRadius: 7 }}>
-                                  {ownerError}
-                                </div>
-                              )}
+                              {ownerError && <div style={{ fontSize: 11, color: "#FF7B72", marginTop: 6 }}>{ownerError}</div>}
                             </>
                           ) : (
                             <>
                               <SectionLabel>О комнате</SectionLabel>
-                              <div style={{ padding: "14px 16px", borderRadius: 12, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", marginBottom: 8 }}>
+                              <div style={{
+                                padding: "14px 16px", borderRadius: 12,
+                                background: "rgba(255,255,255,0.03)",
+                                border: "1px solid rgba(255,255,255,0.07)",
+                              }}>
                                 <div style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", marginBottom: 6 }}>Настройки комнаты управляются владельцем</div>
                                 <div style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", lineHeight: 1.7 }}>
                                   • Имя, описание и приватность комнаты<br/>
@@ -739,10 +750,6 @@ export function RoomSettings({ isOpen, onClose, settings, onChange, isOwner = fa
                               </div>
                             </>
                           )}
-                          <div style={{ padding: "10px 14px", borderRadius: 10, background: "rgba(88,166,255,0.05)", border: "1px solid rgba(88,166,255,0.15)", display: "flex", alignItems: "center", gap: 10 }}>
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#58A6FF" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                            <span style={{ fontSize: 12, color: "rgba(88,166,255,0.9)" }}>Личные настройки сохраняются в браузере</span>
-                          </div>
                         </div>
                       )}
 
