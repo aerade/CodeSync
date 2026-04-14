@@ -348,11 +348,10 @@ async function chatHandler(req: Request, res: Response): Promise<void> {
   const language = typeof body.language === "string" ? body.language : "code";
   const roomId = typeof body.roomId === "string" ? body.roomId : "";
   const usePlan = body.usePlan === true;
-  const CLAUDE_MODELS = ["claude-sonnet-4-6", "claude-sonnet-4-5"];
-  const ALLOWED_MODELS = ["gpt-4.1", "o3", "gpt-4o", ...CLAUDE_MODELS];
+  const ALLOWED_MODELS = ["gpt-4.1", "o3", "gpt-4o"];
   const requestedModel = typeof body.model === "string" ? body.model : "gpt-4.1";
   const selectedModel = ALLOWED_MODELS.includes(requestedModel) ? requestedModel : "gpt-4.1";
-  const isClaudeModel = selectedModel.startsWith("claude-");
+  const isClaudeModel = false;
 
   // Parallel access check
   const [accessResult, roomFilesResult] = await Promise.all([
