@@ -259,126 +259,224 @@ interface Room {
   createdAt: string;
 }
 
-function MemberDots({ count, max }: { count: number; max: number }) {
+// Deterministic accent color from room id
+function roomAccent(id: string): { color: string; glow: string; bg: string } {
+  const palettes = [
+    { color: "#58A6FF", glow: "rgba(88,166,255,0.18)", bg: "rgba(88,166,255,0.06)" },
+    { color: "#56D364", glow: "rgba(86,211,100,0.18)", bg: "rgba(86,211,100,0.06)" },
+    { color: "#D2A8FF", glow: "rgba(210,168,255,0.18)", bg: "rgba(210,168,255,0.06)" },
+    { color: "#F0883E", glow: "rgba(240,136,62,0.18)", bg: "rgba(240,136,62,0.06)" },
+    { color: "#FF7B72", glow: "rgba(255,123,114,0.18)", bg: "rgba(255,123,114,0.06)" },
+    { color: "#79C0FF", glow: "rgba(121,192,255,0.18)", bg: "rgba(121,192,255,0.06)" },
+    { color: "#3FC7C4", glow: "rgba(63,199,196,0.18)", bg: "rgba(63,199,196,0.06)" },
+    { color: "#F4A261", glow: "rgba(244,162,97,0.18)", bg: "rgba(244,162,97,0.06)" },
+  ];
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) & 0xffffffff;
+  return palettes[Math.abs(hash) % palettes.length];
+}
+
+// Fake code line visual inside card
+function MiniCodeLines({ seed }: { seed: string }) {
+  const lines = [
+    [65, 35, 0],
+    [45, 0, 0],
+    [55, 25, 15],
+    [30, 0, 0],
+  ];
+  let h = 0;
+  for (const c of seed) h = (h * 17 + c.charCodeAt(0)) & 0xfff;
+  const offset = h % 4;
+  const pick = (n: number) => lines[(n + offset) % lines.length];
   return (
-    <div className="flex items-center gap-1">
-      {Array.from({ length: max }).map((_, i) => (
-        <div
-          key={i}
-          className="rounded-full"
-          style={{
-            width: 6, height: 6,
-            background: i < count ? "#3fb950" : "rgba(255,255,255,0.1)",
-            transition: "background 0.3s",
-          }}
-        />
-      ))}
+    <div style={{ display: "flex", flexDirection: "column", gap: 4, opacity: 0.35 }}>
+      {[0, 1, 2, 3].map((i) => {
+        const [a, b, c] = pick(i);
+        return (
+          <div key={i} style={{ display: "flex", gap: 4, alignItems: "center" }}>
+            <div style={{ width: a, height: 3, borderRadius: 2, background: "rgba(255,255,255,0.4)" }} />
+            {b > 0 && <div style={{ width: b, height: 3, borderRadius: 2, background: "rgba(88,166,255,0.6)" }} />}
+            {c > 0 && <div style={{ width: c, height: 3, borderRadius: 2, background: "rgba(86,211,100,0.6)" }} />}
+          </div>
+        );
+      })}
     </div>
   );
 }
 
 function RoomCard({ room, onOpen, onDelete }: { room: Room; onOpen: () => void; onDelete: () => void }) {
+  const accent = roomAccent(room.id);
+  const isActive = room.memberCount > 0;
+
   return (
     <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.97 }}
-      className="glass rounded-xl p-4 flex flex-col transition-all hover:border-white/10"
-      style={{ minHeight: 120, cursor: "default", border: "1px solid transparent" }}
+      initial={{ opacity: 0, y: 12, scale: 0.97 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.95 }}
+      whileHover="hover"
       data-testid={`card-room-${room.id}`}
-      whileHover={{ borderColor: "rgba(255,255,255,0.09)", background: "rgba(255,255,255,0.03)" }}
+      style={{
+        position: "relative",
+        borderRadius: 16,
+        background: "#0C0E14",
+        border: "1px solid rgba(255,255,255,0.07)",
+        overflow: "hidden",
+        cursor: "default",
+        display: "flex",
+        flexDirection: "column",
+      }}
     >
-      {/* Top: title + badge + menu */}
-      <div className="flex items-start justify-between gap-2 mb-2">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <h3 className="text-sm font-semibold truncate" style={{ color: "#e6edf3" }}>
-              {room.title}
-            </h3>
-            {room.isPrivate && (
-              <span
-                className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-md shrink-0"
-                style={{
+      {/* Accent top strip */}
+      <motion.div
+        variants={{ hover: { opacity: 1 } }}
+        initial={{ opacity: 0.4 }}
+        style={{
+          position: "absolute", top: 0, left: 0, right: 0, height: 2,
+          background: `linear-gradient(90deg, transparent 0%, ${accent.color} 40%, ${accent.color} 60%, transparent 100%)`,
+        }}
+      />
+
+      {/* Glow on hover */}
+      <motion.div
+        variants={{ hover: { opacity: 1 } }}
+        initial={{ opacity: 0 }}
+        style={{
+          position: "absolute", inset: 0, pointerEvents: "none",
+          background: `radial-gradient(ellipse 80% 60% at 50% 0%, ${accent.glow} 0%, transparent 70%)`,
+        }}
+      />
+
+      <div style={{ padding: "16px 16px 14px", display: "flex", flexDirection: "column", gap: 12, position: "relative" }}>
+        {/* Top row: icon + title + menu */}
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+          {/* Accent icon box */}
+          <div style={{
+            width: 36, height: 36, borderRadius: 10, flexShrink: 0,
+            background: accent.bg,
+            border: `1px solid ${accent.color}30`,
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={accent.color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
+            </svg>
+          </div>
+
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+              <h3 style={{ fontSize: 14, fontWeight: 700, color: "#E6EDF3", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 160 }}>
+                {room.title}
+              </h3>
+              {room.isPrivate && (
+                <span style={{
+                  fontSize: 9, fontWeight: 600, padding: "1px 6px", borderRadius: 4,
                   background: "rgba(255,255,255,0.05)",
-                  color: "rgba(255,255,255,0.4)",
                   border: "1px solid rgba(255,255,255,0.09)",
-                  fontSize: 10,
-                }}
-              >
-                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-                </svg>
-                Приватная
-              </span>
+                  color: "rgba(255,255,255,0.35)",
+                  textTransform: "uppercase", letterSpacing: "0.07em",
+                  display: "flex", alignItems: "center", gap: 3,
+                }}>
+                  <svg width="7" height="7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                  </svg>
+                  Приват
+                </span>
+              )}
+              {isActive && (
+                <span style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                  <span style={{
+                    width: 5, height: 5, borderRadius: "50%",
+                    background: "#3FB950",
+                    boxShadow: "0 0 6px #3FB950",
+                    display: "inline-block",
+                    animation: "roomPulse 2s ease-in-out infinite",
+                  }} />
+                </span>
+              )}
+            </div>
+            {room.description && (
+              <p style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", margin: "2px 0 0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {room.description}
+              </p>
             )}
           </div>
-          {room.description && (
-            <p className="text-xs mt-0.5 line-clamp-1" style={{ color: "rgba(255,255,255,0.3)" }}>
-              {room.description}
-            </p>
-          )}
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                style={{ color: "rgba(255,255,255,0.25)", background: "none", border: "none", cursor: "pointer", padding: 4, borderRadius: 6, flexShrink: 0, lineHeight: 1 }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.55)"; (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.06)"; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.25)"; (e.currentTarget as HTMLElement).style.background = "none"; }}
+              >
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                  <circle cx="2" cy="8" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="14" cy="8" r="1.5"/>
+                </svg>
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent style={{ background: "rgba(12,12,12,0.96)", backdropFilter: "blur(20px)", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 16px 48px rgba(0,0,0,0.7)", zIndex: 9999 }}>
+              <DropdownMenuItem style={{ color: "#ef4444" }} onClick={onDelete}>Удалить</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              className="p-1 rounded opacity-20 hover:opacity-60 transition-opacity shrink-0"
-              style={{ color: "rgba(255,255,255,0.8)", background: "none", border: "none", cursor: "pointer" }}
-            >
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
-                <circle cx="2" cy="8" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="14" cy="8" r="1.5"/>
-              </svg>
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            style={{
-              background: "rgba(12,12,12,0.96)",
-              backdropFilter: "blur(20px)",
-              border: "1px solid rgba(255,255,255,0.1)",
-              boxShadow: "0 16px 48px rgba(0,0,0,0.7)",
-              zIndex: 9999,
-            }}
-          >
-            <DropdownMenuItem style={{ color: "#ef4444" }} onClick={onDelete}>
-              Удалить
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
 
-      <div className="flex-1" />
+        {/* Mini code preview */}
+        <div style={{
+          padding: "8px 10px", borderRadius: 8,
+          background: "rgba(0,0,0,0.35)",
+          border: "1px solid rgba(255,255,255,0.04)",
+        }}>
+          <MiniCodeLines seed={room.id} />
+        </div>
 
-      {/* Bottom */}
-      <div className="flex items-center justify-between pt-3" style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}>
-        <div className="flex items-center gap-3">
-          {/* Live member dots */}
-          <div className="flex flex-col gap-1">
-            <MemberDots count={room.memberCount} max={room.maxUsers} />
-            <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 10 }}>
-              {room.memberCount}/{room.maxUsers} участников
-            </span>
+        {/* Bottom: stats + open button */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            {/* Member bar */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+              <div style={{ display: "flex", gap: 2 }}>
+                {Array.from({ length: room.maxUsers }).map((_, i) => (
+                  <div key={i} style={{
+                    width: 14, height: 3, borderRadius: 2,
+                    background: i < room.memberCount ? accent.color : "rgba(255,255,255,0.08)",
+                    transition: "background 0.3s",
+                    boxShadow: i < room.memberCount ? `0 0 4px ${accent.color}60` : "none",
+                  }} />
+                ))}
+              </div>
+              <span style={{ fontSize: 9, color: "rgba(255,255,255,0.25)", fontFamily: "JetBrains Mono, monospace" }}>
+                {room.memberCount}/{room.maxUsers}
+              </span>
+            </div>
+
+            {/* Invite code */}
+            <div style={{
+              fontSize: 10, fontFamily: "JetBrains Mono, monospace",
+              padding: "2px 7px", borderRadius: 5,
+              background: "rgba(255,255,255,0.03)",
+              border: "1px solid rgba(255,255,255,0.06)",
+              color: "rgba(255,255,255,0.22)",
+              letterSpacing: "0.1em",
+            }}>
+              {room.inviteCode}
+            </div>
           </div>
 
-          {/* Invite code */}
-          <span
-            className="text-xs font-mono px-2 py-0.5 rounded-md"
+          <motion.button
+            onClick={onOpen}
+            whileHover={{ scale: 1.04 }}
+            whileTap={{ scale: 0.96 }}
+            data-testid={`btn-open-room-${room.id}`}
             style={{
-              background: "rgba(255,255,255,0.04)",
-              color: "rgba(255,255,255,0.28)",
-              border: "1px solid rgba(255,255,255,0.06)",
-              letterSpacing: "0.08em",
+              padding: "5px 14px", borderRadius: 8,
+              background: accent.bg,
+              border: `1px solid ${accent.color}40`,
+              color: accent.color,
+              fontSize: 12, fontWeight: 600, cursor: "pointer",
+              transition: "all 0.15s",
             }}
           >
-            {room.inviteCode}
-          </span>
+            Открыть →
+          </motion.button>
         </div>
-        <button
-          onClick={onOpen}
-          className="text-xs px-3 py-1.5 rounded-lg font-semibold transition-all hover:opacity-90 active:scale-95"
-          style={{ background: "#fff", color: "#000", border: "none", cursor: "pointer" }}
-          data-testid={`btn-open-room-${room.id}`}
-        >
-          Открыть
-        </button>
       </div>
     </motion.div>
   );

@@ -33,6 +33,7 @@ interface Props {
   prefillInput?: string | null;
   onPrefillUsed?: () => void;
   onAiStats?: (stats: Record<string, { added: number; removed: number }>) => void;
+  forceClose?: number;
 }
 
 const MODELS = [
@@ -163,7 +164,7 @@ function initBtnPos() {
 export function AIChatFloat({
   roomId, fileId, fileContent, language, fileName, files = [],
   onFilesChanged, onContentRestored, onShowAiDiff, onClearAiDiff, onFileStream,
-  prefillInput, onPrefillUsed, onAiStats,
+  prefillInput, onPrefillUsed, onAiStats, forceClose,
 }: Props) {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -232,6 +233,10 @@ export function AIChatFloat({
       document.removeEventListener("keydown", handler);
     };
   }, [aiContextMenu]);
+
+  useEffect(() => {
+    if (forceClose) setIsOpen(false);
+  }, [forceClose]);
 
   const startBtnDrag = useCallback((e: React.PointerEvent) => {
     e.preventDefault();
@@ -900,20 +905,21 @@ export function AIChatFloat({
                   title="Режим плана"
                   style={{
                     height: 26, padding: "0 9px", borderRadius: 7, flexShrink: 0,
-                    background: planMode ? "rgba(210,168,255,0.15)" : "transparent",
-                    border: `1px solid ${planMode ? "rgba(210,168,255,0.4)" : "rgba(255,255,255,0.07)"}`,
+                    background: planMode ? "rgba(88,166,255,0.15)" : "transparent",
+                    border: `1px solid ${planMode ? "rgba(88,166,255,0.45)" : "rgba(255,255,255,0.07)"}`,
                     cursor: "pointer",
-                    color: planMode ? "#D2A8FF" : "rgba(255,255,255,0.3)",
+                    color: planMode ? "#79C0FF" : "rgba(255,255,255,0.3)",
                     display: "flex", alignItems: "center", gap: 5,
                     fontSize: 11, fontWeight: planMode ? 600 : 400,
+                    boxShadow: planMode ? "0 0 12px rgba(88,166,255,0.2)" : "none",
                     transition: "all 0.15s",
                   }}
-                  onMouseEnter={(e) => { if (!planMode) { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)"; (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.55)"; } }}
+                  onMouseEnter={(e) => { if (!planMode) { (e.currentTarget as HTMLElement).style.background = "rgba(88,166,255,0.08)"; (e.currentTarget as HTMLElement).style.color = "rgba(88,166,255,0.7)"; } }}
                   onMouseLeave={(e) => { if (!planMode) { (e.currentTarget as HTMLElement).style.background = "transparent"; (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.3)"; } }}
                 >
                   {planMode && (
                     <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                      <path d="M1.5 5L4 7.5L8.5 2.5" stroke="#D2A8FF" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                      <path d="M1.5 5L4 7.5L8.5 2.5" stroke="#79C0FF" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
                   )}
                   План

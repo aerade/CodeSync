@@ -250,10 +250,10 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-function SliderPicker({ value, onChange, min, max, step = 1, label, marks }: {
+function SliderPicker({ value, onChange, min, max, step = 1, label, presets }: {
   value: number; onChange: (v: number) => void;
   min: number; max: number; step?: number;
-  label: string; marks?: number[];
+  label: string; presets?: number[];
 }) {
   return (
     <div style={{
@@ -269,27 +269,36 @@ function SliderPicker({ value, onChange, min, max, step = 1, label, marks }: {
           background: "rgba(88,166,255,0.1)", border: "1px solid rgba(88,166,255,0.2)",
           borderRadius: 6, padding: "1px 8px",
           fontFamily: "JetBrains Mono, monospace",
+          minWidth: 28, textAlign: "center",
         }}>{value}</span>
       </div>
-      <input
-        type="range"
-        min={min} max={max} step={step}
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-        style={{ width: "100%", accentColor: "#58A6FF", height: 4, cursor: "pointer" }}
-      />
-      {marks && (
-        <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
-          {marks.map((m) => (
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <span style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", fontFamily: "JetBrains Mono, monospace", minWidth: 16, textAlign: "right" }}>{min}</span>
+        <input
+          type="range"
+          min={min} max={max} step={step}
+          value={value}
+          onChange={(e) => onChange(Number(e.target.value))}
+          style={{ flex: 1, accentColor: "#58A6FF", cursor: "pointer", height: 4 }}
+        />
+        <span style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", fontFamily: "JetBrains Mono, monospace", minWidth: 16 }}>{max}</span>
+      </div>
+      {presets && (
+        <div style={{ display: "flex", gap: 4, marginTop: 8, flexWrap: "wrap" }}>
+          {presets.map((p) => (
             <button
-              key={m}
-              onClick={() => onChange(m)}
+              key={p}
+              onClick={() => onChange(p)}
               style={{
-                fontSize: 10, color: value === m ? "#79C0FF" : "rgba(255,255,255,0.25)",
-                background: "none", border: "none", cursor: "pointer", padding: 0,
-                fontFamily: "JetBrains Mono, monospace", fontWeight: value === m ? 700 : 400,
+                fontSize: 10, padding: "2px 7px", borderRadius: 5, cursor: "pointer",
+                fontFamily: "JetBrains Mono, monospace",
+                background: value === p ? "rgba(88,166,255,0.15)" : "rgba(255,255,255,0.04)",
+                border: `1px solid ${value === p ? "rgba(88,166,255,0.35)" : "rgba(255,255,255,0.08)"}`,
+                color: value === p ? "#79C0FF" : "rgba(255,255,255,0.35)",
+                fontWeight: value === p ? 700 : 400,
+                transition: "all 0.12s",
               }}
-            >{m}</button>
+            >{p}</button>
           ))}
         </div>
       )}
@@ -488,7 +497,7 @@ export function RoomSettings({ isOpen, onClose, settings, onChange }: Props) {
                             value={settings.fontSize}
                             onChange={(v) => set({ fontSize: v })}
                             min={10} max={24} step={1}
-                            marks={[10, 12, 14, 16, 18, 20, 24]}
+                            presets={[12, 14, 16, 18, 20]}
                           />
 
                           <SectionLabel>Отступы</SectionLabel>
@@ -497,7 +506,7 @@ export function RoomSettings({ isOpen, onClose, settings, onChange }: Props) {
                             value={settings.tabSize}
                             onChange={(v) => set({ tabSize: v })}
                             min={1} max={8} step={1}
-                            marks={[1, 2, 4, 8]}
+                            presets={[2, 4, 8]}
                           />
 
                           <SectionLabel>Поведение</SectionLabel>

@@ -130,6 +130,7 @@ export default function RoomPage() {
   const editorTheme = settings.editorTheme;
 
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [aiChatForceClose, setAiChatForceClose] = useState(0);
 
   // Mouse cursors: track remote users' screen positions
   const [mouseCursors, setMouseCursors] = useState<Record<string, MouseCursorInfo>>({});
@@ -160,6 +161,11 @@ export default function RoomPage() {
   const dragStartWidth = useRef(0);
   const terminalCleanupRef = useRef<(() => void) | null>(null);
   const aiPanelCleanupRef = useRef<(() => void) | null>(null);
+
+  // Sync tabSize to Monaco model (model-level option, must be set explicitly)
+  useEffect(() => {
+    editorRef.current?.getModel()?.updateOptions({ tabSize: settings.tabSize });
+  }, [settings.tabSize]);
 
   // Cleanup resize listeners on unmount
   useEffect(() => {
@@ -803,7 +809,7 @@ export default function RoomPage() {
               cursor: "pointer",
               fontSize: 11,
             }}
-            onClick={() => setSettingsOpen(true)}
+            onClick={() => { setSettingsOpen(true); setAiChatForceClose((n) => n + 1); }}
             title="Настройки комнаты"
             data-testid="btn-room-settings"
           >
@@ -1276,6 +1282,7 @@ export default function RoomPage() {
       files={files.filter((f) => !f.isFolder).map((f) => ({ id: f.id, name: f.name, language: f.language, content: f.content }))}
       prefillInput={aiChatPrefill}
       onPrefillUsed={() => setAiChatPrefill(null)}
+      forceClose={aiChatForceClose}
       onAiStats={(stats) => setFileStats((prev) => ({ ...prev, ...stats }))}
       onFilesChanged={() => {
         void qc.invalidateQueries({ queryKey: getGetRoomFilesQueryKey(roomId) });
