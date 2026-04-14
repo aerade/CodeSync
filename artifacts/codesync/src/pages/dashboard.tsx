@@ -628,25 +628,14 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: "#07090D", color: "#f0f0f0", overflow: "auto" }}>
-      {/* Subtle radial glow top-center */}
-      <div style={{
-        position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0,
-        background: "radial-gradient(ellipse 80% 40% at 50% -10%, rgba(40,80,160,0.18) 0%, transparent 70%)",
-      }} />
-      {/* Dot grid */}
-      <div style={{
-        position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0,
-        backgroundImage: "radial-gradient(rgba(255,255,255,0.06) 1px, transparent 1px)",
-        backgroundSize: "28px 28px",
-      }} />
+    <div className="min-h-screen flex flex-col" style={{ background: "#000", color: "#f0f0f0", overflow: "auto" }}>
 
       <div className="relative z-10 flex flex-col min-h-screen">
         {/* HEADER */}
         <header
           className="flex items-center justify-between px-6 py-3 sticky top-0 z-20"
           style={{
-            background: "rgba(3,3,3,0.8)",
+            background: "rgba(0,0,0,0.92)",
             borderBottom: "1px solid rgba(255,255,255,0.06)",
             backdropFilter: "blur(20px)",
           }}
