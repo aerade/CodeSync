@@ -23,13 +23,26 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+const BRAND = {
+  bg: "#080C14",
+  surface: "#111826",
+  border: "#1E2D42",
+  muted: "#5A6880",
+  text: "#E8EDF5",
+  teal: "#00C2A8",
+  blue: "#4D9EFF",
+  green: "#3FB950",
+  orange: "#FFA657",
+  red: "#FF7B72",
+};
+
 // ─── Create Room Modal ────────────────────────────────────────────────────────
 
 function CreateRoomModal({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const [title, setTitle]           = useState("");
+  const [title, setTitle]             = useState("");
   const [description, setDescription] = useState("");
-  const [isPrivate, setIsPrivate]   = useState(false);
-  const [maxUsers, setMaxUsers]     = useState(5);
+  const [isPrivate, setIsPrivate]     = useState(false);
+  const [maxUsers, setMaxUsers]       = useState(5);
   const [createError, setCreateError] = useState("");
   const [, setLocation] = useLocation();
   const qc = useQueryClient();
@@ -61,49 +74,53 @@ function CreateRoomModal({ open, onClose }: { open: boolean; onClose: () => void
     );
   }
 
-  const inputStyle: React.CSSProperties = {
-    width: "100%", height: 42,
-    background: "rgba(255,255,255,0.04)",
-    border: "1px solid rgba(255,255,255,0.1)",
-    borderRadius: 10, color: "#fff", fontSize: 14,
+  const inputBase: React.CSSProperties = {
+    width: "100%", height: 44,
+    background: BRAND.surface,
+    border: `1px solid ${BRAND.border}`,
+    borderRadius: 10, color: BRAND.text, fontSize: 14,
     padding: "0 14px", outline: "none",
-    fontFamily: "'Inter', sans-serif",
+    fontFamily: "'Manrope', sans-serif",
+    transition: "border-color 0.2s",
   };
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent
-        style={{
-          background: "rgba(10,10,10,0.96)",
-          backdropFilter: "blur(32px)",
-          border: "1px solid rgba(255,255,255,0.1)",
-          color: "#fff",
-          boxShadow: "0 32px 80px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.08)",
-        }}
-      >
+      <DialogContent style={{
+        background: BRAND.surface,
+        backdropFilter: "blur(32px)",
+        border: `1px solid ${BRAND.border}`,
+        color: BRAND.text,
+        boxShadow: "0 32px 80px rgba(0,0,0,0.8)",
+        fontFamily: "'Manrope', sans-serif",
+      }}>
         <DialogHeader>
-          <DialogTitle style={{ color: "#fff", fontWeight: 700 }}>Создать комнату</DialogTitle>
+          <DialogTitle style={{ color: BRAND.text, fontWeight: 700, fontSize: 18, letterSpacing: "-0.01em" }}>
+            Создать комнату
+          </DialogTitle>
         </DialogHeader>
 
-        <div className="flex flex-col gap-4 mt-1">
-          {/* Title */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 4 }}>
           <input
             placeholder="Название комнаты"
             value={title}
             onChange={(e) => { setTitle(e.target.value); setCreateError(""); }}
             onKeyDown={(e) => e.key === "Enter" && handleCreate()}
-            style={inputStyle}
+            style={inputBase}
             data-testid="input-room-title"
             autoFocus
+            onFocus={e => (e.currentTarget.style.borderColor = BRAND.teal)}
+            onBlur={e => (e.currentTarget.style.borderColor = BRAND.border)}
           />
 
-          {/* Description */}
           <input
             placeholder="Описание (необязательно)"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            style={inputStyle}
+            style={inputBase}
             data-testid="input-room-description"
+            onFocus={e => (e.currentTarget.style.borderColor = BRAND.teal)}
+            onBlur={e => (e.currentTarget.style.borderColor = BRAND.border)}
           />
 
           {/* Private toggle */}
@@ -111,130 +128,114 @@ function CreateRoomModal({ open, onClose }: { open: boolean; onClose: () => void
             type="button"
             onClick={() => setIsPrivate(p => !p)}
             data-testid="toggle-private"
-            className="flex items-center gap-3 w-full px-4 py-3 rounded-xl transition-all text-left"
             style={{
-              background: isPrivate ? "rgba(255,255,255,0.07)" : "rgba(255,255,255,0.03)",
-              border: `1px solid ${isPrivate ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.08)"}`,
-              cursor: "pointer",
+              display: "flex", alignItems: "center", gap: 12, width: "100%",
+              padding: "12px 14px", borderRadius: 10, textAlign: "left",
+              background: isPrivate ? "rgba(0,194,168,0.06)" : BRAND.bg,
+              border: `1px solid ${isPrivate ? BRAND.teal + "50" : BRAND.border}`,
+              cursor: "pointer", transition: "all 0.2s",
             }}
           >
-            {/* Lock icon */}
-            <div
-              className="flex items-center justify-center rounded-lg shrink-0"
-              style={{
-                width: 34, height: 34,
-                background: isPrivate ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.04)",
-                transition: "all 0.2s",
-              }}
-            >
+            <div style={{
+              width: 36, height: 36, borderRadius: 9, flexShrink: 0,
+              background: isPrivate ? "rgba(0,194,168,0.12)" : "rgba(255,255,255,0.04)",
+              border: `1px solid ${isPrivate ? BRAND.teal + "40" : BRAND.border}`,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              transition: "all 0.2s",
+            }}>
               {isPrivate ? (
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.9)" strokeWidth="2">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={BRAND.teal} strokeWidth="2">
                   <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
                   <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
                 </svg>
               ) : (
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="2">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={BRAND.muted} strokeWidth="2">
                   <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
                   <path d="M7 11V7a5 5 0 0 1 9.9-1"/>
                 </svg>
               )}
             </div>
-            <div className="flex-1">
-              <div style={{ color: isPrivate ? "#fff" : "rgba(255,255,255,0.5)", fontSize: 14, fontWeight: 600, transition: "color 0.2s" }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ color: isPrivate ? BRAND.teal : BRAND.text, fontSize: 14, fontWeight: 600, transition: "color 0.2s" }}>
                 {isPrivate ? "Приватная комната" : "Публичная комната"}
               </div>
-              <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 12, marginTop: 1 }}>
+              <div style={{ color: BRAND.muted, fontSize: 12, marginTop: 2 }}>
                 {isPrivate ? "Доступна только по коду приглашения" : "Видна всем пользователям"}
               </div>
             </div>
-            {/* Pill toggle indicator */}
-            <div
-              className="rounded-full transition-all shrink-0 flex items-center"
-              style={{
-                width: 38, height: 22,
-                background: isPrivate ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.12)",
-                padding: 3,
-              }}
-            >
-              <div
-                className="rounded-full transition-all"
-                style={{
-                  width: 16, height: 16,
-                  background: isPrivate ? "#000" : "rgba(255,255,255,0.5)",
-                  transform: isPrivate ? "translateX(16px)" : "translateX(0)",
-                }}
-              />
+            <div style={{
+              width: 40, height: 22, borderRadius: 11, flexShrink: 0,
+              background: isPrivate ? BRAND.teal : BRAND.border,
+              padding: 3, display: "flex", alignItems: "center",
+              transition: "all 0.25s",
+            }}>
+              <div style={{
+                width: 16, height: 16, borderRadius: "50%",
+                background: isPrivate ? BRAND.bg : BRAND.muted,
+                transform: isPrivate ? "translateX(18px)" : "translateX(0)",
+                transition: "all 0.25s",
+              }} />
             </div>
           </button>
 
-          {/* Max users slider */}
+          {/* Max users */}
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <p style={{ color: "rgba(255,255,255,0.45)", fontSize: 13 }}>Максимум участников</p>
-              <div
-                className="font-mono font-bold px-2.5 py-0.5 rounded-md"
-                style={{
-                  background: "rgba(255,255,255,0.08)",
-                  color: "#fff",
-                  fontSize: 14,
-                  minWidth: 28,
-                  textAlign: "center",
-                }}
-              >
-                {maxUsers}
-              </div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+              <span style={{ color: BRAND.muted, fontSize: 13 }}>Максимум участников</span>
+              <div style={{
+                background: BRAND.bg, border: `1px solid ${BRAND.border}`,
+                borderRadius: 6, padding: "2px 10px",
+                color: BRAND.teal, fontSize: 14, fontWeight: 700,
+                fontFamily: "'JetBrains Mono', monospace",
+              }}>{maxUsers}</div>
             </div>
-            <div className="relative flex items-center gap-3">
-              <span style={{ color: "rgba(255,255,255,0.3)", fontSize: 12, width: 12, textAlign: "center" }}>1</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ color: BRAND.muted, fontSize: 11, width: 10, textAlign: "center" }}>1</span>
               <input
-                type="range"
-                min={1} max={5} step={1}
-                value={maxUsers}
+                type="range" min={1} max={5} step={1} value={maxUsers}
                 onChange={(e) => setMaxUsers(Number(e.target.value))}
-                className="flex-1 slider-track"
-                style={{ accentColor: "#fff", cursor: "pointer", height: 4 }}
+                style={{ flex: 1, accentColor: BRAND.teal, cursor: "pointer", height: 4 }}
                 data-testid="slider-max-users"
               />
-              <span style={{ color: "rgba(255,255,255,0.3)", fontSize: 12, width: 12, textAlign: "center" }}>5</span>
+              <span style={{ color: BRAND.muted, fontSize: 11, width: 10, textAlign: "center" }}>5</span>
             </div>
-            {/* Tick marks */}
-            <div className="flex justify-between mt-1.5 px-4">
+            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, padding: "0 16px" }}>
               {[1,2,3,4,5].map(n => (
-                <div key={n} className="flex flex-col items-center gap-0.5">
-                  <div style={{ width: 1, height: 4, background: n === maxUsers ? "rgba(255,255,255,0.5)" : "rgba(255,255,255,0.12)" }} />
-                  <span style={{ fontSize: 10, color: n === maxUsers ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.2)" }}>{n}</span>
+                <div key={n} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+                  <div style={{ width: 1, height: 4, background: n === maxUsers ? BRAND.teal : BRAND.border }} />
+                  <span style={{ fontSize: 10, color: n === maxUsers ? BRAND.teal : BRAND.muted }}>{n}</span>
                 </div>
               ))}
             </div>
           </div>
 
-          {createError && <p className="text-sm" style={{ color: "#ef4444" }}>{createError}</p>}
+          {createError && <p style={{ color: BRAND.red, fontSize: 13, margin: 0 }}>{createError}</p>}
 
-          <div className="flex gap-2 mt-1">
+          <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
             <button
               onClick={handleCreate}
               disabled={!title.trim() || createRoom.isPending}
               style={{
-                flex: 1, height: 42,
-                background: title.trim() ? "#fff" : "rgba(255,255,255,0.08)",
-                color: title.trim() ? "#000" : "rgba(255,255,255,0.3)",
+                flex: 1, height: 44,
+                background: title.trim() ? BRAND.teal : BRAND.border,
+                color: title.trim() ? BRAND.bg : BRAND.muted,
                 border: "none", borderRadius: 10,
-                fontWeight: 600, fontSize: 14,
-                cursor: title.trim() ? "pointer" : "not-allowed",
+                fontWeight: 700, fontSize: 14, cursor: title.trim() ? "pointer" : "not-allowed",
                 transition: "all 0.15s",
+                boxShadow: title.trim() ? `0 0 20px rgba(0,194,168,0.25)` : "none",
               }}
               data-testid="btn-confirm-create"
             >
-              {createRoom.isPending ? "Создание..." : "Создать"}
+              {createRoom.isPending ? "Создание..." : "Создать комнату"}
             </button>
             <button
               onClick={onClose}
               style={{
-                height: 42, padding: "0 16px",
-                background: "rgba(255,255,255,0.05)",
-                color: "rgba(255,255,255,0.5)",
-                border: "1px solid rgba(255,255,255,0.08)",
+                height: 44, padding: "0 18px",
+                background: "transparent",
+                color: BRAND.muted, border: `1px solid ${BRAND.border}`,
                 borderRadius: 10, cursor: "pointer", fontSize: 14,
+                transition: "all 0.15s",
               }}
             >
               Отмена
@@ -261,44 +262,35 @@ interface Room {
   isOwner?: boolean;
 }
 
-// Deterministic accent color from room id
-function roomAccent(id: string): { color: string; glow: string; bg: string } {
-  const palettes = [
-    { color: "#58A6FF", glow: "rgba(88,166,255,0.18)", bg: "rgba(88,166,255,0.06)" },
-    { color: "#56D364", glow: "rgba(86,211,100,0.18)", bg: "rgba(86,211,100,0.06)" },
-    { color: "#D2A8FF", glow: "rgba(210,168,255,0.18)", bg: "rgba(210,168,255,0.06)" },
-    { color: "#F0883E", glow: "rgba(240,136,62,0.18)", bg: "rgba(240,136,62,0.06)" },
-    { color: "#FF7B72", glow: "rgba(255,123,114,0.18)", bg: "rgba(255,123,114,0.06)" },
-    { color: "#79C0FF", glow: "rgba(121,192,255,0.18)", bg: "rgba(121,192,255,0.06)" },
-    { color: "#3FC7C4", glow: "rgba(63,199,196,0.18)", bg: "rgba(63,199,196,0.06)" },
-    { color: "#F4A261", glow: "rgba(244,162,97,0.18)", bg: "rgba(244,162,97,0.06)" },
-  ];
+const ACCENT_PALETTES = [
+  { color: BRAND.teal,   rgb: "0,194,168" },
+  { color: BRAND.blue,   rgb: "77,158,255" },
+  { color: BRAND.green,  rgb: "63,185,80" },
+  { color: BRAND.orange, rgb: "255,166,87" },
+  { color: BRAND.red,    rgb: "255,123,114" },
+];
+
+function roomAccent(id: string) {
   let hash = 0;
   for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) & 0xffffffff;
-  return palettes[Math.abs(hash) % palettes.length];
+  return ACCENT_PALETTES[Math.abs(hash) % ACCENT_PALETTES.length];
 }
 
-// Fake code line visual inside card
 function MiniCodeLines({ seed }: { seed: string }) {
-  const lines = [
-    [65, 35, 0],
-    [45, 0, 0],
-    [55, 25, 15],
-    [30, 0, 0],
-  ];
+  const configs = [[70, 30, 0], [50, 0, 0], [60, 25, 18], [35, 0, 0]];
   let h = 0;
   for (const c of seed) h = (h * 17 + c.charCodeAt(0)) & 0xfff;
-  const offset = h % 4;
-  const pick = (n: number) => lines[(n + offset) % lines.length];
+  const offset = h % configs.length;
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 4, opacity: 0.35 }}>
-      {[0, 1, 2, 3].map((i) => {
-        const [a, b, c] = pick(i);
+    <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+      {[0,1,2,3].map((i) => {
+        const [a, b, c] = configs[(i + offset) % configs.length];
         return (
-          <div key={i} style={{ display: "flex", gap: 4, alignItems: "center" }}>
-            <div style={{ width: a, height: 3, borderRadius: 2, background: "rgba(255,255,255,0.4)" }} />
-            {b > 0 && <div style={{ width: b, height: 3, borderRadius: 2, background: "rgba(88,166,255,0.6)" }} />}
-            {c > 0 && <div style={{ width: c, height: 3, borderRadius: 2, background: "rgba(86,211,100,0.6)" }} />}
+          <div key={i} style={{ display: "flex", gap: 5, alignItems: "center" }}>
+            <div style={{ width: a, height: 3, borderRadius: 2, background: `rgba(${232},${237},${245},0.15)` }} />
+            {b > 0 && <div style={{ width: b, height: 3, borderRadius: 2, background: `rgba(0,194,168,0.4)` }} />}
+            {c > 0 && <div style={{ width: c, height: 3, borderRadius: 2, background: `rgba(77,158,255,0.4)` }} />}
           </div>
         );
       })}
@@ -310,53 +302,48 @@ function RoomCard({ room, onOpen, onDelete }: { room: Room; onOpen: () => void; 
   const accent = roomAccent(room.id);
   const isActive = room.memberCount > 0;
   const isLocked = room.isPrivate && room.isJoined === false;
+  const [hovered, setHovered] = useState(false);
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 12, scale: 0.97 }}
+      initial={{ opacity: 0, y: 14, scale: 0.97 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, scale: 0.95 }}
-      whileHover="hover"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       data-testid={`card-room-${room.id}`}
       style={{
-        position: "relative",
-        borderRadius: 16,
-        background: "#0C0E14",
-        border: "1px solid rgba(255,255,255,0.07)",
-        overflow: "hidden",
-        cursor: "default",
-        display: "flex",
-        flexDirection: "column",
+        position: "relative", borderRadius: 14,
+        background: hovered ? BRAND.surface : BRAND.bg,
+        border: `1px solid ${hovered ? accent.color + "40" : BRAND.border}`,
+        overflow: "hidden", cursor: "default",
+        display: "flex", flexDirection: "column",
+        transition: "all 0.25s ease",
       }}
     >
-      {/* Accent top strip */}
-      <motion.div
-        variants={{ hover: { opacity: 1 } }}
-        initial={{ opacity: 0.4 }}
-        style={{
-          position: "absolute", top: 0, left: 0, right: 0, height: 2,
-          background: `linear-gradient(90deg, transparent 0%, ${accent.color} 40%, ${accent.color} 60%, transparent 100%)`,
-        }}
-      />
+      {/* Accent top line */}
+      <div style={{
+        position: "absolute", top: 0, left: 0, right: 0, height: 2,
+        background: `linear-gradient(90deg, transparent 0%, ${accent.color} 40%, ${accent.color} 60%, transparent 100%)`,
+        opacity: hovered ? 1 : 0.5,
+        transition: "opacity 0.25s",
+      }} />
 
-      {/* Glow on hover */}
-      <motion.div
-        variants={{ hover: { opacity: 1 } }}
-        initial={{ opacity: 0 }}
-        style={{
+      {/* Glow */}
+      {hovered && (
+        <div style={{
           position: "absolute", inset: 0, pointerEvents: "none",
-          background: `radial-gradient(ellipse 80% 60% at 50% 0%, ${accent.glow} 0%, transparent 70%)`,
-        }}
-      />
+          background: `radial-gradient(ellipse 80% 50% at 50% 0%, rgba(${accent.rgb},0.08) 0%, transparent 70%)`,
+        }} />
+      )}
 
-      <div style={{ padding: "16px 16px 14px", display: "flex", flexDirection: "column", gap: 12, position: "relative" }}>
-        {/* Top row: icon + title + menu */}
+      <div style={{ padding: "16px", display: "flex", flexDirection: "column", gap: 12, position: "relative" }}>
+        {/* Header row */}
         <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-          {/* Accent icon box */}
           <div style={{
-            width: 36, height: 36, borderRadius: 10, flexShrink: 0,
-            background: accent.bg,
-            border: `1px solid ${accent.color}30`,
+            width: 38, height: 38, borderRadius: 10, flexShrink: 0,
+            background: `rgba(${accent.rgb},0.1)`,
+            border: `1px solid rgba(${accent.rgb},0.2)`,
             display: "flex", alignItems: "center", justifyContent: "center",
           }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={accent.color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -366,15 +353,15 @@ function RoomCard({ room, onOpen, onDelete }: { room: Room; onOpen: () => void; 
 
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-              <h3 style={{ fontSize: 14, fontWeight: 700, color: "#E6EDF3", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 160 }}>
+              <h3 style={{ fontSize: 14, fontWeight: 700, color: BRAND.text, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 160 }}>
                 {room.title}
               </h3>
               {room.isPrivate && (
                 <span style={{
-                  fontSize: 9, fontWeight: 600, padding: "1px 6px", borderRadius: 4,
-                  background: "rgba(255,255,255,0.05)",
-                  border: "1px solid rgba(255,255,255,0.09)",
-                  color: "rgba(255,255,255,0.35)",
+                  fontSize: 9, fontWeight: 700, padding: "1px 7px", borderRadius: 4,
+                  background: `rgba(${accent.rgb},0.1)`,
+                  border: `1px solid rgba(${accent.rgb},0.2)`,
+                  color: accent.color,
                   textTransform: "uppercase", letterSpacing: "0.07em",
                   display: "flex", alignItems: "center", gap: 3,
                 }}>
@@ -385,19 +372,15 @@ function RoomCard({ room, onOpen, onDelete }: { room: Room; onOpen: () => void; 
                 </span>
               )}
               {isActive && (
-                <span style={{ display: "flex", alignItems: "center", gap: 3 }}>
-                  <span style={{
-                    width: 5, height: 5, borderRadius: "50%",
-                    background: "#3FB950",
-                    boxShadow: "0 0 6px #3FB950",
-                    display: "inline-block",
-                    animation: "roomPulse 2s ease-in-out infinite",
-                  }} />
-                </span>
+                <motion.span
+                  animate={{ opacity: [1, 0.4, 1] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                  style={{ width: 6, height: 6, borderRadius: "50%", background: BRAND.green, boxShadow: `0 0 6px ${BRAND.green}`, display: "inline-block" }}
+                />
               )}
             </div>
             {room.description && (
-              <p style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", margin: "2px 0 0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              <p style={{ fontSize: 11, color: BRAND.muted, margin: "3px 0 0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {room.description}
               </p>
             )}
@@ -406,18 +389,24 @@ function RoomCard({ room, onOpen, onDelete }: { room: Room; onOpen: () => void; 
           {room.isOwner && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button
-                  style={{ color: "rgba(255,255,255,0.25)", background: "none", border: "none", cursor: "pointer", padding: 4, borderRadius: 6, flexShrink: 0, lineHeight: 1 }}
-                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.55)"; (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.06)"; }}
-                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.25)"; (e.currentTarget as HTMLElement).style.background = "none"; }}
+                <button style={{
+                  color: BRAND.muted, background: "none", border: "none",
+                  cursor: "pointer", padding: 4, borderRadius: 6, flexShrink: 0, lineHeight: 1,
+                  transition: "all 0.15s",
+                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = BRAND.text; (e.currentTarget as HTMLElement).style.background = BRAND.surface; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = BRAND.muted; (e.currentTarget as HTMLElement).style.background = "none"; }}
                 >
                   <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
                     <circle cx="2" cy="8" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="14" cy="8" r="1.5"/>
                   </svg>
                 </button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent style={{ background: "rgba(12,12,12,0.96)", backdropFilter: "blur(20px)", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 16px 48px rgba(0,0,0,0.7)", zIndex: 9999 }}>
-                <DropdownMenuItem style={{ color: "#ef4444" }} onClick={onDelete}>Удалить</DropdownMenuItem>
+              <DropdownMenuContent style={{
+                background: BRAND.surface, backdropFilter: "blur(20px)",
+                border: `1px solid ${BRAND.border}`, boxShadow: "0 16px 48px rgba(0,0,0,0.7)", zIndex: 9999,
+              }}>
+                <DropdownMenuItem style={{ color: BRAND.red }} onClick={onDelete}>Удалить</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           )}
@@ -425,41 +414,38 @@ function RoomCard({ room, onOpen, onDelete }: { room: Room; onOpen: () => void; 
 
         {/* Mini code preview */}
         <div style={{
-          padding: "8px 10px", borderRadius: 8,
-          background: "rgba(0,0,0,0.35)",
-          border: "1px solid rgba(255,255,255,0.04)",
+          padding: "10px 12px", borderRadius: 8,
+          background: BRAND.bg, border: `1px solid ${BRAND.border}`,
         }}>
           <MiniCodeLines seed={room.id} />
         </div>
 
-        {/* Bottom: stats + open button */}
+        {/* Footer row */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            {/* Member bar */}
-            <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-              <div style={{ display: "flex", gap: 2 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            {/* Slot bar */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <div style={{ display: "flex", gap: 3 }}>
                 {Array.from({ length: room.maxUsers }).map((_, i) => (
                   <div key={i} style={{
-                    width: 14, height: 3, borderRadius: 2,
-                    background: i < room.memberCount ? accent.color : "rgba(255,255,255,0.08)",
+                    width: 16, height: 3, borderRadius: 2,
+                    background: i < room.memberCount ? accent.color : BRAND.border,
+                    boxShadow: i < room.memberCount ? `0 0 4px rgba(${accent.rgb},0.5)` : "none",
                     transition: "background 0.3s",
-                    boxShadow: i < room.memberCount ? `0 0 4px ${accent.color}60` : "none",
                   }} />
                 ))}
               </div>
-              <span style={{ fontSize: 9, color: "rgba(255,255,255,0.25)", fontFamily: "JetBrains Mono, monospace" }}>
+              <span style={{ fontSize: 9, color: BRAND.muted, fontFamily: "'JetBrains Mono', monospace" }}>
                 {room.memberCount}/{room.maxUsers}
               </span>
             </div>
 
-            {/* Invite code — blurred for locked rooms */}
+            {/* Invite code */}
             <div style={{
-              fontSize: 10, fontFamily: "JetBrains Mono, monospace",
-              padding: "2px 7px", borderRadius: 5,
-              background: "rgba(255,255,255,0.03)",
-              border: "1px solid rgba(255,255,255,0.06)",
-              color: "rgba(255,255,255,0.22)",
-              letterSpacing: "0.1em",
+              fontSize: 10, fontFamily: "'JetBrains Mono', monospace",
+              padding: "2px 8px", borderRadius: 5,
+              background: BRAND.bg, border: `1px solid ${BRAND.border}`,
+              color: BRAND.muted, letterSpacing: "0.1em",
               filter: isLocked ? "blur(4px)" : "none",
               userSelect: isLocked ? "none" : "auto",
               transition: "filter 0.2s",
@@ -474,13 +460,15 @@ function RoomCard({ room, onOpen, onDelete }: { room: Room; onOpen: () => void; 
             whileTap={isLocked ? {} : { scale: 0.96 }}
             data-testid={`btn-open-room-${room.id}`}
             style={{
-              padding: "5px 14px", borderRadius: 8,
-              background: isLocked ? "rgba(255,255,255,0.04)" : accent.bg,
-              border: isLocked ? "1px solid rgba(255,255,255,0.1)" : `1px solid ${accent.color}40`,
-              color: isLocked ? "rgba(255,255,255,0.3)" : accent.color,
-              fontSize: 12, fontWeight: 600, cursor: isLocked ? "default" : "pointer",
+              padding: "6px 16px", borderRadius: 8,
+              background: isLocked ? "transparent" : `rgba(${accent.rgb},0.1)`,
+              border: isLocked ? `1px solid ${BRAND.border}` : `1px solid rgba(${accent.rgb},0.3)`,
+              color: isLocked ? BRAND.muted : accent.color,
+              fontSize: 12, fontWeight: 700,
+              cursor: isLocked ? "default" : "pointer",
               display: "flex", alignItems: "center", gap: 5,
               transition: "all 0.15s",
+              fontFamily: "'Manrope', sans-serif",
             }}
           >
             {isLocked ? (
@@ -525,27 +513,24 @@ function JoinBar({ isGuest, guestToken }: { isGuest: boolean; guestToken: string
   }
 
   return (
-    <div
-      className="mb-6 rounded-xl overflow-hidden"
-      style={{
-        background: "rgba(255,255,255,0.02)",
-        border: "1px solid rgba(255,255,255,0.07)",
-      }}
-    >
-      <div
-        className="px-4 py-2.5 flex items-center gap-2"
-        style={{ borderBottom: "1px solid rgba(255,255,255,0.05)", background: "rgba(255,255,255,0.02)" }}
-      >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="2">
+    <div style={{
+      marginBottom: 24, borderRadius: 12, overflow: "hidden",
+      background: BRAND.surface, border: `1px solid ${BRAND.border}`,
+    }}>
+      <div style={{
+        padding: "10px 16px", display: "flex", alignItems: "center", gap: 8,
+        borderBottom: `1px solid ${BRAND.border}`, background: "rgba(0,194,168,0.04)",
+      }}>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={BRAND.teal} strokeWidth="2">
           <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
           <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
         </svg>
-        <span style={{ color: "rgba(255,255,255,0.4)", fontSize: 12, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+        <span style={{ color: BRAND.teal, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em" }}>
           Войти по коду приглашения
         </span>
       </div>
-      <div className="px-4 py-3 flex items-center gap-3 flex-wrap">
-        <div className="relative flex-1" style={{ minWidth: 160, maxWidth: 240 }}>
+      <div style={{ padding: "12px 16px", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        <div style={{ position: "relative", flex: 1, minWidth: 160, maxWidth: 240 }}>
           <input
             placeholder="XXXXXXXX"
             value={code}
@@ -553,17 +538,14 @@ function JoinBar({ isGuest, guestToken }: { isGuest: boolean; guestToken: string
             onKeyDown={(e) => e.key === "Enter" && handleJoin()}
             style={{
               width: "100%", height: 40,
-              background: "rgba(255,255,255,0.05)",
-              border: "1px solid rgba(255,255,255,0.1)",
-              borderRadius: 10,
-              color: "#fff",
-              fontSize: 14,
-              padding: "0 14px",
-              outline: "none",
-              fontFamily: "'JetBrains Mono', monospace",
-              letterSpacing: "0.14em",
-              textTransform: "uppercase",
+              background: BRAND.bg, border: `1px solid ${BRAND.border}`,
+              borderRadius: 9, color: BRAND.text, fontSize: 14,
+              padding: "0 14px", outline: "none",
+              fontFamily: "'JetBrains Mono', monospace", letterSpacing: "0.14em",
+              textTransform: "uppercase", transition: "border-color 0.2s",
             }}
+            onFocus={e => (e.currentTarget.style.borderColor = BRAND.teal)}
+            onBlur={e => (e.currentTarget.style.borderColor = BRAND.border)}
             data-testid="input-join-code"
           />
         </div>
@@ -572,13 +554,13 @@ function JoinBar({ isGuest, guestToken }: { isGuest: boolean; guestToken: string
           disabled={!code.trim() || isJoining}
           style={{
             height: 40, padding: "0 20px",
-            background: code.trim() ? "#fff" : "rgba(255,255,255,0.07)",
-            color: code.trim() ? "#000" : "rgba(255,255,255,0.3)",
-            border: "none", borderRadius: 10,
-            fontWeight: 600, fontSize: 14,
-            cursor: code.trim() ? "pointer" : "not-allowed",
-            transition: "all 0.15s",
-            whiteSpace: "nowrap",
+            background: code.trim() ? BRAND.teal : BRAND.border,
+            color: code.trim() ? BRAND.bg : BRAND.muted,
+            border: "none", borderRadius: 9,
+            fontWeight: 700, fontSize: 13, cursor: code.trim() ? "pointer" : "not-allowed",
+            transition: "all 0.15s", whiteSpace: "nowrap",
+            fontFamily: "'Manrope', sans-serif",
+            boxShadow: code.trim() ? `0 0 16px rgba(0,194,168,0.25)` : "none",
           }}
           data-testid="btn-join-by-code"
         >
@@ -590,7 +572,7 @@ function JoinBar({ isGuest, guestToken }: { isGuest: boolean; guestToken: string
               initial={{ opacity: 0, x: -8 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0 }}
-              style={{ color: "#ef4444", fontSize: 13 }}
+              style={{ color: BRAND.red, fontSize: 13 }}
             >
               {error}
             </motion.span>
@@ -615,7 +597,6 @@ export default function Dashboard() {
   const guestUsername = typeof window !== "undefined" ? localStorage.getItem("codesync_guest_username") : null;
   const isGuest = isLoaded && !isSignedIn && !!guestToken;
 
-  // Clear guest state when user signs in with Clerk
   useEffect(() => {
     if (isLoaded && isSignedIn) {
       localStorage.removeItem("codesync_guest_token");
@@ -644,43 +625,55 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: "#000", color: "#f0f0f0", overflow: "auto" }}>
+    <div style={{
+      minHeight: "100vh", display: "flex", flexDirection: "column",
+      background: BRAND.bg, color: BRAND.text, overflow: "auto",
+      fontFamily: "'Manrope', 'Inter', sans-serif",
+    }}>
+      <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
 
-      <div className="relative z-10 flex flex-col min-h-screen">
+      <CreateRoomModal open={createOpen} onClose={() => setCreateOpen(false)} />
+
+      {/* Background grid */}
+      <div style={{
+        position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0,
+        backgroundImage: `linear-gradient(${BRAND.border}44 1px, transparent 1px), linear-gradient(90deg, ${BRAND.border}44 1px, transparent 1px)`,
+        backgroundSize: "48px 48px",
+      }} />
+      <div style={{
+        position: "fixed", top: "-20vh", left: "50%", transform: "translateX(-50%)",
+        width: "50vw", height: "50vw",
+        background: `radial-gradient(circle, rgba(0,194,168,0.05) 0%, transparent 65%)`,
+        pointerEvents: "none", zIndex: 0,
+      }} />
+
+      <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", minHeight: "100vh" }}>
         {/* HEADER */}
-        <header
-          className="flex items-center justify-between px-6 py-3 sticky top-0 z-20"
-          style={{
-            background: "rgba(0,0,0,0.92)",
-            borderBottom: "1px solid rgba(255,255,255,0.06)",
-            backdropFilter: "blur(20px)",
-          }}
-        >
-          <div className="flex items-center gap-3">
-            <Logo size={26} />
-            <span style={{ fontSize: 17, fontWeight: 700, color: "#fff" }}>CodeSync</span>
+        <header style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "12px 32px", position: "sticky", top: 0, zIndex: 20,
+          background: `${BRAND.bg}cc`,
+          borderBottom: `1px solid ${BRAND.border}`,
+          backdropFilter: "blur(20px)",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <Logo size={30} />
+            <span style={{ fontSize: 18, fontWeight: 800, color: BRAND.text, letterSpacing: "-0.02em" }}>СИНХРОН</span>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             {isGuest ? (
               <>
-                {/* Guest badge */}
-                <div
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-xl"
-                  style={{
-                    background: "rgba(255,165,0,0.08)",
-                    border: "1px solid rgba(255,165,0,0.2)",
-                  }}
-                >
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="rgba(255,165,0,0.8)" strokeWidth="2">
+                <div style={{
+                  display: "flex", alignItems: "center", gap: 8, padding: "6px 12px", borderRadius: 9,
+                  background: `rgba(255,166,87,0.08)`, border: `1px solid rgba(255,166,87,0.2)`,
+                }}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={BRAND.orange} strokeWidth="2">
                     <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
                     <circle cx="12" cy="7" r="4"/>
                   </svg>
-                  <span style={{ color: "rgba(255,165,0,0.9)", fontSize: 12, fontWeight: 500 }}>
-                    Гость: {guestUsername}
-                  </span>
+                  <span style={{ color: BRAND.orange, fontSize: 12, fontWeight: 600 }}>Гость: {guestUsername}</span>
                 </div>
-                {/* Exit guest mode */}
                 <button
                   onClick={() => {
                     localStorage.removeItem("codesync_guest_token");
@@ -688,13 +681,15 @@ export default function Dashboard() {
                     localStorage.removeItem("codesync_guest_username");
                     setLocation("/");
                   }}
-                  title="Выйти из гостевого режима"
                   style={{
-                    height: 32, padding: "0 12px",
-                    background: "transparent", color: "rgba(255,255,255,0.4)",
-                    border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8,
+                    height: 34, padding: "0 14px",
+                    background: "transparent", color: BRAND.muted,
+                    border: `1px solid ${BRAND.border}`, borderRadius: 8,
                     fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 5,
+                    transition: "all 0.15s",
                   }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = BRAND.text; (e.currentTarget as HTMLElement).style.borderColor = BRAND.muted; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = BRAND.muted; (e.currentTarget as HTMLElement).style.borderColor = BRAND.border; }}
                 >
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
@@ -704,14 +699,13 @@ export default function Dashboard() {
                   Выйти
                 </button>
                 <SignInButton mode="modal">
-                  <button
-                    style={{
-                      height: 32, padding: "0 16px",
-                      background: "#fff", color: "#000",
-                      border: "none", borderRadius: 8,
-                      fontWeight: 600, fontSize: 13, cursor: "pointer",
-                    }}
-                  >
+                  <button style={{
+                    height: 34, padding: "0 18px",
+                    background: BRAND.teal, color: BRAND.bg,
+                    border: "none", borderRadius: 8,
+                    fontWeight: 700, fontSize: 13, cursor: "pointer",
+                    boxShadow: `0 0 16px rgba(0,194,168,0.25)`,
+                  }}>
                     Войти в аккаунт
                   </button>
                 </SignInButton>
@@ -721,14 +715,22 @@ export default function Dashboard() {
                 <button
                   onClick={() => setCreateOpen(true)}
                   style={{
-                    height: 32, padding: "0 14px",
-                    background: "#fff", color: "#000",
+                    height: 34, padding: "0 18px",
+                    background: BRAND.teal, color: BRAND.bg,
                     border: "none", borderRadius: 8,
-                    fontWeight: 600, fontSize: 13, cursor: "pointer",
+                    fontWeight: 700, fontSize: 13, cursor: "pointer",
+                    display: "flex", alignItems: "center", gap: 6,
+                    boxShadow: `0 0 16px rgba(0,194,168,0.25)`,
+                    transition: "all 0.2s",
                   }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.filter = "brightness(1.1)"; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.filter = "brightness(1)"; }}
                   data-testid="btn-create-room"
                 >
-                  + Создать комнату
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                  </svg>
+                  Создать комнату
                 </button>
                 <UserButton />
               </>
@@ -736,29 +738,30 @@ export default function Dashboard() {
           </div>
         </header>
 
-        <main className="flex-1 max-w-5xl mx-auto w-full px-6 py-6">
-          {/* Guest mode banner */}
+        <main style={{ flex: 1, maxWidth: 1100, margin: "0 auto", width: "100%", padding: "28px 32px" }}>
+          {/* Guest banner */}
           <AnimatePresence>
             {isGuest && (
               <motion.div
                 initial={{ opacity: 0, y: -8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
-                className="mb-5 p-4 rounded-xl flex items-center gap-4"
                 style={{
-                  background: "rgba(255,165,0,0.05)",
-                  border: "1px solid rgba(255,165,0,0.15)",
+                  marginBottom: 20, padding: "14px 18px", borderRadius: 12,
+                  display: "flex", alignItems: "center", gap: 14,
+                  background: `rgba(255,166,87,0.05)`,
+                  border: `1px solid rgba(255,166,87,0.15)`,
                 }}
               >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,165,0,0.7)" strokeWidth="1.8" className="shrink-0">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={BRAND.orange} strokeWidth="1.8" style={{ flexShrink: 0 }}>
                   <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
                 </svg>
-                <div className="flex-1">
-                  <div style={{ color: "rgba(255,165,0,0.9)", fontSize: 13, fontWeight: 600 }}>Гостевой режим</div>
-                  <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 12, marginTop: 2 }}>
-                    Вы можете входить в комнаты по коду. Чтобы создавать комнаты и сохранять прогресс —
+                <div style={{ flex: 1 }}>
+                  <div style={{ color: BRAND.orange, fontSize: 13, fontWeight: 700, marginBottom: 2 }}>Гостевой режим</div>
+                  <div style={{ color: BRAND.muted, fontSize: 12, lineHeight: 1.5 }}>
+                    Вы можете входить в комнаты по коду. Чтобы создавать комнаты и сохранять прогресс —{" "}
                     <SignInButton mode="modal">
-                      <button style={{ color: "rgba(255,165,0,0.85)", background: "none", border: "none", cursor: "pointer", fontSize: 12, fontWeight: 600, marginLeft: 4 }}>
+                      <button style={{ color: BRAND.orange, background: "none", border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>
                         войдите в аккаунт
                       </button>
                     </SignInButton>
@@ -768,55 +771,52 @@ export default function Dashboard() {
             )}
           </AnimatePresence>
 
-          {/* Join by code */}
           <JoinBar isGuest={isGuest} guestToken={guestToken} />
 
           {/* Rooms header */}
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <h2
-                style={{
-                  color: "rgba(255,255,255,0.5)",
-                  fontSize: 11,
-                  fontWeight: 600,
-                  letterSpacing: "0.08em",
-                  textTransform: "uppercase",
-                }}
-              >
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: BRAND.muted }}>
                 Комнаты
-              </h2>
+              </span>
               {rooms.length > 0 && (
-                <span
-                  className="px-1.5 py-0.5 rounded-md text-xs font-mono"
-                  style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.3)" }}
-                >
-                  {rooms.length}
-                </span>
+                <span style={{
+                  padding: "1px 8px", borderRadius: 6,
+                  background: BRAND.surface, border: `1px solid ${BRAND.border}`,
+                  color: BRAND.muted, fontSize: 11, fontFamily: "'JetBrains Mono', monospace",
+                }}>{rooms.length}</span>
               )}
             </div>
-            <input
-              placeholder="Поиск..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              style={{
-                height: 34, width: 180, padding: "0 12px",
-                background: "rgba(255,255,255,0.04)",
-                border: "1px solid rgba(255,255,255,0.08)",
-                borderRadius: 10, color: "#fff", fontSize: 13, outline: "none",
-              }}
-              data-testid="input-search"
-            />
+            <div style={{ position: "relative" }}>
+              <input
+                placeholder="Поиск..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                style={{
+                  height: 36, width: 200, padding: "0 14px 0 36px",
+                  background: BRAND.surface, border: `1px solid ${BRAND.border}`,
+                  borderRadius: 9, color: BRAND.text, fontSize: 13, outline: "none",
+                  transition: "border-color 0.2s",
+                }}
+                onFocus={e => (e.currentTarget.style.borderColor = BRAND.teal)}
+                onBlur={e => (e.currentTarget.style.borderColor = BRAND.border)}
+                data-testid="input-search"
+              />
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={BRAND.muted} strokeWidth="2" style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }}>
+                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              </svg>
+            </div>
           </div>
 
           {/* Room grid */}
           {isLoading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
               {Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="h-28 rounded-xl animate-pulse" style={{ background: "rgba(255,255,255,0.03)" }} />
+                <div key={i} style={{ height: 160, borderRadius: 14, background: BRAND.surface, animation: "pulse 1.5s ease-in-out infinite" }} />
               ))}
             </div>
           ) : rooms.length > 0 ? (
-            <motion.div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <motion.div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 12 }}>
               <AnimatePresence>
                 {rooms.map((room) => (
                   <RoomCard
@@ -834,34 +834,51 @@ export default function Dashboard() {
               </AnimatePresence>
             </motion.div>
           ) : (
-            <div className="text-center py-20" style={{ color: "rgba(255,255,255,0.2)" }}>
-              <div className="mb-4">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ margin: "0 auto", opacity: 0.4 }}>
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              style={{ textAlign: "center", padding: "72px 0" }}
+            >
+              <div style={{
+                width: 60, height: 60, borderRadius: 16, margin: "0 auto 20px",
+                background: BRAND.surface, border: `1px solid ${BRAND.border}`,
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={BRAND.muted} strokeWidth="1.5">
                   <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/>
                 </svg>
               </div>
-              <p className="mb-4 text-sm">
+              <p style={{ color: BRAND.muted, fontSize: 14, marginBottom: 20 }}>
                 {isGuest ? "Нет публичных комнат. Войдите по коду приглашения." : "Нет публичных комнат"}
               </p>
               {!isGuest && (
                 <button
                   onClick={() => setCreateOpen(true)}
                   style={{
-                    height: 36, padding: "0 18px",
-                    background: "#fff", color: "#000",
-                    border: "none", borderRadius: 8,
-                    fontWeight: 600, fontSize: 13, cursor: "pointer",
+                    padding: "10px 24px", borderRadius: 9, fontSize: 13, fontWeight: 700,
+                    color: BRAND.bg, background: BRAND.teal,
+                    border: "none", cursor: "pointer",
+                    boxShadow: `0 0 20px rgba(0,194,168,0.3)`,
                   }}
                 >
-                  Создать первую
+                  Создать первую комнату
                 </button>
               )}
-            </div>
+            </motion.div>
           )}
         </main>
-      </div>
 
-      <CreateRoomModal open={createOpen} onClose={() => setCreateOpen(false)} />
+        <footer style={{
+          borderTop: `1px solid ${BRAND.border}`, padding: "14px 32px",
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <Logo size={20} />
+            <span style={{ fontSize: 12, fontWeight: 700, color: BRAND.text }}>СИНХРОН</span>
+          </div>
+          <span style={{ fontSize: 11, color: BRAND.muted }}>Совместная онлайн-IDE</span>
+        </footer>
+      </div>
     </div>
   );
 }

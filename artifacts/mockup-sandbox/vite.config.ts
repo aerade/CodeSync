@@ -36,6 +36,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "src"),
+      "@assets": path.resolve(import.meta.dirname, "../../attached_assets"),
     },
   },
   root: path.resolve(import.meta.dirname),
@@ -48,7 +49,7 @@ export default defineConfig({
     host: "0.0.0.0",
     allowedHosts: true,
     fs: {
-      strict: true,
+      strict: false,
       deny: ["**/.*"],
     },
   },
