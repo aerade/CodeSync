@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { motion, useInView, AnimatePresence } from "framer-motion";
-import { useUser, useClerk, useSignIn } from "@clerk/react";
+import { useUser, SignInButton, SignUpButton } from "@clerk/react";
 import { Logo } from "@/components/Logo";
 import { GuestModal } from "@/components/GuestModal";
 
@@ -191,18 +191,8 @@ function hexToRgb(hex: string): string {
 
 export default function Home() {
   const { isSignedIn, isLoaded } = useUser();
-  const { openSignUp } = useClerk();
-  const { signIn } = useSignIn();
   const [, setLocation] = useLocation();
   const [showGuestModal, setShowGuestModal] = useState(false);
-
-  const signUpWithGitHub = () => {
-    signIn?.authenticateWithRedirect({
-      strategy: "oauth_github",
-      redirectUrl: `${window.location.origin}/sso-callback`,
-      redirectUrlComplete: `${window.location.origin}/dashboard`,
-    });
-  };
   const heroRef = useRef<HTMLDivElement>(null);
   const featuresRef = useRef<HTMLDivElement>(null);
   const stepsInView = useInView(useRef<HTMLDivElement>(null), { once: true });
@@ -283,17 +273,18 @@ export default function Home() {
             >
               Гостевой режим
             </button>
-            <button
-              onClick={() => openSignUp()}
-              className="text-sm px-5 py-2 rounded-lg font-semibold transition-all hover:brightness-110"
-              style={{
-                background: "#fff", color: "#000",
-                border: "none", cursor: "pointer",
-                boxShadow: "0 2px 16px rgba(255,255,255,0.15)",
-              }}
-            >
-              Начать →
-            </button>
+            <SignUpButton mode="modal">
+              <button
+                className="text-sm px-5 py-2 rounded-lg font-semibold transition-all hover:brightness-110"
+                style={{
+                  background: "#fff", color: "#000",
+                  border: "none", cursor: "pointer",
+                  boxShadow: "0 2px 16px rgba(255,255,255,0.15)",
+                }}
+              >
+                Начать →
+              </button>
+            </SignUpButton>
           </motion.div>
         </nav>
 
@@ -372,30 +363,18 @@ export default function Home() {
                 transition={{ delay: 0.55, duration: 0.5 }}
                 className="flex items-center gap-3 flex-wrap"
               >
-                <button
-                  onClick={() => openSignUp()}
-                  className="px-6 py-3 rounded-xl text-sm font-semibold transition-all hover:opacity-90 active:scale-95"
-                  style={{
-                    background: "#fff", color: "#000",
-                    border: "none", cursor: "pointer",
-                    boxShadow: "0 0 40px rgba(255,255,255,0.1)",
-                  }}
-                >
-                  Создать комнату
-                </button>
-                <button
-                  onClick={signUpWithGitHub}
-                  className="px-6 py-3 rounded-xl text-sm font-semibold transition-all hover:opacity-90 active:scale-95 flex items-center gap-2"
-                  style={{
-                    background: "#24292e", color: "#fff",
-                    border: "1px solid rgba(255,255,255,0.12)", cursor: "pointer",
-                  }}
-                >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/>
-                  </svg>
-                  Войти через GitHub
-                </button>
+                <SignUpButton mode="modal">
+                  <button
+                    className="px-6 py-3 rounded-xl text-sm font-semibold transition-all hover:opacity-90 active:scale-95"
+                    style={{
+                      background: "#fff", color: "#000",
+                      border: "none", cursor: "pointer",
+                      boxShadow: "0 0 40px rgba(255,255,255,0.1)",
+                    }}
+                  >
+                    Создать комнату
+                  </button>
+                </SignUpButton>
                 <button
                   onClick={() => setShowGuestModal(true)}
                   className="px-6 py-3 rounded-xl text-sm font-semibold transition-all hover:bg-white/6"
@@ -528,23 +507,14 @@ export default function Home() {
               Регистрация занимает 30 секунд. Или войдите как гость — без регистрации.
             </p>
             <div className="flex items-center justify-center gap-3 flex-wrap">
-              <button
-                onClick={() => openSignUp()}
-                className="px-8 py-3.5 rounded-xl text-sm font-semibold transition-all hover:opacity-90 active:scale-95"
-                style={{ background: "#fff", color: "#000", border: "none", cursor: "pointer", boxShadow: "0 0 40px rgba(255,255,255,0.12)" }}
-              >
-                Зарегистрироваться
-              </button>
-              <button
-                onClick={signUpWithGitHub}
-                className="px-8 py-3.5 rounded-xl text-sm font-semibold transition-all hover:opacity-90 active:scale-95 flex items-center gap-2"
-                style={{ background: "#24292e", color: "#fff", border: "1px solid rgba(255,255,255,0.12)", cursor: "pointer" }}
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/>
-                </svg>
-                GitHub
-              </button>
+              <SignUpButton mode="modal">
+                <button
+                  className="px-8 py-3.5 rounded-xl text-sm font-semibold transition-all hover:opacity-90 active:scale-95"
+                  style={{ background: "#fff", color: "#000", border: "none", cursor: "pointer", boxShadow: "0 0 40px rgba(255,255,255,0.12)" }}
+                >
+                  Зарегистрироваться
+                </button>
+              </SignUpButton>
               <button
                 onClick={() => setShowGuestModal(true)}
                 className="px-8 py-3.5 rounded-xl text-sm font-semibold transition-all hover:bg-white/6"
