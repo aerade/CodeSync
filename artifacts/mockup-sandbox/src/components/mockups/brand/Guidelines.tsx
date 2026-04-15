@@ -41,16 +41,16 @@ export function Guidelines() {
             </div>
           </div>
 
-          {/* Voice & Tone */}
+          {/* Voice & Tone — OFFICIAL */}
           <div style={{ marginBottom: 28 }}>
             <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "#5A6880", marginBottom: 14 }}>Голос и тон бренда</div>
             <div style={{ background: "#111826", border: "1px solid #1E2D42", borderRadius: 12, padding: "20px" }}>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 16 }}>
                 {[
-                  { word: "Точный", desc: "Без воды, каждое слово несёт смысл" },
-                  { word: "Живой", desc: "Тёплый, не корпоративный" },
-                  { word: "Поддерживающий", desc: "Студент не должен чувствовать себя тупым" },
-                  { word: "Честный", desc: "Признаём ошибки, объясняем просто" },
+                  { word: "Профессиональный", desc: "Технический, без лишних слов" },
+                  { word: "Точный", desc: "Каждое слово несёт смысл" },
+                  { word: "Нейтральный", desc: "Без эмоций, без панибратства" },
+                  { word: "Компетентный", desc: "Уверенный тон специалиста" },
                 ].map((v) => (
                   <div key={v.word} style={{ padding: "10px 12px", background: "rgba(0,194,168,0.06)", border: "1px solid rgba(0,194,168,0.15)", borderRadius: 9 }}>
                     <div style={{ fontSize: 12, fontWeight: 700, color: "#00C2A8", marginBottom: 3 }}>{v.word}</div>
@@ -60,20 +60,29 @@ export function Guidelines() {
               </div>
 
               <div style={{ borderTop: "1px solid #1E2D42", paddingTop: 14 }}>
-                <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#5A6880", marginBottom: 10 }}>Примеры заголовков</div>
+                <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#5A6880", marginBottom: 10 }}>Правильно / Неправильно</div>
                 {[
-                  { good: "Код не спит. Пиши вместе.", bad: "Платформа для коллаборативной разработки" },
-                  { good: "Открой комнату — позови друга", bad: "Создайте новую рабочую сессию" },
-                  { good: "Ошибка? ИИ объяснит.", bad: "AI-ассистент для отладки кода" },
+                  {
+                    good: "Совместная разработка в реальном времени.",
+                    bad: "Код не спит. Пиши вместе! 🚀"
+                  },
+                  {
+                    good: "Работайте вместе в одной комнате. Курсоры и изменения видны мгновенно.",
+                    bad: "Открой комнату — позови друга, будет весело!"
+                  },
+                  {
+                    good: "Встроенный редактор Monaco с подсветкой синтаксиса и автодополнением.",
+                    bad: "Тот же редактор что в VS Code 🔥"
+                  },
                 ].map((e, i) => (
-                  <div key={i} style={{ marginBottom: 8 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
-                      <span style={{ fontSize: 10, color: "#3FB950", fontWeight: 800 }}>✓</span>
-                      <span style={{ fontSize: 12, fontWeight: 600, color: "#E8EDF5" }}>{e.good}</span>
+                  <div key={i} style={{ marginBottom: 10, padding: "10px 12px", background: "rgba(255,255,255,0.02)", border: "1px solid #1E2D42", borderRadius: 8 }}>
+                    <div style={{ display: "flex", gap: 6, marginBottom: 5 }}>
+                      <span style={{ fontSize: 10, color: "#3FB950", fontWeight: 800, flexShrink: 0 }}>✓</span>
+                      <span style={{ fontSize: 11, color: "#E8EDF5", lineHeight: 1.5 }}>{e.good}</span>
                     </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <span style={{ fontSize: 10, color: "#FF7B72", fontWeight: 800 }}>✗</span>
-                      <span style={{ fontSize: 12, color: "#5A6880", textDecoration: "line-through" }}>{e.bad}</span>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <span style={{ fontSize: 10, color: "#FF7B72", fontWeight: 800, flexShrink: 0 }}>✗</span>
+                      <span style={{ fontSize: 11, color: "#5A6880", lineHeight: 1.5, textDecoration: "line-through" }}>{e.bad}</span>
                     </div>
                   </div>
                 ))}
@@ -89,7 +98,7 @@ export function Guidelines() {
             <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "#5A6880", marginBottom: 14 }}>Иерархия типографики</div>
             <div style={{ background: "#111826", border: "1px solid #1E2D42", borderRadius: 12, padding: "20px" }}>
               {[
-                { level: "Hero H1", size: "48–56px", weight: "800", font: "Manrope", usage: "Главный слоган лендинга" },
+                { level: "Hero H1", size: "48–56px", weight: "800", font: "Manrope", usage: "Главный заголовок лендинга" },
                 { level: "H2 Section", size: "32px", weight: "700", font: "Manrope", usage: "Разделы страниц" },
                 { level: "H3 Card", size: "20px", weight: "600", font: "Manrope", usage: "Заголовки карточек, модалок" },
                 { level: "Body", size: "14–15px", weight: "500", font: "Manrope", usage: "Основной текст UI" },
@@ -113,7 +122,7 @@ export function Guidelines() {
 
           {/* CSS Tokens */}
           <div style={{ marginBottom: 28 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "#5A6880", marginBottom: 14 }}>CSS-токены (готовые к использованию)</div>
+            <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "#5A6880", marginBottom: 14 }}>CSS-токены</div>
             <div style={{ background: "#0D1420", border: "1px solid #1E2D42", borderRadius: 12, padding: "16px 18px", fontFamily: "'JetBrains Mono', monospace", fontSize: 11, lineHeight: 1.9 }}>
               <div style={{ color: "#5A6880" }}>{"/* === СИНХРОН Brand Tokens === */"}</div>
               <div><span style={{ color: "#4D9EFF" }}>:root</span><span style={{ color: "#E8EDF5" }}> {"{"}</span></div>
@@ -136,14 +145,14 @@ export function Guidelines() {
                   <span style={{ color: "#E8EDF5" }}>: </span>
                   <span style={{ color: "#FFA657" }}>{v}</span>
                   <span style={{ color: "#E8EDF5" }}>; </span>
-                  <span style={{ color: "#1E2D42" }}>/* {c} */</span>
+                  <span style={{ color: "#1E2D42" }}>{"/* "}{c}{" */"}</span>
                 </div>
               ))}
               <div><span style={{ color: "#E8EDF5" }}>{"}"}</span></div>
             </div>
           </div>
 
-          {/* Logo don'ts */}
+          {/* Logo rules */}
           <div>
             <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "#5A6880", marginBottom: 14 }}>Охранная зона логотипа</div>
             <div style={{ background: "#111826", border: "1px solid #1E2D42", borderRadius: 12, padding: "16px" }}>
@@ -152,7 +161,7 @@ export function Guidelines() {
                   { label: "Мин. отступ", desc: "Высота иконки × 0.5 с каждой стороны" },
                   { label: "Мин. размер", desc: "Иконка не меньше 20px, текст не меньше 14px" },
                   { label: "Не растягивать", desc: "Только пропорциональное масштабирование" },
-                  { label: "Не менять цвет", desc: "Только утверждённые варианты: цветной, белый, чёрный" },
+                  { label: "Не менять цвет", desc: "Только цветной, белый или чёрный варианты" },
                 ].map((r) => (
                   <div key={r.label} style={{ padding: "10px 12px", background: "rgba(255,255,255,0.03)", border: "1px solid #1E2D42", borderRadius: 8 }}>
                     <div style={{ fontSize: 11, fontWeight: 700, color: "#E8EDF5", marginBottom: 3 }}>{r.label}</div>
