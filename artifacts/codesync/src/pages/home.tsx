@@ -252,7 +252,7 @@ export default function Home() {
             className="flex items-center gap-2.5"
           >
             <Logo size={28} />
-            <span style={{ fontSize: 18, fontWeight: 700, color: "#fff", letterSpacing: "-0.4px" }}>CodeSync</span>
+            <span style={{ fontSize: 18, fontWeight: 700, color: "#fff", letterSpacing: "-0.4px" }}>СИНХРОН</span>
           </motion.div>
 
           <motion.div
@@ -328,7 +328,7 @@ export default function Home() {
                     marginBottom: 0,
                   }}
                 >
-                  Code<span style={{ color: "rgba(255,255,255,0.3)" }}>Sync</span>
+                  СИНХРОН
                 </motion.h1>
               </div>
 
@@ -536,7 +536,7 @@ export default function Home() {
           className="px-6 py-5 text-center"
           style={{ borderTop: "1px solid rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.18)", fontSize: 12 }}
         >
-          CodeSync — совместная онлайн IDE
+          СИНХРОН — совместная онлайн IDE
         </footer>
       </div>
     </div>
