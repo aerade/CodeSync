@@ -6,6 +6,7 @@ import { eq, and } from "drizzle-orm";
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { anthropic } from "@workspace/integrations-anthropic-ai";
 import { saveFileSnapshot } from "./snapshots";
+import { applyAiFileEdit } from "../ws/collaborationServer";
 
 const aiRouter = Router();
 
@@ -255,6 +256,8 @@ async function executeFileTool(toolName: string, args: Record<string, string>, r
         .where(and(eq(filesTable.id, fileId), eq(filesTable.roomId, roomId))).returning();
       if (!file) return JSON.stringify({ success: false, error: "Файл не найден" });
       await db.insert(eventsTable).values({ roomId, userId, username: "AI", type: "file_updated", description: `AI отредактировал файл ${file.name}` }).catch(() => {});
+      // Push the new content into the live Yjs document so the editor reflects the change immediately
+      await applyAiFileEdit(roomId, fileId, content).catch(() => {});
       return JSON.stringify({ success: true, fileId: file.id, name: file.name });
     }
 

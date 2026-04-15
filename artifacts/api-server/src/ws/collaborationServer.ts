@@ -94,6 +94,27 @@ export function broadcastFileContent(roomId: string, fileId: string, newContent:
   }
 }
 
+/**
+ * Apply an AI-driven file edit:
+ * - If clients are connected: update the live Yjs doc and broadcast to all
+ * - If no clients: delete the stale Yjs snapshot so the next open re-reads from filesTable.content
+ */
+export async function applyAiFileEdit(roomId: string, fileId: string, newContent: string): Promise<void> {
+  const key = getRoomKey(roomId, fileId);
+  const fileRoom = fileRooms.get(key);
+  if (fileRoom) {
+    broadcastFileContent(roomId, fileId, newContent);
+    // Persist Yjs snapshot immediately so the update survives a reconnect
+    await saveYjsSnapshot(roomId, fileId, fileRoom.doc);
+  } else {
+    // No live document — invalidate stale Yjs snapshot so loadYjsSnapshot falls
+    // back to filesTable.content (which we already updated) on the next open.
+    await db.delete(yjsSnapshotsTable)
+      .where(and(eq(yjsSnapshotsTable.roomId, roomId), eq(yjsSnapshotsTable.fileId, fileId)))
+      .catch(() => {});
+  }
+}
+
 export function getActiveUserCountForRoom(roomId: string): number {
   const users = new Set<string>();
   for (const [key, fr] of fileRooms) {
