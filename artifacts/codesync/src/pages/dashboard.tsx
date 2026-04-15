@@ -658,7 +658,7 @@ export default function Dashboard() {
         >
           <div className="flex items-center gap-3">
             <Logo size={26} />
-            <span style={{ fontSize: 17, fontWeight: 700, color: "#fff" }}>СИНХРОН</span>
+            <span style={{ fontSize: 17, fontWeight: 700, color: "#fff" }}>CodeSync</span>
           </div>
 
           <div className="flex items-center gap-3">

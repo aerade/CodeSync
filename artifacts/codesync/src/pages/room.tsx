@@ -778,7 +778,7 @@ export default function RoomPage() {
           onClick={() => setLocation("/dashboard")}
           data-testid="btn-back-dashboard"
         >
-          СИНХРОН
+          CodeSync
         </button>
         <span style={{ color: "#30363D" }}>/</span>
         <span className="text-sm font-medium truncate" style={{ color: "#E6EDF3", maxWidth: 200 }}>
