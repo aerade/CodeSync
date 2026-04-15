@@ -211,6 +211,43 @@ function DualCursorIcon(size: number, color: string) {
   );
 }
 
+// ─── Concept 4: Git Merge (Branch) ──────────────────────────────────────────
+function GitMergeIcon(size: number, color: string) {
+  const s = size;
+  return (
+    <svg width={s} height={s} viewBox="0 0 24 24" fill="none">
+      {/* Origin commit */}
+      <circle cx="12" cy="3.5" r="2" fill={color} />
+      {/* Left branch path */}
+      <path d="M 12 5.5 C 12 8.5 6 8.5 6 12 C 6 15.5 12 15.5 12 18.5" stroke={color} strokeWidth="1.9" strokeLinecap="round" fill="none" />
+      {/* Right branch path */}
+      <path d="M 12 5.5 C 12 8.5 18 8.5 18 12 C 18 15.5 12 15.5 12 18.5" stroke={color} strokeWidth="1.9" strokeLinecap="round" fill="none" />
+      {/* Left commit */}
+      <circle cx="6" cy="12" r="2" fill={color} />
+      {/* Right commit */}
+      <circle cx="18" cy="12" r="2" fill={color} />
+      {/* Merge commit */}
+      <circle cx="12" cy="20.5" r="2" fill={color} />
+    </svg>
+  );
+}
+
+// ─── Concept 5: Terminal Sync ────────────────────────────────────────────────
+function TerminalSyncIcon(size: number, color: string) {
+  const s = size;
+  return (
+    <svg width={s} height={s} viewBox="0 0 24 24" fill="none">
+      {/* > prompt */}
+      <path d="M 3 8.5 L 9.5 12 L 3 15.5" stroke={color} strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+      {/* Cursor underscore */}
+      <line x1="12" y1="15.5" x2="19.5" y2="15.5" stroke={color} strokeWidth="2.3" strokeLinecap="round" />
+      {/* Sync upload arrow */}
+      <path d="M 13.5 10 L 16.5 7 L 19.5 10" stroke={color} strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+      <line x1="16.5" y1="7" x2="16.5" y2="12.5" stroke={color} strokeWidth="1.9" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 // ─── Concept 3: Infinity Node ────────────────────────────────────────────────
 function InfinityNodeIcon(size: number, color: string) {
   const s = size;
@@ -295,10 +332,37 @@ export function LogoNew() {
         />
       </div>
 
+      {/* Coding concepts section */}
+      <div style={{ marginTop: 40 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+          <div style={{ height: 1, flex: 1, background: BORDER }} />
+          <span style={{ fontSize: 10, fontFamily: "'JetBrains Mono', monospace", color: MUTED, textTransform: "uppercase", letterSpacing: "0.12em" }}>Кодинг-концепции</span>
+          <div style={{ height: 1, flex: 1, background: BORDER }} />
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+          <ConceptCard
+            number="04"
+            name="Ветки кода"
+            desc="Два бранча расходятся от общего коммита и сливаются в один — прямая метафора совместной разработки через git."
+            tag="Git-native"
+            accent="#F59E0B"
+            icon={(sz, col) => GitMergeIcon(sz, col)}
+          />
+          <ConceptCard
+            number="05"
+            name="Терминал"
+            desc="Классический промпт `>` с курсором и стрелкой синхронизации — мгновенно считывается разработчиком как живой кодинг."
+            tag="Dev-friendly"
+            accent="#34D399"
+            icon={(sz, col) => TerminalSyncIcon(sz, col)}
+          />
+        </div>
+      </div>
+
       {/* Note */}
       <div style={{ marginTop: 28, padding: "14px 20px", background: `${TEAL}10`, border: `1px solid ${TEAL}25`, borderRadius: 10 }}>
         <div style={{ fontSize: 11, color: MUTED, lineHeight: 1.6 }}>
-          <span style={{ color: TEAL, fontWeight: 700 }}>Как выбрать:</span> Концепция 01 лучше всего читается на favicon-размерах (16–32px) и максимально чётко передаёт идею синхронизации. Концепция 02 — наиболее буквальная метафора продукта. Концепция 03 — самая элегантная, подходит для позиционирования как premium-инструмент.
+          <span style={{ color: TEAL, fontWeight: 700 }}>Как выбрать:</span> Концепция 01 лучше всего читается на favicon-размерах (16–32px) и максимально чётко передаёт идею синхронизации. Концепция 02 — наиболее буквальная метафора продукта. Концепция 03 — самая элегантная, подходит для позиционирования как premium-инструмент. Концепции 04–05 — кодинг-нативные, максимально считываемые аудиторией разработчиков.
         </div>
       </div>
     </div>
