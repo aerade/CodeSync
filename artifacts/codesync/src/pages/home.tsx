@@ -251,7 +251,7 @@ export default function Home() {
             transition={{ duration: 0.5 }}
             className="flex items-center gap-2.5"
           >
-            <Logo size={28} />
+            <Logo size={42} />
             <span style={{ fontSize: 18, fontWeight: 700, color: "#fff", letterSpacing: "-0.4px" }}>CodeSync</span>
           </motion.div>
 
