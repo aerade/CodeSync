@@ -148,18 +148,6 @@ export function Scene5() {
           <span style={{ fontFamily: 'var(--font-mono)', fontSize: '1.1vw', color: '#00C2A8' }}>→</span>
         </motion.div>
 
-        {/* Fade to dark for loop */}
-        <motion.div
-          style={{
-            position: 'absolute',
-            inset: '-50vw',
-            background: '#080C14',
-            pointerEvents: 'none',
-          }}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: phase >= 5 ? 1 : 0 }}
-          transition={{ duration: 0.8 }}
-        />
       </div>
     </motion.div>
   );

@@ -17,23 +17,30 @@ const SCENE_DURATIONS = {
   close:     4500,
 };
 
-// Persistent midground accent positions per scene
-const accentOrb = [
-  { x: '80vw', y: '15vh', scale: 2.2, opacity: 0.18 },
-  { x: '10vw', y: '75vh', scale: 1.4, opacity: 0.12 },
-  { x: '70vw', y: '60vh', scale: 1.8, opacity: 0.15 },
-  { x: '5vw',  y: '30vh', scale: 1.2, opacity: 0.10 },
-  { x: '50vw', y: '50vh', scale: 2.8, opacity: 0.20 },
+// Persistent orb positions per scene — use left/top % (not x/y transforms)
+// to avoid framer-motion transform conflicts with CSS translate
+const orbPositions = [
+  { left: '65%', top: '10%', scale: 1.8, opacity: 0.18 },
+  { left: '5%',  top: '60%', scale: 1.2, opacity: 0.12 },
+  { left: '55%', top: '50%', scale: 1.5, opacity: 0.15 },
+  { left: '2%',  top: '20%', scale: 1.0, opacity: 0.10 },
+  { left: '30%', top: '30%', scale: 2.0, opacity: 0.20 },
 ];
 
-const accentLine = {
-  left:  ['10%', '5%', '30%', '55%', '15%'],
-  width: ['35%', '60%', '20%', '30%', '50%'],
-  top:   ['20%', '80%', '12%', '65%', '48%'],
-};
+// Accent line positions per scene
+const linePos = [
+  { left: '10%', width: '35%', top: '20%' },
+  { left: '5%',  width: '60%', top: '80%' },
+  { left: '30%', width: '20%', top: '12%' },
+  { left: '55%', width: '30%', top: '65%' },
+  { left: '15%', width: '50%', top: '48%' },
+];
 
 export default function VideoTemplate() {
   const { currentScene } = useVideoPlayer({ durations: SCENE_DURATIONS });
+
+  const orb = orbPositions[currentScene];
+  const line = linePos[currentScene];
 
   return (
     <div
@@ -49,51 +56,44 @@ export default function VideoTemplate() {
         loop
         playsInline
         className="absolute inset-0 w-full h-full object-cover"
-        style={{ opacity: 0.18, mixBlendMode: 'screen' }}
+        style={{ opacity: 0.15, mixBlendMode: 'screen' }}
         src={`${import.meta.env.BASE_URL}videos/teal-code-flow-bg.mp4`}
       />
 
-      {/* Animated noise/grain overlay */}
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E")`,
-          opacity: 0.035,
-        }}
-      />
-
-      {/* Floating ambient orb — persists and transforms across scenes */}
+      {/* Floating teal ambient orb — persists, animates left/top between scenes */}
       <motion.div
         className="absolute rounded-full pointer-events-none"
         style={{
-          width: '45vw',
-          height: '45vw',
-          background: 'radial-gradient(circle, rgba(0,194,168,1) 0%, transparent 70%)',
-          filter: 'blur(8vw)',
-          translateX: '-50%',
-          translateY: '-50%',
+          width: '50vw',
+          height: '50vw',
+          background: 'radial-gradient(circle, rgba(0,194,168,0.9) 0%, transparent 70%)',
+          filter: 'blur(9vw)',
         }}
-        animate={accentOrb[currentScene]}
+        animate={{
+          left: orb.left,
+          top: orb.top,
+          scale: orb.scale,
+          opacity: orb.opacity,
+        }}
         transition={{ duration: 1.4, ease: [0.16, 1, 0.3, 1] }}
       />
 
-      {/* Secondary ambient orb */}
+      {/* Secondary blue ambient orb — continuous drift */}
       <motion.div
         className="absolute rounded-full pointer-events-none"
         style={{
           width: '30vw',
           height: '30vw',
-          background: 'radial-gradient(circle, rgba(74, 144, 226, 0.6) 0%, transparent 70%)',
-          filter: 'blur(6vw)',
-          bottom: 0,
-          right: 0,
+          background: 'radial-gradient(circle, rgba(74, 144, 226, 0.7) 0%, transparent 70%)',
+          filter: 'blur(7vw)',
+          right: '-5vw',
+          bottom: '-5vw',
         }}
         animate={{
-          x: ['-5%', '5%', '-5%'],
-          y: ['-5%', '5%', '-5%'],
-          opacity: [0.12, 0.2, 0.12],
+          scale: [1, 1.15, 1],
+          opacity: [0.12, 0.22, 0.12],
         }}
-        transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }}
+        transition={{ duration: 7, repeat: Infinity, ease: 'easeInOut' }}
       />
 
       {/* Persistent accent line — transforms position between scenes */}
@@ -101,12 +101,12 @@ export default function VideoTemplate() {
         className="absolute h-[2px] pointer-events-none"
         style={{
           background: 'linear-gradient(90deg, transparent, #00C2A8, transparent)',
+          opacity: 0.5,
         }}
         animate={{
-          left: accentLine.left[currentScene],
-          width: accentLine.width[currentScene],
-          top: accentLine.top[currentScene],
-          opacity: [0.3, 0.7, 0.3],
+          left: line.left,
+          width: line.width,
+          top: line.top,
         }}
         transition={{ duration: 1, ease: [0.22, 1, 0.36, 1] }}
       />
@@ -116,7 +116,7 @@ export default function VideoTemplate() {
         className="absolute left-0 right-0 pointer-events-none scanline"
         style={{
           height: '2px',
-          background: 'linear-gradient(90deg, transparent, rgba(0,194,168,0.15), transparent)',
+          background: 'linear-gradient(90deg, transparent, rgba(0,194,168,0.12), transparent)',
           zIndex: 50,
         }}
       />
