@@ -130,7 +130,7 @@ function ConceptCard({
       {/* Full logo lockup */}
       <div>
         <div style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: MUTED, marginBottom: 10 }}>Логотип целиком</div>
-        <div style={{ display: "flex", gap: 0, flexDirection: "column", gap: 8 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           <div style={{ background: DARK, border: `1px solid ${BORDER}`, borderRadius: 12, padding: "16px 20px", display: "flex", alignItems: "center", gap: 12 }}>
             <div style={{ width: 36, height: 36, borderRadius: 10, background: TEAL, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
               {icon(20, DARK)}
