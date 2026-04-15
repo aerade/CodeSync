@@ -16,8 +16,9 @@ export function Logo({ size = 42, className }: LogoProps) {
       <rect width="32" height="32" rx="8" fill="#0d1117" />
       <text
         x="16"
-        y="22"
+        y="16"
         textAnchor="middle"
+        dominantBaseline="central"
         fontFamily="'SF Mono', 'Fira Code', 'Fira Mono', monospace"
         fontSize="13"
         fontWeight="700"
