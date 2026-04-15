@@ -28,6 +28,16 @@ if (!clerkPubKey) {
   throw new Error("Missing VITE_CLERK_PUBLISHABLE_KEY environment variable");
 }
 
+const clerkAppearance = {
+  variables: {
+    colorBackground: "#1C2128",
+    colorText: "#E6EDF3",
+    colorPrimary: "#58A6FF",
+    colorInputBackground: "#0D1117",
+    colorInputText: "#E6EDF3",
+  },
+};
+
 function SignInPage() {
   return (
     <div
@@ -38,15 +48,8 @@ function SignInPage() {
         routing="path"
         path={`${basePath}/sign-in`}
         signUpUrl={`${basePath}/sign-up`}
-        appearance={{
-          variables: {
-            colorBackground: "#1C2128",
-            colorText: "#E6EDF3",
-            colorPrimary: "#58A6FF",
-            colorInputBackground: "#0D1117",
-            colorInputText: "#E6EDF3",
-          },
-        }}
+        fallbackRedirectUrl={`${basePath}/dashboard`}
+        appearance={clerkAppearance}
       />
     </div>
   );
@@ -62,15 +65,8 @@ function SignUpPage() {
         routing="path"
         path={`${basePath}/sign-up`}
         signInUrl={`${basePath}/sign-in`}
-        appearance={{
-          variables: {
-            colorBackground: "#1C2128",
-            colorText: "#E6EDF3",
-            colorPrimary: "#58A6FF",
-            colorInputBackground: "#0D1117",
-            colorInputText: "#E6EDF3",
-          },
-        }}
+        fallbackRedirectUrl={`${basePath}/dashboard`}
+        appearance={clerkAppearance}
       />
     </div>
   );
@@ -138,6 +134,8 @@ function ClerkProviderWithRoutes() {
       {...(clerkProxyUrl ? { proxyUrl: clerkProxyUrl } : {})}
       routerPush={(to) => setLocation(stripBase(to))}
       routerReplace={(to) => setLocation(stripBase(to), { replace: true })}
+      signInFallbackRedirectUrl={`${basePath}/dashboard`}
+      signUpFallbackRedirectUrl={`${basePath}/dashboard`}
     >
       <QueryClientProvider client={queryClient}>
         <ClerkQueryClientCacheInvalidator />

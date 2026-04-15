@@ -703,7 +703,7 @@ export default function Dashboard() {
                     Гость: {guestUsername}
                   </span>
                 </div>
-                <SignInButton mode="modal">
+                <SignInButton mode="redirect" fallbackRedirectUrl="/dashboard">
                   <button
                     style={{
                       height: 32, padding: "0 16px",
@@ -757,7 +757,7 @@ export default function Dashboard() {
                   <div style={{ color: "rgba(255,165,0,0.9)", fontSize: 13, fontWeight: 600 }}>Гостевой режим</div>
                   <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 12, marginTop: 2 }}>
                     Вы можете входить в комнаты по коду. Чтобы создавать комнаты и сохранять прогресс —
-                    <SignInButton mode="modal">
+                    <SignInButton mode="redirect" fallbackRedirectUrl="/dashboard">
                       <button style={{ color: "rgba(255,165,0,0.85)", background: "none", border: "none", cursor: "pointer", fontSize: 12, fontWeight: 600, marginLeft: 4 }}>
                         войдите в аккаунт
                       </button>
