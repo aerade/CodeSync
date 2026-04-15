@@ -204,6 +204,16 @@ export default function RoomPage() {
   // isOwner comes from server (ownerId is DB user ID, not Clerk ID — server resolves it)
   const isOwner = !!(room && (room as { isOwner?: boolean }).isOwner);
 
+  // Pick the best file to auto-select: prefer code/text files over images and folders
+  function pickBestFile(fileList: typeof files) {
+    return (
+      fileList.find((f) => !f.isFolder && f.language !== "image") ??
+      fileList.find((f) => !f.isFolder) ??
+      fileList[0] ??
+      null
+    );
+  }
+
   // Auto-select first file only on initial load (not when user closes a file)
   const hasAutoSelectedRef = useRef(false);
   const userClosedFileRef = useRef(false);
@@ -212,8 +222,11 @@ export default function RoomPage() {
     if (files.length > 0 && !hasAutoSelectedRef.current && !userClosedFileRef.current) {
       hasAutoSelectedRef.current = true;
       if (!activeFileId) {
-        setActiveFileId(files[0].id);
-        setFileContent(files[0].content ?? "");
+        const best = pickBestFile(files);
+        if (best) {
+          setActiveFileId(best.id);
+          setFileContent(best.content ?? "");
+        }
       }
     }
   }, [files]); // intentionally only re-runs on files change, not activeFileId
@@ -298,9 +311,14 @@ export default function RoomPage() {
     }
     const stillExists = files.some((f) => f.id === activeFileId);
     if (!stillExists) {
-      const next = files[0];
-      setActiveFileId(next.id);
-      setFileContent(next.content ?? "");
+      const next = pickBestFile(files);
+      if (next) {
+        setActiveFileId(next.id);
+        setFileContent(next.content ?? "");
+      } else {
+        setActiveFileId(null);
+        setFileContent("");
+      }
     }
   }, [files, activeFileId]);
 
