@@ -273,7 +273,7 @@ export default function Home() {
             >
               Гостевой режим
             </button>
-            <SignUpButton mode="redirect" fallbackRedirectUrl="/dashboard">
+            <SignUpButton mode="modal">
               <button
                 className="text-sm px-5 py-2 rounded-lg font-semibold transition-all hover:brightness-110"
                 style={{
@@ -363,7 +363,7 @@ export default function Home() {
                 transition={{ delay: 0.55, duration: 0.5 }}
                 className="flex items-center gap-3 flex-wrap"
               >
-                <SignUpButton mode="redirect" fallbackRedirectUrl="/dashboard">
+                <SignUpButton mode="modal">
                   <button
                     className="px-6 py-3 rounded-xl text-sm font-semibold transition-all hover:opacity-90 active:scale-95"
                     style={{
@@ -507,7 +507,7 @@ export default function Home() {
               Регистрация занимает 30 секунд. Или войдите как гость — без регистрации.
             </p>
             <div className="flex items-center justify-center gap-3 flex-wrap">
-              <SignUpButton mode="redirect" fallbackRedirectUrl="/dashboard">
+              <SignUpButton mode="modal">
                 <button
                   className="px-8 py-3.5 rounded-xl text-sm font-semibold transition-all hover:opacity-90 active:scale-95"
                   style={{ background: "#fff", color: "#000", border: "none", cursor: "pointer", boxShadow: "0 0 40px rgba(255,255,255,0.12)" }}
