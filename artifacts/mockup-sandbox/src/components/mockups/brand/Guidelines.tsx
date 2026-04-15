@@ -1,3 +1,5 @@
+import logoIcon from "@assets/image_1776235333066.png";
+
 export function Guidelines() {
   return (
     <div style={{

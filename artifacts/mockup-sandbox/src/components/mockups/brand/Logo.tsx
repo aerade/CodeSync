@@ -1,14 +1,12 @@
+import logoIcon from "@assets/image_1776235333066.png";
+
 function SynchroLogo({ size = 48, textSize = 26, dark = false }: { size?: number; textSize?: number; dark?: boolean }) {
   const r = Math.round(size * 0.27);
   const iconSize = Math.round(size * 0.54);
   return (
     <div style={{ display: "flex", alignItems: "center", gap: Math.round(size * 0.33) }}>
       <div style={{ width: size, height: size, borderRadius: r, background: "#00C2A8", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-        <svg width={iconSize} height={iconSize} viewBox="0 0 24 24" fill="none">
-          <path d="M7 8l-4 4 4 4" stroke="#080C14" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
-          <path d="M17 8l4 4-4 4" stroke="#080C14" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
-          <path d="M9 16.5l6-9" stroke="#080C14" strokeWidth="2.2" strokeLinecap="round"/>
-        </svg>
+        <img src={logoIcon} alt="" style={{ width: iconSize, height: iconSize, display: "block" }} />
       </div>
       <span style={{ fontSize: textSize, fontWeight: 800, letterSpacing: "-0.02em", color: dark ? "#080C14" : "#E8EDF5", fontFamily: "'Manrope', sans-serif" }}>СИНХРОН</span>
     </div>
@@ -45,11 +43,7 @@ export function Logo() {
         <Bg label="На акцентном фоне">
           <div style={{ background: "#00C2A8", borderRadius: 12, padding: "16px 28px", display: "flex", alignItems: "center", gap: 14 }}>
             <div style={{ width: 40, height: 40, borderRadius: 11, background: "#080C14", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-                <path d="M7 8l-4 4 4 4" stroke="#00C2A8" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M17 8l4 4-4 4" stroke="#00C2A8" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M9 16.5l6-9" stroke="#00C2A8" strokeWidth="2.2" strokeLinecap="round"/>
-              </svg>
+              <img src={logoIcon} alt="" style={{ width: 22, height: 22, display: "block", filter: "brightness(0) saturate(100%) invert(69%) sepia(62%) saturate(461%) hue-rotate(118deg) brightness(98%) contrast(98%)" }} />
             </div>
             <span style={{ fontSize: 22, fontWeight: 800, letterSpacing: "-0.02em", color: "#080C14" }}>СИНХРОН</span>
           </div>
@@ -80,11 +74,7 @@ export function Logo() {
         ].map(({ bg, stroke, label, shadow, border }) => (
           <div key={label} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
             <div style={{ width: 72, height: 72, borderRadius: 18, background: bg, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: shadow, border: border || "none" }}>
-              <svg width={38} height={38} viewBox="0 0 24 24" fill="none">
-                <path d="M7 8l-4 4 4 4" stroke={stroke} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M17 8l4 4-4 4" stroke={stroke} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M9 16.5l6-9" stroke={stroke} strokeWidth="2.2" strokeLinecap="round"/>
-              </svg>
+              <img src={logoIcon} alt="" style={{ width: 38, height: 38, display: "block", filter: stroke === "#080C14" ? "brightness(0) saturate(100%)" : stroke === "#E8EDF5" ? "brightness(0) saturate(100%) invert(92%)" : "brightness(0) saturate(100%) invert(69%) sepia(62%) saturate(461%) hue-rotate(118deg) brightness(98%) contrast(98%)" }} />
             </div>
             <span style={{ fontSize: 9, fontFamily: "'JetBrains Mono', monospace", color: "#5A6880", textAlign: "center" }}>{label}</span>
           </div>
@@ -94,11 +84,7 @@ export function Logo() {
         {[32, 16].map((sz) => (
           <div key={sz} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
             <div style={{ width: sz, height: sz, borderRadius: Math.round(sz * 0.25), background: "#00C2A8", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <svg width={Math.round(sz * 0.56)} height={Math.round(sz * 0.56)} viewBox="0 0 24 24" fill="none">
-                <path d="M7 8l-4 4 4 4" stroke="#080C14" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M17 8l4 4-4 4" stroke="#080C14" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M9 16.5l6-9" stroke="#080C14" strokeWidth="2.2" strokeLinecap="round"/>
-              </svg>
+              <img src={logoIcon} alt="" style={{ width: Math.round(sz * 0.56), height: Math.round(sz * 0.56), display: "block" }} />
             </div>
             <span style={{ fontSize: 9, fontFamily: "'JetBrains Mono', monospace", color: "#5A6880" }}>{sz}px</span>
           </div>
@@ -110,11 +96,7 @@ export function Logo() {
       <div style={{ display: "flex", gap: 20 }}>
         <div style={{ background: "#111826", border: "1px solid #1E2D42", borderRadius: 12, padding: "20px 32px", display: "flex", alignItems: "center", justifyContent: "center" }}>
           <div style={{ width: 52, height: 52, borderRadius: 14, background: "#00C2A8", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <svg width={28} height={28} viewBox="0 0 24 24" fill="none">
-              <path d="M7 8l-4 4 4 4" stroke="#080C14" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M17 8l4 4-4 4" stroke="#080C14" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M9 16.5l6-9" stroke="#080C14" strokeWidth="2.2" strokeLinecap="round"/>
-            </svg>
+            <img src={logoIcon} alt="" style={{ width: 28, height: 28, display: "block" }} />
           </div>
         </div>
         <div style={{ background: "#111826", border: "1px solid #1E2D42", borderRadius: 12, padding: "20px 32px", display: "flex", alignItems: "center" }}>

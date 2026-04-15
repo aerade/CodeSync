@@ -1,3 +1,5 @@
+import logoIcon from "@assets/image_1776235333066.png";
+
 export function ColorTypography() {
   const palette = [
     { name: "Фон",         hex: "#080C14", oklch: "oklch(9% 0.015 250)",  role: "Основной фон" },
@@ -50,11 +52,7 @@ export function ColorTypography() {
       <div style={{ marginBottom: 48 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 8 }}>
           <div style={{ width: 36, height: 36, borderRadius: 10, background: "#00C2A8", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-              <path d="M7 8l-4 4 4 4" stroke="#080C14" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M17 8l4 4-4 4" stroke="#080C14" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M9 16.5l6-9" stroke="#080C14" strokeWidth="2.2" strokeLinecap="round"/>
-            </svg>
+            <img src={logoIcon} alt="" style={{ width: 18, height: 18, display: "block" }} />
           </div>
           <span style={{ fontSize: 22, fontWeight: 800, letterSpacing: "-0.02em" }}>СИНХРОН</span>
           <span style={{ fontSize: 11, color: "#5A6880", fontFamily: "'JetBrains Mono', monospace", marginLeft: 4, background: "#111826", border: "1px solid #1E2D42", borderRadius: 4, padding: "2px 8px" }}>Брендбук v1.0</span>
