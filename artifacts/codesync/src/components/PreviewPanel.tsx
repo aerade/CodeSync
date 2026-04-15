@@ -29,13 +29,13 @@ function buildSrcDoc(files: FileEntry[], entryName?: string): string | null {
   for (const f of files) {
     if (f.language === "css") {
       const re = new RegExp(`<link[^>]+href=["'](?:\\.\\/)?(${f.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})["'][^>]*\\/?>`, "gi");
-      if (re.test(html)) html = html.replace(re, `<style>\n${f.content}\n</style>`);
+      html = html.replace(re, `<style>\n${f.content}\n</style>`);
     }
   }
   for (const f of files) {
     if (f.language === "javascript") {
       const re = new RegExp(`<script[^>]+src=["'](?:\\.\\/)?(${f.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})["'][^>]*><\\/script>`, "gi");
-      if (re.test(html)) html = html.replace(re, `<script>\n${f.content}\n<\/script>`);
+      html = html.replace(re, `<script>\n${f.content}\n<\/script>`);
     }
   }
 
