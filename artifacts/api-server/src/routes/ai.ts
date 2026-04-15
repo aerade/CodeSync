@@ -388,6 +388,13 @@ async function chatHandler(req: Request, res: Response): Promise<void> {
     fileContextStr = `\n\nФайлы в комнате:\n${roomFilesResult.map((f) => `- ${f.name} (id: ${f.id}, ${f.language}${f.isFolder ? ", папка" : ""})`).join("\n")}`;
   }
 
+  // List existing images from DB (names only — no base64 in prompt)
+  const existingImages = roomFilesResult.filter((f) => f.language === "image" && !f.isFolder);
+  const imageContextStr = existingImages.length > 0
+    ? `\n\n## Существующие изображения в комнате (id: ${existingImages.map((f) => `${f.name} → id:${f.id}`).join(", ")}):\nМожешь ссылаться ТОЛЬКО на эти файлы. Все остальные изображения удалены.\n`
+    : `\n\n## Существующие изображения в комнате: нет (все удалены или ещё не скачаны).\nНе ссылайся на имена изображений из предыдущих разговоров — они удалены.\n`;
+  fileContextStr += imageContextStr;
+
   const planModeInstructions = usePlan ? `
 
 ## Режим планирования (Plan Mode)
@@ -459,6 +466,7 @@ async function chatHandler(req: Request, res: Response): Promise<void> {
 - При создании сайта: СНАЧАЛА создай все HTML/CSS/JS файлы, ПОТОМ скачивай картинки
 - Неудачный download_image — пропусти, оставь placeholder или CSS-градиент вместо картинки
 - Не скачивай одно изображение дважды
+- КРИТИЧНО: Ссылайся ТОЛЬКО на изображения из списка "Существующие изображения" ниже. Не используй имена файлов из старых разговоров — они могли быть удалены.
 
 ━━━ ЕСЛИ ПОЛЬЗОВАТЕЛЬ ПРИКРЕПИЛ ИЗОБРАЖЕНИЕ ━━━
 Ты ВИДИШЬ прикреплённое изображение. Можешь его описать, проанализировать, использовать как дизайн-референс или воссоздать похожий макет.

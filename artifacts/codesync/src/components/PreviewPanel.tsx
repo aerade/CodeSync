@@ -21,25 +21,42 @@ function safeScript(content: string): string {
   return content.replace(/<\/(script)/gi, "<\\/$1");
 }
 
+function getExt(name: string) {
+  return name.split(".").pop()?.toLowerCase() ?? "";
+}
+
+function isJsFile(f: FileEntry) {
+  const ext = getExt(f.name);
+  return (ext === "js" || ext === "mjs" || ext === "cjs" || f.language === "javascript") && !!(f.content?.trim());
+}
+function isCssFile(f: FileEntry) {
+  const ext = getExt(f.name);
+  return (ext === "css" || ext === "scss" || f.language === "css" || f.language === "scss") && !!(f.content?.trim());
+}
+function isHtmlFile(f: FileEntry) {
+  const ext = getExt(f.name);
+  return ext === "html" || ext === "htm" || f.language === "html";
+}
+
 function buildSrcDoc(files: FileEntry[], entryName?: string): string | null {
-  const htmlFiles = files.filter((f) => f.language === "html");
+  const htmlFiles = files.filter(isHtmlFile);
   if (htmlFiles.length === 0) return null;
 
   const htmlFile = entryName
     ? (htmlFiles.find((f) => f.name === entryName) ?? htmlFiles[0])
     : (htmlFiles.find((f) => f.name === "index.html") ?? htmlFiles[0]);
 
-  let html = htmlFile.content;
+  let html = htmlFile.content ?? "";
 
   // Strip all external stylesheet links
   html = html.replace(/<link\b[^>]*\brel=["']stylesheet["'][^>]*\/?>/gi, "");
   html = html.replace(/<link\b[^>]*\bhref=["'][^"']*\.css["'][^>]*\/?>/gi, "");
 
   // Inject CSS files as <style> blocks before </head>
-  const cssFiles = files.filter((f) => f.language === "css" && f.content.trim());
+  const cssFiles = files.filter(isCssFile);
   if (cssFiles.length > 0) {
     const cssBlock = cssFiles
-      .map((f) => `<style>\n/* === ${f.name} === */\n${f.content}\n</style>`)
+      .map((f) => `<style>\n/* === ${f.name} === */\n${f.content ?? ""}\n</style>`)
       .join("\n");
     if (/<\/head>/i.test(html)) {
       html = html.replace(/<\/head>/i, `${cssBlock}\n</head>`);
@@ -50,35 +67,54 @@ function buildSrcDoc(files: FileEntry[], entryName?: string): string | null {
     }
   }
 
-  // Strip all external <script src="..."> tags
+  // Strip all external <script src="..."> tags (any variant)
   html = html.replace(/<script\b[^>]*\bsrc=["'][^"']*["'][^>]*>\s*<\/script>/gi, "");
+  // Also strip self-closing-style <script src="..." />
+  html = html.replace(/<script\b[^>]*\bsrc=["'][^"']*["'][^>]*\/>/gi, "");
 
   // Inject JS files as <script> blocks before </body>
-  const jsFiles = files.filter((f) => f.language === "javascript" && f.content.trim());
+  const jsFiles = files.filter(isJsFile);
   const jsBlock = jsFiles
-    .map((f) => `<script>\n/* === ${f.name} === */\n${safeScript(f.content)}\n<\/script>`)
+    .map((f) => `<script>\n/* === ${f.name} === */\n${safeScript(f.content ?? "")}\n<\/script>`)
     .join("\n");
 
-  // Image VFS + multi-page navigation
+  // Image VFS + multi-page navigation + error overlay
   const imageVfs: Record<string, string> = {};
   for (const f of files) {
-    if (f.language === "image" && f.content.startsWith("data:")) imageVfs[f.name] = f.content;
+    if ((f.language === "image" || getExt(f.name) === "webp" || getExt(f.name) === "jpg" || getExt(f.name) === "png" || getExt(f.name) === "gif" || getExt(f.name) === "svg") && f.content?.startsWith("data:")) {
+      imageVfs[f.name] = f.content;
+    }
   }
   const htmlNames = htmlFiles.map((f) => f.name);
 
   const vfsScript = `<script>
 (function() {
+  // Error overlay — shows JS errors visually in the preview
+  window.addEventListener('error', function(e) {
+    var existing = document.getElementById('__preview_err__');
+    if (existing) existing.remove();
+    var div = document.createElement('div');
+    div.id = '__preview_err__';
+    div.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#c0392b;color:#fff;padding:8px 12px;font:12px/1.4 monospace;z-index:99999;white-space:pre-wrap;word-break:break-all';
+    div.textContent = '\\u26a0 JS Error: ' + e.message + (e.lineno ? ' (line ' + e.lineno + ')' : '');
+    document.body ? document.body.appendChild(div) : document.documentElement.appendChild(div);
+  });
+
   var _imgs = ${JSON.stringify(imageVfs)};
   var _pages = ${JSON.stringify(htmlNames)};
+
   function resolveImages() {
     document.querySelectorAll('img').forEach(function(img) {
       var src = img.getAttribute('src') || '';
       var name = src.split('/').pop();
       if (name && _imgs[name]) img.src = _imgs[name];
+      // also try full path
+      if (!_imgs[name] && _imgs[src]) img.src = _imgs[src];
     });
   }
   resolveImages();
   document.addEventListener('DOMContentLoaded', resolveImages);
+
   document.addEventListener('click', function(e) {
     var el = e.target;
     while (el && el.tagName !== 'A') el = el.parentElement;
@@ -509,7 +545,7 @@ export function PreviewPanel({ files, isOpen, onClose, defaultPage }: Props) {
                   key={iframeKey}
                   srcDoc={srcDoc}
                   title="Preview"
-                  sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
+                  sandbox="allow-scripts allow-forms allow-popups allow-modals"
                   style={{ width: "100%", height: "100%", border: "none", display: "block" }}
                   onLoad={() => setIsLoading(false)}
                 />
