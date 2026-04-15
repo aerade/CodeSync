@@ -685,6 +685,21 @@ ${context
         }
         continue;
       }
+
+      // ── Auto-continue if hit token limit (finish_reason === "length") ────────
+      if (finishReason === "length") {
+        // Save the partial assistant message and ask to continue
+        if (currentContent) {
+          allMessages.push({ role: "assistant", content: currentContent } as { role: string; content: string });
+        }
+        allMessages.push({
+          role: "user",
+          content: "Продолжи с того места где остановился. Не повторяй уже написанное — продолжай сразу.",
+        } as { role: string; content: string });
+        res.write(`data: ${JSON.stringify({ content: "\n\n*[продолжение...]*\n\n" })}\n\n`);
+        continue;
+      }
+
       break;
     }
 

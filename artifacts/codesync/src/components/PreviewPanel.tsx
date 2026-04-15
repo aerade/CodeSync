@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import ReactDOM from "react-dom";
-import { motion, AnimatePresence, useMotionValue } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface FileEntry {
   id: string;
@@ -14,6 +14,12 @@ interface Props {
   isOpen: boolean;
   onClose: () => void;
   defaultPage?: string;
+}
+
+// Escape </script> inside injected <script> blocks so the HTML parser
+// does not terminate the tag early when content contains that string.
+function safeScript(content: string): string {
+  return content.replace(/<\/(script)/gi, "<\\/$1");
 }
 
 function buildSrcDoc(files: FileEntry[], entryName?: string): string | null {
@@ -33,7 +39,9 @@ function buildSrcDoc(files: FileEntry[], entryName?: string): string | null {
   // ── Step 2: inject CSS files as <style> blocks before </head> ─────────────
   const cssFiles = files.filter((f) => f.language === "css" && f.content.trim());
   if (cssFiles.length > 0) {
-    const cssBlock = cssFiles.map((f) => `<style>\n/* === ${f.name} === */\n${f.content}\n</style>`).join("\n");
+    const cssBlock = cssFiles
+      .map((f) => `<style>\n/* === ${f.name} === */\n${f.content}\n</style>`)
+      .join("\n");
     if (/<\/head>/i.test(html)) {
       html = html.replace(/<\/head>/i, `${cssBlock}\n</head>`);
     } else if (/<body[\s>]/i.test(html)) {
@@ -48,7 +56,9 @@ function buildSrcDoc(files: FileEntry[], entryName?: string): string | null {
 
   // ── Step 4: inject JS files as <script> blocks before </body> ─────────────
   const jsFiles = files.filter((f) => f.language === "javascript" && f.content.trim());
-  const jsBlock = jsFiles.map((f) => `<script>\n/* === ${f.name} === */\n${f.content}\n<\/script>`).join("\n");
+  const jsBlock = jsFiles
+    .map((f) => `<script>\n/* === ${f.name} === */\n${safeScript(f.content)}\n<\/script>`)
+    .join("\n");
 
   // ── Step 5: image virtual filesystem + multi-page navigation ──────────────
   const imageVfs: Record<string, string> = {};
@@ -115,18 +125,17 @@ export function PreviewPanel({ files, isOpen, onClose, defaultPage }: Props) {
   const [history, setHistory] = useState<string[]>([]);
   const [historyIdx, setHistoryIdx] = useState(-1);
   const [isLoading, setIsLoading] = useState(false);
-  const [isResizing, setIsResizing] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const savedSizeRef = useRef<{ w: number; h: number } | null>(null);
   const savedPosRef = useRef<{ x: number; y: number } | null>(null);
 
+  // ── Position & size — stored in refs to avoid re-render on every mousemove ─
   const [size, setSize] = useState(getInitSize);
   const sizeRef = useRef(size);
-  useEffect(() => { sizeRef.current = size; }, [size]);
 
-  const motionX = useMotionValue(getInitPos(size.w, size.h).x);
-  const motionY = useMotionValue(getInitPos(size.w, size.h).y);
+  const posRef = useRef(getInitPos(size.w, size.h));
+  const [, forceRender] = useState(0);
 
   // Re-center when opened
   useEffect(() => {
@@ -135,8 +144,8 @@ export function PreviewPanel({ files, isOpen, onClose, defaultPage }: Props) {
       const p = getInitPos(s.w, s.h);
       setSize(s);
       sizeRef.current = s;
-      motionX.set(p.x);
-      motionY.set(p.y);
+      posRef.current = p;
+      forceRender((n) => n + 1);
     }
   }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -198,7 +207,7 @@ export function PreviewPanel({ files, isOpen, onClose, defaultPage }: Props) {
   const refresh = useCallback(() => { setIframeKey((k) => k + 1); setIsLoading(true); }, []);
 
   function toggleMinimize() {
-    if (isFullscreen) return; // can't minimize while fullscreen
+    if (isFullscreen) return;
     setIsMinimized((prev) => !prev);
   }
 
@@ -206,33 +215,65 @@ export function PreviewPanel({ files, isOpen, onClose, defaultPage }: Props) {
     if (isMinimized) setIsMinimized(false);
     if (!isFullscreen) {
       savedSizeRef.current = { ...sizeRef.current };
-      savedPosRef.current = { x: motionX.get(), y: motionY.get() };
+      savedPosRef.current = { ...posRef.current };
       setIsFullscreen(true);
     } else {
       setIsFullscreen(false);
-      if (savedSizeRef.current) {
-        setSize(savedSizeRef.current);
-        sizeRef.current = savedSizeRef.current;
-      }
-      if (savedPosRef.current) {
-        motionX.set(savedPosRef.current.x);
-        motionY.set(savedPosRef.current.y);
-      }
+      if (savedSizeRef.current) { setSize(savedSizeRef.current); sizeRef.current = savedSizeRef.current; }
+      if (savedPosRef.current) { posRef.current = savedPosRef.current; }
+      forceRender((n) => n + 1);
     }
   }
-  const srcDoc = buildSrcDoc(files, currentPage || undefined);
-  const canBack = historyIdx > 0;
-  const canForward = historyIdx < history.length - 1;
 
-  // Resize logic — disables Framer drag while active
+  // ── Manual drag — title bar only ────────────────────────────────────────────
+  const isDraggingRef = useRef(false);
+  const dragStartRef = useRef({ mx: 0, my: 0, px: 0, py: 0 });
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  function startDrag(e: React.PointerEvent) {
+    if (isFullscreen || isMinimized) return;
+    // Don't drag if clicking on a button/interactive element
+    const target = e.target as HTMLElement;
+    if (target.closest("button,a,input")) return;
+    e.preventDefault();
+    isDraggingRef.current = true;
+    dragStartRef.current = {
+      mx: e.clientX,
+      my: e.clientY,
+      px: posRef.current.x,
+      py: posRef.current.y,
+    };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  }
+
+  function onDragMove(e: React.PointerEvent) {
+    if (!isDraggingRef.current) return;
+    const dx = e.clientX - dragStartRef.current.mx;
+    const dy = e.clientY - dragStartRef.current.my;
+    posRef.current = {
+      x: dragStartRef.current.px + dx,
+      y: dragStartRef.current.py + dy,
+    };
+    if (panelRef.current) {
+      panelRef.current.style.transform = `translate(${posRef.current.x}px, ${posRef.current.y}px)`;
+    }
+  }
+
+  function onDragEnd() {
+    isDraggingRef.current = false;
+  }
+
+  // ── Resize logic ───────────────────────────────────────────────────────────
   const resizeState = useRef<{
     startMX: number; startMY: number;
     startW: number; startH: number;
     startPX: number; startPY: number;
     dir: string;
   } | null>(null);
+  const [isResizing, setIsResizing] = useState(false);
 
   function startResize(e: React.PointerEvent, dir: string) {
+    if (isFullscreen) return;
     e.preventDefault();
     e.stopPropagation();
     e.nativeEvent.stopImmediatePropagation();
@@ -243,8 +284,8 @@ export function PreviewPanel({ files, isOpen, onClose, defaultPage }: Props) {
       startMY: e.clientY,
       startW: sizeRef.current.w,
       startH: sizeRef.current.h,
-      startPX: motionX.get(),
-      startPY: motionY.get(),
+      startPX: posRef.current.x,
+      startPY: posRef.current.y,
       dir,
     };
 
@@ -269,14 +310,18 @@ export function PreviewPanel({ files, isOpen, onClose, defaultPage }: Props) {
       }
 
       sizeRef.current = { w: nw, h: nh };
-      setSize({ w: nw, h: nh });
-      motionX.set(nx);
-      motionY.set(ny);
+      posRef.current = { x: nx, y: ny };
+      if (panelRef.current) {
+        panelRef.current.style.width = `${nw}px`;
+        panelRef.current.style.height = isMinimized ? "40px" : `${nh}px`;
+        panelRef.current.style.transform = `translate(${nx}px, ${ny}px)`;
+      }
     }
 
     function onUp() {
       resizeState.current = null;
       setIsResizing(false);
+      setSize({ ...sizeRef.current });
       document.body.style.cursor = "";
       document.body.style.userSelect = "";
       window.removeEventListener("pointermove", onMove);
@@ -293,12 +338,27 @@ export function PreviewPanel({ files, isOpen, onClose, defaultPage }: Props) {
     window.addEventListener("pointerup", onUp);
   }
 
+  const srcDoc = buildSrcDoc(files, currentPage || undefined);
+  const canBack = historyIdx > 0;
+  const canForward = historyIdx < history.length - 1;
+
   const rh = (cursor: string, style: React.CSSProperties, dir: string) => (
     <div
       onPointerDown={(e) => startResize(e, dir)}
       style={{ position: "absolute", zIndex: 20, cursor, ...style }}
     />
   );
+
+  const panelStyle: React.CSSProperties = isFullscreen
+    ? { position: "fixed", inset: 0, width: "100vw", height: "100vh", transform: "none" }
+    : {
+        position: "fixed",
+        top: 0,
+        left: 0,
+        width: size.w,
+        height: isMinimized ? 40 : size.h,
+        transform: `translate(${posRef.current.x}px, ${posRef.current.y}px)`,
+      };
 
   const popup = (
     <AnimatePresence>
@@ -314,24 +374,16 @@ export function PreviewPanel({ files, isOpen, onClose, defaultPage }: Props) {
             style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 9990, backdropFilter: "blur(4px)" }}
           />
 
-          {/* Browser window */}
+          {/* Browser window — NO Framer drag, manual only */}
           <motion.div
             key="preview-window"
+            ref={panelRef}
             initial={{ opacity: 0, scale: 0.96 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.96 }}
             transition={{ type: "spring", stiffness: 380, damping: 30 }}
-            drag={!isResizing && !isFullscreen}
-            dragMomentum={false}
-            dragElastic={0}
             style={{
-              x: isFullscreen ? 0 : motionX,
-              y: isFullscreen ? 0 : motionY,
-              position: "fixed",
-              top: 0,
-              left: 0,
-              width: isFullscreen ? "100vw" : size.w,
-              height: isFullscreen ? "100vh" : isMinimized ? 40 : size.h,
+              ...panelStyle,
               background: "#232529",
               border: isFullscreen ? "none" : "1px solid rgba(255,255,255,0.12)",
               borderRadius: isFullscreen ? 0 : 14,
@@ -340,21 +392,28 @@ export function PreviewPanel({ files, isOpen, onClose, defaultPage }: Props) {
               flexDirection: "column",
               overflow: "hidden",
               zIndex: 9991,
-              transition: "width 0.25s, height 0.25s, border-radius 0.25s",
             }}
           >
             {/* Resize handles — 8 directions */}
-            {rh("ew-resize",   { top: 16, right: -5, bottom: 16, width: 10 }, "e")}
-            {rh("ew-resize",   { top: 16, left: -5, bottom: 16, width: 10 }, "w")}
-            {rh("ns-resize",   { bottom: -5, left: 16, right: 16, height: 10 }, "s")}
-            {rh("ns-resize",   { top: -5, left: 16, right: 16, height: 10 }, "n")}
-            {rh("nwse-resize", { bottom: -5, right: -5, width: 18, height: 18 }, "se")}
-            {rh("nesw-resize", { bottom: -5, left: -5, width: 18, height: 18 }, "sw")}
-            {rh("nesw-resize", { top: -5, right: -5, width: 18, height: 18 }, "ne")}
-            {rh("nwse-resize", { top: -5, left: -5, width: 18, height: 18 }, "nw")}
+            {!isFullscreen && (
+              <>
+                {rh("ew-resize",   { top: 16, right: -5, bottom: 16, width: 10 }, "e")}
+                {rh("ew-resize",   { top: 16, left: -5, bottom: 16, width: 10 }, "w")}
+                {rh("ns-resize",   { bottom: -5, left: 16, right: 16, height: 10 }, "s")}
+                {rh("ns-resize",   { top: -5, left: 16, right: 16, height: 10 }, "n")}
+                {rh("nwse-resize", { bottom: -5, right: -5, width: 18, height: 18 }, "se")}
+                {rh("nesw-resize", { bottom: -5, left: -5, width: 18, height: 18 }, "sw")}
+                {rh("nesw-resize", { top: -5, right: -5, width: 18, height: 18 }, "ne")}
+                {rh("nwse-resize", { top: -5, left: -5, width: 18, height: 18 }, "nw")}
+              </>
+            )}
 
-            {/* Title bar (drag handle) */}
+            {/* Title bar — drag handle */}
             <div
+              onPointerDown={startDrag}
+              onPointerMove={onDragMove}
+              onPointerUp={onDragEnd}
+              onPointerCancel={onDragEnd}
               style={{
                 display: "flex", alignItems: "center",
                 height: 40,
@@ -364,7 +423,8 @@ export function PreviewPanel({ files, isOpen, onClose, defaultPage }: Props) {
                 gap: 10,
                 flexShrink: 0,
                 userSelect: "none",
-                cursor: isResizing ? "default" : "grab",
+                cursor: isFullscreen ? "default" : isResizing ? "default" : "grab",
+                touchAction: "none",
               }}
             >
               {/* Traffic lights */}
@@ -442,7 +502,7 @@ export function PreviewPanel({ files, isOpen, onClose, defaultPage }: Props) {
             )}
 
             {/* Content */}
-            <div style={{ flex: 1, overflow: "hidden", background: "#fff" }}>
+            <div style={{ flex: 1, overflow: "hidden", background: "#fff", position: "relative" }}>
               {!srcDoc ? (
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", background: "#f5f5f5", gap: 10 }}>
                   <div style={{ fontSize: 40 }}>🌐</div>
@@ -455,7 +515,7 @@ export function PreviewPanel({ files, isOpen, onClose, defaultPage }: Props) {
                   srcDoc={srcDoc}
                   title="Preview"
                   sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
-                  style={{ width: "100%", height: "100%", border: "none" }}
+                  style={{ width: "100%", height: "100%", border: "none", display: "block" }}
                   onLoad={() => setIsLoading(false)}
                 />
               )}
