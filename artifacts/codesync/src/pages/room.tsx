@@ -204,22 +204,22 @@ export default function RoomPage() {
   // isOwner comes from server (ownerId is DB user ID, not Clerk ID — server resolves it)
   const isOwner = !!(room && (room as { isOwner?: boolean }).isOwner);
 
-  // Pick the best file to auto-select: prefer code/text files over images and folders
+  // Pick the best file to auto-select: only code/text files, never images or folders
   function pickBestFile(fileList: typeof files) {
-    return (
-      fileList.find((f) => !f.isFolder && f.language !== "image") ??
-      fileList.find((f) => !f.isFolder) ??
-      fileList[0] ??
-      null
-    );
+    return fileList.find((f) => !f.isFolder && f.language !== "image") ?? null;
   }
 
-  // Auto-select first file only on initial load (not when user closes a file)
+  // Auto-select first non-image file when there is none selected
   const hasAutoSelectedRef = useRef(false);
   const userClosedFileRef = useRef(false);
 
   useEffect(() => {
-    if (files.length > 0 && !hasAutoSelectedRef.current && !userClosedFileRef.current) {
+    // Reset auto-select flag when all files are gone, so next file arrival triggers auto-select
+    if (files.length === 0) {
+      hasAutoSelectedRef.current = false;
+      return;
+    }
+    if (!hasAutoSelectedRef.current && !userClosedFileRef.current) {
       hasAutoSelectedRef.current = true;
       if (!activeFileId) {
         const best = pickBestFile(files);
