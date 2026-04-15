@@ -339,7 +339,7 @@ export default function Home() {
                 style={{
                   fontSize: "clamp(20px, 3vw, 28px)",
                   fontWeight: 700,
-                  color: "#ffffff",
+                  color: "rgba(255,255,255,0.65)",
                   letterSpacing: "-0.5px",
                   marginTop: 6,
                   marginBottom: 20,
