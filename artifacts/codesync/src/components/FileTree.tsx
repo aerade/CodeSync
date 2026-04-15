@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { FilePlus, FolderPlus, Archive } from "lucide-react";
+import { FilePlus, FolderPlus, Archive, RotateCcw } from "lucide-react";
 import { useCreateFile, useDeleteFile, useUpdateFile, getGetRoomFilesQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -151,6 +151,14 @@ export function FileTree({ roomId, files, activeFileId, fileStats = {}, userPres
   const [recentDeletedCount, setRecentDeletedCount] = useState(0);
   const newlyAddedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const deletedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  function handleRefresh() {
+    setIsRefreshing(true);
+    qc.invalidateQueries({ queryKey: getGetRoomFilesQueryKey(roomId) });
+    onFilesChange();
+    setTimeout(() => setIsRefreshing(false), 800);
+  }
 
   useEffect(() => {
     const prevIds = prevFileIdsRef.current;
@@ -591,6 +599,26 @@ export function FileTree({ roomId, files, activeFileId, fileStats = {}, userPres
                 </button>
               </>
             )}
+            <button
+              onClick={handleRefresh}
+              title="Обновить список файлов"
+              style={{
+                background: "transparent", border: "none", cursor: "pointer",
+                color: isRefreshing ? "rgba(88,166,255,0.8)" : "rgba(255,255,255,0.3)",
+                padding: "3px 4px", borderRadius: 5, lineHeight: 0,
+                transition: "color 0.2s",
+              }}
+              className="hover:!text-white/60 transition-colors"
+              data-testid="btn-refresh-files"
+            >
+              <RotateCcw
+                size={13}
+                style={{
+                  transition: "transform 0.8s ease",
+                  transform: isRefreshing ? "rotate(360deg)" : "rotate(0deg)",
+                }}
+              />
+            </button>
             <a
               href={`${basePath}/api/rooms/${roomId}/download`}
               download

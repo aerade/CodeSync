@@ -364,24 +364,26 @@ async function chatHandler(req: Request, res: Response): Promise<void> {
 
   const hasWriteAccess = accessResult.canWrite;
 
-  // Build file context - include file contents (not images, truncated)
+  // Build file context - validate against DB to exclude deleted files
+  const dbFileIds = new Set(roomFilesResult.map((f) => f.id));
   const allFilesBody = Array.isArray(body.allFiles)
     ? (body.allFiles as Array<{ id: string; name: string; language: string; content: string }>)
+        .filter((f) => !roomId || dbFileIds.has(f.id)) // only files that actually exist in DB
     : [];
 
   let fileContextStr = "";
   const filesToContext = allFilesBody.filter((f) => f.language !== "image");
   if (filesToContext.length > 0) {
-    const parts = filesToContext.slice(0, 10).map((f) => {
+    const parts = filesToContext.slice(0, 15).map((f) => {
       const isEmpty = !f.content || f.content.trim().length === 0;
       const truncated = isEmpty
         ? "⚠️ ФАЙЛ ПУСТОЙ — содержимого нет, требует создания кода"
-        : f.content.length > 3000
-          ? f.content.slice(0, 3000) + "\n...(обрезано)"
+        : f.content.length > 6000
+          ? f.content.slice(0, 6000) + "\n...(обрезано)"
           : f.content;
       return `\n### ${f.name} (id: ${f.id}, ${f.language})${isEmpty ? " [ПУСТОЙ]" : ""}\n\`\`\`${f.language}\n${truncated}\n\`\`\``;
     });
-    fileContextStr = `\n\n## Файлы в комнате (${filesToContext.length} шт.):\n${parts.join("\n")}`;
+    fileContextStr = `\n\n## Актуальные файлы в комнате (${filesToContext.length} шт. — только существующие):\n${parts.join("\n")}`;
   } else if (roomFilesResult.length > 0) {
     fileContextStr = `\n\nФайлы в комнате:\n${roomFilesResult.map((f) => `- ${f.name} (id: ${f.id}, ${f.language}${f.isFolder ? ", папка" : ""})`).join("\n")}`;
   }
@@ -402,11 +404,12 @@ async function chatHandler(req: Request, res: Response): Promise<void> {
 
 ━━━ ПРАВИЛА РАБОТЫ С ФАЙЛАМИ ━━━
 • НЕМЕДЛЕННО вызывай инструмент (create_file/edit_file) — не пиши код в чат перед этим.
-• Создавай файлы ПОСЛЕДОВАТЕЛЬНО: сначала один инструмент, потом следующий.
-• После каждого инструмента пишешь 1 коротких предложение что сделал — и сразу переходишь к следующему файлу.
+• Создавай файлы ПОСЛЕДОВАТЕЛЬНО: один инструмент → короткая фраза что сделал → следующий инструмент.
 • Не объясняй "что собираешься сделать" — просто делай.
 • КРИТИЧНО: файл помечен [ПУСТОЙ] или "⚠️ ФАЙЛ ПУСТОЙ" → ОБЯЗАН записать код через edit_file, не пропускай.
-• НИКОГДА не останавливайся в середине задачи. Создал один файл → сразу создаёшь следующий. Работаешь до полного завершения.
+• НИКОГДА не останавливайся в середине задачи. Создал один файл → сразу создаёшь следующий. Работаешь до полного завершения всей задачи.
+• Используй ТОЛЬКО файлы из раздела "Актуальные файлы в комнате". Если файла нет в этом списке — он удалён, не используй его ID.
+• Никогда не редактируй несуществующие файлы. Если нужный файл удалён — создай его заново через create_file.
 
 ━━━ СТРУКТУРА ФАЙЛОВ ДЛЯ САЙТОВ ━━━
 ОБЯЗАТЕЛЬНО разделяй код на отдельные файлы:

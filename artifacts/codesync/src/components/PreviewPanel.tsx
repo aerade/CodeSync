@@ -26,19 +26,31 @@ function buildSrcDoc(files: FileEntry[], entryName?: string): string | null {
 
   let html = htmlFile.content;
 
-  for (const f of files) {
-    if (f.language === "css") {
-      const re = new RegExp(`<link[^>]+href=["'](?:\\.\\/)?(${f.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})["'][^>]*\\/?>`, "gi");
-      html = html.replace(re, `<style>\n${f.content}\n</style>`);
-    }
-  }
-  for (const f of files) {
-    if (f.language === "javascript") {
-      const re = new RegExp(`<script[^>]+src=["'](?:\\.\\/)?(${f.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})["'][^>]*><\\/script>`, "gi");
-      html = html.replace(re, `<script>\n${f.content}\n<\/script>`);
+  // ── Step 1: strip ALL external stylesheet links ────────────────────────────
+  html = html.replace(/<link\b[^>]*\brel=["']stylesheet["'][^>]*\/?>/gi, "");
+  html = html.replace(/<link\b[^>]*\bhref=["'][^"']*\.css["'][^>]*\/?>/gi, "");
+
+  // ── Step 2: inject CSS files as <style> blocks before </head> ─────────────
+  const cssFiles = files.filter((f) => f.language === "css" && f.content.trim());
+  if (cssFiles.length > 0) {
+    const cssBlock = cssFiles.map((f) => `<style>\n/* === ${f.name} === */\n${f.content}\n</style>`).join("\n");
+    if (/<\/head>/i.test(html)) {
+      html = html.replace(/<\/head>/i, `${cssBlock}\n</head>`);
+    } else if (/<body[\s>]/i.test(html)) {
+      html = html.replace(/<body[\s>]/i, (m) => `${cssBlock}\n${m}`);
+    } else {
+      html = cssBlock + "\n" + html;
     }
   }
 
+  // ── Step 3: strip ALL external <script src="..."> tags ────────────────────
+  html = html.replace(/<script\b[^>]*\bsrc=["'][^"']*["'][^>]*>\s*<\/script>/gi, "");
+
+  // ── Step 4: inject JS files as <script> blocks before </body> ─────────────
+  const jsFiles = files.filter((f) => f.language === "javascript" && f.content.trim());
+  const jsBlock = jsFiles.map((f) => `<script>\n/* === ${f.name} === */\n${f.content}\n<\/script>`).join("\n");
+
+  // ── Step 5: image virtual filesystem + multi-page navigation ──────────────
   const imageVfs: Record<string, string> = {};
   for (const f of files) {
     if (f.language === "image" && f.content.startsWith("data:")) imageVfs[f.name] = f.content;
@@ -73,8 +85,10 @@ function buildSrcDoc(files: FileEntry[], entryName?: string): string | null {
 })();
 <\/script>`;
 
-  if (/<\/body>/i.test(html)) html = html.replace(/<\/body>/i, `${vfsScript}\n</body>`);
-  else html += vfsScript;
+  const inject = (jsBlock ? jsBlock + "\n" : "") + vfsScript;
+  if (/<\/body>/i.test(html)) html = html.replace(/<\/body>/i, `${inject}\n</body>`);
+  else html += "\n" + inject;
+
   return html;
 }
 
@@ -221,6 +235,8 @@ export function PreviewPanel({ files, isOpen, onClose, defaultPage }: Props) {
   function startResize(e: React.PointerEvent, dir: string) {
     e.preventDefault();
     e.stopPropagation();
+    e.nativeEvent.stopImmediatePropagation();
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     setIsResizing(true);
     resizeState.current = {
       startMX: e.clientX,
