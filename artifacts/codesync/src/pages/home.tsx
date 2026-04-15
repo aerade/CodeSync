@@ -249,7 +249,7 @@ export default function Home() {
             initial={{ opacity: 0, x: -12 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5 }}
-            className="flex items-center gap-2.5"
+            className="flex items-center gap-1"
           >
             <Logo size={42} />
             <span style={{ fontSize: 18, fontWeight: 700, color: "#fff", letterSpacing: "-0.4px" }}>CodeSync</span>
@@ -339,7 +339,7 @@ export default function Home() {
                 style={{
                   fontSize: "clamp(20px, 3vw, 28px)",
                   fontWeight: 700,
-                  color: "rgba(255,255,255,0.35)",
+                  color: "#ffffff",
                   letterSpacing: "-0.5px",
                   marginTop: 6,
                   marginBottom: 20,
