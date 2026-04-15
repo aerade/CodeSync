@@ -328,11 +328,13 @@ export default function RoomPage() {
   useEffect(() => {
     const wsFileId = activeFileId ?? "__room__";
 
-    if (activeFileId) {
-      const file = files.find((f) => f.id === activeFileId);
-      if (file) {
-        setFileContent(file.content ?? "");
-      }
+    // Clear editor immediately on file switch — Yjs init will fill in the correct content.
+    // Using stale React-Query cache here causes a visible flash of wrong content.
+    setFileContent("");
+    if (editorRef.current) {
+      isRemoteUpdate.current = true;
+      editorRef.current.setValue("");
+      isRemoteUpdate.current = false;
     }
 
     if (editorRef.current && aiDiffDecorationsRef.current.length > 0) {
@@ -407,9 +409,10 @@ export default function RoomPage() {
             const update = Uint8Array.from(atob(msg.update), (c) => c.charCodeAt(0));
             Y.applyUpdate(ydoc, update);
             const text = yText.toString();
-            if (text && editorRef.current) {
+            if (editorRef.current) {
               isRemoteUpdate.current = true;
               editorRef.current.setValue(text);
+              setFileContent(text);
               isRemoteUpdate.current = false;
             }
           } else if (msg.type === "yjs-update" && msg.update) {
