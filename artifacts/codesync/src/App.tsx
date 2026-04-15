@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { ClerkProvider, SignIn, SignUp, useClerk, useUser, useAuth } from "@clerk/react";
+import { ClerkProvider, SignIn, SignUp, AuthenticateWithRedirectCallback, useClerk, useUser, useAuth } from "@clerk/react";
 import { Switch, Route, useLocation, Router as WouterRouter } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider, useQueryClient } from "@tanstack/react-query";
@@ -148,6 +148,7 @@ function ClerkProviderWithRoutes() {
             <Route path="/room/:roomId" component={RoomPage} />
             <Route path="/sign-in/*?" component={SignInPage} />
             <Route path="/sign-up/*?" component={SignUpPage} />
+            <Route path="/sso-callback" component={() => <AuthenticateWithRedirectCallback />} />
             <Route component={NotFound} />
           </Switch>
           <Toaster />
