@@ -11,6 +11,7 @@ export interface RoomSettingsData {
   showChatMessages: boolean;
   soundEnabled: boolean;
   soundType: string;
+  soundCustomUrl?: string;
   fontSize: number;
   tabSize: number;
   wordWrap: boolean;
@@ -57,10 +58,20 @@ const SOUND_OPTIONS = [
   { id: "pop", label: "Поп", desc: "Короткий щелчок" },
   { id: "bell", label: "Звонок", desc: "Классический звук" },
   { id: "soft", label: "Тихий", desc: "Еле слышный сигнал" },
+  { id: "custom", label: "Свой файл", desc: "Загрузи свой MP3" },
 ];
 
 export function playSound(type: string, volume = 0.15) {
   try {
+    if (type === "custom") {
+      const customUrl = localStorage.getItem("codesync_custom_sound");
+      if (customUrl) {
+        const audio = new Audio(customUrl);
+        audio.volume = volume * 3;
+        audio.play().catch(() => {});
+      }
+      return;
+    }
     const ctx = new AudioContext();
     const now = ctx.currentTime;
     if (type === "chime") {
@@ -363,6 +374,13 @@ export function RoomSettings({ isOpen, onClose, settings, onChange, isOwner = fa
   }
 
   const [section, setSection] = useState<SectionId>("appearance");
+  const soundFileInputRef = useRef<HTMLInputElement>(null);
+  const [customSoundName, setCustomSoundName] = useState<string>(() => {
+    try {
+      const stored = localStorage.getItem("codesync_custom_sound_name");
+      return stored ?? "";
+    } catch { return ""; }
+  });
 
   useEffect(() => {
     if (!isOpen) return;
@@ -375,6 +393,30 @@ export function RoomSettings({ isOpen, onClose, settings, onChange, isOwner = fa
     const next = { ...settings, ...partial };
     onChange(next);
     saveSettings(next);
+  }
+
+  function handleCustomSoundUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 3 * 1024 * 1024) { alert("Файл слишком большой (макс. 3 МБ)"); e.target.value = ""; return; }
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const dataUrl = ev.target?.result as string;
+      try {
+        localStorage.setItem("codesync_custom_sound", dataUrl);
+        localStorage.setItem("codesync_custom_sound_name", file.name);
+        setCustomSoundName(file.name);
+        set({ soundType: "custom" });
+        // Preview the sound
+        const audio = new Audio(dataUrl);
+        audio.volume = 0.5;
+        audio.play().catch(() => {});
+      } catch {
+        alert("Не удалось сохранить файл. Попробуйте файл поменьше.");
+      }
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
   }
 
 
@@ -558,6 +600,13 @@ export function RoomSettings({ isOpen, onClose, settings, onChange, isOwner = fa
                       {/* SOUND */}
                       {section === "sound" && (
                         <div>
+                          <input
+                            ref={soundFileInputRef}
+                            type="file"
+                            accept="audio/mpeg,audio/mp3,audio/wav,audio/ogg,audio/*"
+                            style={{ display: "none" }}
+                            onChange={handleCustomSoundUpload}
+                          />
                           <SectionLabel>Уведомления</SectionLabel>
                           <Toggle value={settings.soundEnabled} onChange={(v) => set({ soundEnabled: v })} label="Звук завершения ИИ" desc="Воспроизводить звук когда ИИ заканчивает ответ" />
                           {settings.soundEnabled && (
@@ -567,7 +616,14 @@ export function RoomSettings({ isOpen, onClose, settings, onChange, isOwner = fa
                                 {SOUND_OPTIONS.map((s) => (
                                   <button
                                     key={s.id}
-                                    onClick={() => { set({ soundType: s.id }); playSound(s.id); }}
+                                    onClick={() => {
+                                      if (s.id === "custom") {
+                                        soundFileInputRef.current?.click();
+                                      } else {
+                                        set({ soundType: s.id });
+                                        playSound(s.id);
+                                      }
+                                    }}
                                     style={{
                                       display: "flex", alignItems: "center", gap: 12,
                                       padding: "10px 14px", borderRadius: 10, cursor: "pointer", textAlign: "left",
@@ -577,17 +633,25 @@ export function RoomSettings({ isOpen, onClose, settings, onChange, isOwner = fa
                                     }}
                                   >
                                     <div style={{ width: 32, height: 32, borderRadius: 9, background: settings.soundType === s.id ? "rgba(88,166,255,0.15)" : "rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={settings.soundType === s.id ? "#58A6FF" : "rgba(255,255,255,0.4)"} strokeWidth="2" strokeLinecap="round">
-                                        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
-                                        <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
-                                      </svg>
+                                      {s.id === "custom" ? (
+                                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={settings.soundType === s.id ? "#58A6FF" : "rgba(255,255,255,0.4)"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+                                        </svg>
+                                      ) : (
+                                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={settings.soundType === s.id ? "#58A6FF" : "rgba(255,255,255,0.4)"} strokeWidth="2" strokeLinecap="round">
+                                          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                                          <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                                        </svg>
+                                      )}
                                     </div>
-                                    <div>
+                                    <div style={{ flex: 1, minWidth: 0 }}>
                                       <div style={{ fontSize: 13, fontWeight: 500, color: settings.soundType === s.id ? "#58A6FF" : "rgba(255,255,255,0.75)" }}>{s.label}</div>
-                                      <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", marginTop: 1 }}>{s.desc}</div>
+                                      <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", marginTop: 1 }}>
+                                        {s.id === "custom" && customSoundName ? customSoundName : s.desc}
+                                      </div>
                                     </div>
                                     {settings.soundType === s.id && (
-                                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#58A6FF" strokeWidth="2.5" strokeLinecap="round" style={{ marginLeft: "auto" }}>
+                                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#58A6FF" strokeWidth="2.5" strokeLinecap="round" style={{ marginLeft: "auto", flexShrink: 0 }}>
                                         <polyline points="20 6 9 17 4 12"/>
                                       </svg>
                                     )}

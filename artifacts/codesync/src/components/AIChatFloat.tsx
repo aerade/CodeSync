@@ -48,6 +48,15 @@ function playDoneSound() {
     const s = settingsRaw ? JSON.parse(settingsRaw) as { soundEnabled?: boolean; soundType?: string } : {};
     if (s.soundEnabled === false) return;
     const type = s.soundType ?? "chime";
+    if (type === "custom") {
+      const customUrl = localStorage.getItem("codesync_custom_sound");
+      if (customUrl) {
+        const audio = new Audio(customUrl);
+        audio.volume = 0.5;
+        audio.play().catch(() => {});
+      }
+      return;
+    }
     const ctx = new AudioContext();
     const now = ctx.currentTime;
     const vol = 0.15;
@@ -172,7 +181,7 @@ export function AIChatFloat({
   const [planMode, setPlanMode] = useState(false);
   const [selectedModel, setSelectedModel] = useState("gpt-4.1");
   const [modelMenuOpen, setModelMenuOpen] = useState(false);
-  const [attachedFile, setAttachedFile] = useState<{ name: string; content: string; mimeType: string } | null>(null);
+  const [attachedFile, setAttachedFile] = useState<{ name: string; content: string; mimeType: string; imageDataUrl?: string } | null>(null);
   const [copiedMsgIdx, setCopiedMsgIdx] = useState<number | null>(null);
   const [aiContextMenu, setAiContextMenu] = useState<AiContextMenu>(null);
   const [btnPos, setBtnPos] = useState(initBtnPos);
@@ -284,22 +293,39 @@ export function AIChatFloat({
   function handleAttachFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) { alert("Файл слишком большой (макс. 5 МБ)"); e.target.value = ""; return; }
+    if (file.size > 8 * 1024 * 1024) { alert("Файл слишком большой (макс. 8 МБ)"); e.target.value = ""; return; }
+    const isImage = file.type.startsWith("image/");
     const reader = new FileReader();
-    reader.onload = (ev) => {
-      const content = ev.target?.result as string ?? "";
-      setAttachedFile({ name: file.name, content, mimeType: file.type || "text/plain" });
-    };
-    reader.readAsText(file);
+    if (isImage) {
+      reader.onload = (ev) => {
+        const dataUrl = ev.target?.result as string ?? "";
+        setAttachedFile({ name: file.name, content: "", mimeType: file.type, imageDataUrl: dataUrl });
+      };
+      reader.readAsDataURL(file);
+    } else {
+      reader.onload = (ev) => {
+        const content = ev.target?.result as string ?? "";
+        setAttachedFile({ name: file.name, content, mimeType: file.type || "text/plain" });
+      };
+      reader.readAsText(file);
+    }
     e.target.value = "";
   }
 
   async function sendChat() {
-    if (!chatInput.trim() || isChatLoading) return;
-    let userMsg = chatInput.trim();
+    const hasText = chatInput.trim().length > 0;
+    const hasImage = !!attachedFile?.imageDataUrl;
+    if ((!hasText && !hasImage) || isChatLoading) return;
+    let userMsg = chatInput.trim() || (hasImage ? "Что на этом изображении?" : "");
     const fileToSend = attachedFile;
+    let imageAttachment: { name: string; dataUrl: string } | undefined;
     if (fileToSend) {
-      userMsg = `[Файл: ${fileToSend.name}]\n\`\`\`\n${fileToSend.content.slice(0, 8000)}\n\`\`\`\n\n${userMsg}`;
+      if (fileToSend.imageDataUrl) {
+        userMsg = `[📷 ${fileToSend.name}]\n${userMsg}`;
+        imageAttachment = { name: fileToSend.name, dataUrl: fileToSend.imageDataUrl };
+      } else {
+        userMsg = `[Файл: ${fileToSend.name}]\n\`\`\`\n${fileToSend.content.slice(0, 8000)}\n\`\`\`\n\n${userMsg}`;
+      }
       setAttachedFile(null);
     }
     setChatInput("");
@@ -330,6 +356,7 @@ export function AIChatFloat({
           allFiles: files
             .filter((f) => f.language !== "image")
             .map((f) => ({ id: f.id, name: f.name, language: f.language, content: (f.content ?? "").slice(0, 4000) })),
+          ...(imageAttachment ? { imageAttachment } : {}),
         }),
       });
 
@@ -347,6 +374,7 @@ export function AIChatFloat({
       let editedFileId: string | null = null;
       let editedNewContent: string | null = null;
       let hadToolCalls = false;
+      let hadImageDownloads = false;
       const opCounts = { create: 0, edit: 0, delete: 0, search: 0, download: 0 };
       const statsAcc: Record<string, { added: number; removed: number }> = {};
 
@@ -380,7 +408,12 @@ export function AIChatFloat({
             if (parsed.toolCall) {
               hadToolCalls = true;
               const tc = parsed.toolCall;
-              onFilesChanged?.();
+              // Only refresh file tree for file-modifying operations, not for image search/download
+              if (tc.name !== "search_images" && tc.name !== "download_image") {
+                onFilesChanged?.();
+              } else if (tc.name === "download_image" && tc.result?.success) {
+                hadImageDownloads = true;
+              }
               if (tc.result?.success) {
                 if (tc.name === "create_file") {
                   opCounts.create++;
@@ -431,6 +464,8 @@ export function AIChatFloat({
         }
       }
 
+      // Refresh file tree once at the end if images were downloaded
+      if (hadImageDownloads) onFilesChanged?.();
       if (Object.keys(statsAcc).length > 0) onAiStats?.(statsAcc);
       if (editedFileId && editedNewContent !== null && fileId === editedFileId) {
         onContentRestored?.(editedNewContent);
@@ -877,7 +912,7 @@ export function AIChatFloat({
             <input
               ref={fileAttachRef}
               type="file"
-              accept="text/*,.json,.md,.yaml,.yml,.ts,.tsx,.js,.jsx,.py,.go,.rs,.java,.cpp,.c,.cs,.rb,.php,.sql,.sh"
+              accept="image/*,text/*,.json,.md,.yaml,.yml,.ts,.tsx,.js,.jsx,.py,.go,.rs,.java,.cpp,.c,.cs,.rb,.php,.sql,.sh"
               style={{ display: "none" }}
               onChange={handleAttachFile}
             />
@@ -885,14 +920,25 @@ export function AIChatFloat({
             {/* Attached file chip */}
             {attachedFile && (
               <div style={{
-                display: "flex", alignItems: "center", gap: 6, marginBottom: 6,
+                display: "flex", alignItems: "center", gap: 8, marginBottom: 6,
                 padding: "4px 8px", borderRadius: 8,
-                background: "rgba(88,166,255,0.08)", border: "1px solid rgba(88,166,255,0.2)",
+                background: attachedFile.imageDataUrl ? "rgba(63,185,80,0.08)" : "rgba(88,166,255,0.08)",
+                border: `1px solid ${attachedFile.imageDataUrl ? "rgba(63,185,80,0.25)" : "rgba(88,166,255,0.2)"}`,
               }}>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#58A6FF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
-                </svg>
-                <span style={{ fontSize: 11, color: "#58A6FF", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{attachedFile.name}</span>
+                {attachedFile.imageDataUrl ? (
+                  <img
+                    src={attachedFile.imageDataUrl}
+                    alt={attachedFile.name}
+                    style={{ width: 28, height: 28, borderRadius: 4, objectFit: "cover", flexShrink: 0 }}
+                  />
+                ) : (
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#58A6FF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                    <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+                  </svg>
+                )}
+                <span style={{ fontSize: 11, color: attachedFile.imageDataUrl ? "#3FB950" : "#58A6FF", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {attachedFile.imageDataUrl ? "📷 " : ""}{attachedFile.name}
+                </span>
                 <button onClick={() => setAttachedFile(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.3)", fontSize: 14, lineHeight: 1, padding: 0 }}>×</button>
               </div>
             )}
@@ -937,13 +983,13 @@ export function AIChatFloat({
                 {/* File attach — bottom left */}
                 <button
                   onClick={() => fileAttachRef.current?.click()}
-                  title="Прикрепить файл"
+                  title="Прикрепить файл или изображение"
                   style={{
                     width: 26, height: 26, borderRadius: 7, flexShrink: 0,
-                    background: attachedFile ? "rgba(88,166,255,0.12)" : "transparent",
-                    border: `1px solid ${attachedFile ? "rgba(88,166,255,0.3)" : "rgba(255,255,255,0.07)"}`,
+                    background: attachedFile?.imageDataUrl ? "rgba(63,185,80,0.12)" : attachedFile ? "rgba(88,166,255,0.12)" : "transparent",
+                    border: `1px solid ${attachedFile?.imageDataUrl ? "rgba(63,185,80,0.3)" : attachedFile ? "rgba(88,166,255,0.3)" : "rgba(255,255,255,0.07)"}`,
                     cursor: "pointer",
-                    color: attachedFile ? "#58A6FF" : "rgba(255,255,255,0.3)",
+                    color: attachedFile?.imageDataUrl ? "#3FB950" : attachedFile ? "#58A6FF" : "rgba(255,255,255,0.3)",
                     display: "flex", alignItems: "center", justifyContent: "center",
                     transition: "all 0.15s",
                   }}
@@ -1004,19 +1050,19 @@ export function AIChatFloat({
                 ) : (
                   <motion.button
                     onClick={() => void sendChat()}
-                    disabled={!chatInput.trim()}
-                    whileHover={chatInput.trim() ? { scale: 1.07 } : {}}
-                    whileTap={chatInput.trim() ? { scale: 0.93 } : {}}
+                    disabled={!chatInput.trim() && !attachedFile?.imageDataUrl}
+                    whileHover={(chatInput.trim() || attachedFile?.imageDataUrl) ? { scale: 1.07 } : {}}
+                    whileTap={(chatInput.trim() || attachedFile?.imageDataUrl) ? { scale: 0.93 } : {}}
                     style={{
                       width: 30, height: 26, borderRadius: 7, flexShrink: 0,
-                      background: chatInput.trim()
+                      background: (chatInput.trim() || attachedFile?.imageDataUrl)
                         ? planMode
                           ? "linear-gradient(135deg, #D2A8FF, #8957e5)"
                           : "linear-gradient(135deg, #58A6FF, #3FB950)"
                         : "rgba(255,255,255,0.06)",
                       border: "none",
-                      cursor: chatInput.trim() ? "pointer" : "default",
-                      color: chatInput.trim() ? "#0D1117" : "rgba(255,255,255,0.2)",
+                      cursor: (chatInput.trim() || attachedFile?.imageDataUrl) ? "pointer" : "default",
+                      color: (chatInput.trim() || attachedFile?.imageDataUrl) ? "#0D1117" : "rgba(255,255,255,0.2)",
                       display: "flex", alignItems: "center", justifyContent: "center",
                       transition: "background 0.2s, color 0.2s",
                     }}

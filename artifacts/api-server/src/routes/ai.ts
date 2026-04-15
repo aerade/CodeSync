@@ -329,6 +329,7 @@ async function chatHandler(req: Request, res: Response): Promise<void> {
   const body = req.body as {
     message?: unknown; messages?: unknown; context?: unknown;
     language?: unknown; roomId?: unknown; fileId?: unknown; allFiles?: unknown;
+    imageAttachment?: { name?: string; dataUrl?: string };
   };
 
   let chatMessages: ChatMessage[];
@@ -412,8 +413,9 @@ async function chatHandler(req: Request, res: Response): Promise<void> {
 - Используй download_image для скачивания — изображения автоматически попадут в папку images/
 - Если download_image не удался (ошибка или недоступен URL) — пропусти это изображение и напиши placeholder в HTML
 - В HTML-коде используй имя файла: <img src="images/hero.jpg">
-- При создании сайтов с картинками — сначала скачай нужные (максимум 3-4 штуки), потом создавай HTML
+- При создании сайтов с картинками — СНАЧАЛА создай все HTML/CSS/JS файлы с placeholder-тегами img (src="images/hero.jpg"), затем скачивай изображения через search_images+download_image
 - Не пытайся скачать одно и то же изображение повторно если первый раз не получилось
+- Если пользователь прикрепил изображение к сообщению — ты его ВИДИШЬ и можешь описать, проанализировать, использовать как референс
 ${context
     ? `\nТекущий открытый файл (${language}):\n\`\`\`${language}\n${context}\n\`\`\``
     : language
@@ -537,10 +539,27 @@ ${context
     }
 
     // ── OpenAI branch ──────────────────────────────────────────────────────────
-    const allMessages: Array<{ role: string; content: string }> = [
-      { role: "system", content: systemPrompt },
-      ...chatMessages,
-    ];
+    // Build messages array, inject image into last user message if provided
+    const imageAttachment = body.imageAttachment;
+    const hasImage = imageAttachment?.dataUrl && imageAttachment.dataUrl.startsWith("data:image/");
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const allMessages: Array<any> = [{ role: "system", content: systemPrompt }];
+    for (let i = 0; i < chatMessages.length; i++) {
+      const m = chatMessages[i];
+      const isLastUser = m.role === "user" && i === chatMessages.length - 1;
+      if (isLastUser && hasImage) {
+        allMessages.push({
+          role: "user",
+          content: [
+            { type: "text", text: m.content },
+            { type: "image_url", image_url: { url: imageAttachment!.dataUrl!, detail: "high" } },
+          ],
+        });
+      } else {
+        allMessages.push({ role: m.role, content: m.content });
+      }
+    }
 
     let attempts = 0;
     const MAX_TOOL_ROUNDS = 10;
