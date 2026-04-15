@@ -211,6 +211,75 @@ function DualCursorIcon(size: number, color: string) {
   );
 }
 
+// ─── Concept 6: Terminal Window ─────────────────────────────────────────────
+function TerminalWindowIcon(size: number, color: string) {
+  const s = size;
+  return (
+    <svg width={s} height={s} viewBox="0 0 24 24" fill="none">
+      {/* Window frame */}
+      <rect x="2" y="3" width="20" height="18" rx="3.5" stroke={color} strokeWidth="2" fill="none" />
+      {/* Title bar divider */}
+      <line x1="2" y1="9" x2="22" y2="9" stroke={color} strokeWidth="1.5" />
+      {/* Traffic lights */}
+      <circle cx="5.5" cy="6" r="1.1" fill={color} />
+      <circle cx="9" cy="6" r="1.1" fill={color} />
+      {/* > prompt */}
+      <path d="M 5 14 L 8 16 L 5 18" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+      {/* Cursor underscore */}
+      <line x1="9.5" y1="18" x2="15" y2="18" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+// ─── Concept 7: Code Gutter ──────────────────────────────────────────────────
+function CodeGutterIcon(size: number, color: string) {
+  const s = size;
+  return (
+    <svg width={s} height={s} viewBox="0 0 24 24" fill="none">
+      {/* Gutter vertical bar */}
+      <line x1="6" y1="3" x2="6" y2="21" stroke={color} strokeWidth="1.6" strokeLinecap="round" opacity="0.45" />
+      {/* Gutter dot markers */}
+      <circle cx="6" cy="7" r="1.8" fill={color} />
+      <circle cx="6" cy="13" r="1.8" fill={color} />
+      <circle cx="6" cy="19" r="1.8" fill={color} />
+      {/* Code line 1 (long) */}
+      <line x1="10" y1="7" x2="21" y2="7" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      {/* Code line 2 (short) + blinking cursor */}
+      <line x1="10" y1="13" x2="17" y2="13" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <line x1="18" y1="11" x2="18" y2="15" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+      {/* Code line 3 (medium) */}
+      <line x1="10" y1="19" x2="19" y2="19" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+// ─── Concept 8: Curly Braces ─────────────────────────────────────────────────
+function CurlyBracesIcon(size: number, color: string) {
+  const s = size;
+  return (
+    <svg width={s} height={s} viewBox="0 0 24 24" fill="none">
+      {/* Left brace { */}
+      <path
+        d="M 15 3 C 12 3 10.5 4.5 10.5 7 C 10.5 9 9 10.5 7.5 12 C 9 13.5 10.5 15 10.5 17 C 10.5 19.5 12 21 15 21"
+        stroke={color}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        fill="none"
+      />
+      {/* Right brace } */}
+      <path
+        d="M 9 3 C 12 3 13.5 4.5 13.5 7 C 13.5 9 15 10.5 16.5 12 C 15 13.5 13.5 15 13.5 17 C 13.5 19.5 12 21 9 21"
+        stroke={color}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        fill="none"
+      />
+      {/* Sync dot in center */}
+      <circle cx="12" cy="12" r="2" fill={color} />
+    </svg>
+  );
+}
+
 // ─── Concept 4: Git Merge (Branch) ──────────────────────────────────────────
 function GitMergeIcon(size: number, color: string) {
   const s = size;
@@ -359,10 +428,45 @@ export function LogoNew() {
         </div>
       </div>
 
+      {/* Terminal concepts section */}
+      <div style={{ marginTop: 40 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+          <div style={{ height: 1, flex: 1, background: BORDER }} />
+          <span style={{ fontSize: 10, fontFamily: "'JetBrains Mono', monospace", color: MUTED, textTransform: "uppercase", letterSpacing: "0.12em" }}>Мини-терминал</span>
+          <div style={{ height: 1, flex: 1, background: BORDER }} />
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 24 }}>
+          <ConceptCard
+            number="06"
+            name="Окно терминала"
+            desc="Иконка macOS-окна с заголовком, двумя точками и промптом `>_` внутри — классический образ IDE и командной строки."
+            tag="Terminal"
+            accent="#60A5FA"
+            icon={(sz, col) => TerminalWindowIcon(sz, col)}
+          />
+          <ConceptCard
+            number="07"
+            name="Редактор кода"
+            desc="Вертикальный гатер с маркерами строк, три линии кода и мигающий курсор — привычная сетка любого текстового редактора."
+            tag="Editor"
+            accent="#F472B6"
+            icon={(sz, col) => CodeGutterIcon(sz, col)}
+          />
+          <ConceptCard
+            number="08"
+            name="Фигурные скобки"
+            desc="`{ }` — универсальный символ кода любого языка. Точка синхронизации в центре соединяет двух разработчиков внутри одного блока."
+            tag="Universal"
+            accent="#C084FC"
+            icon={(sz, col) => CurlyBracesIcon(sz, col)}
+          />
+        </div>
+      </div>
+
       {/* Note */}
       <div style={{ marginTop: 28, padding: "14px 20px", background: `${TEAL}10`, border: `1px solid ${TEAL}25`, borderRadius: 10 }}>
         <div style={{ fontSize: 11, color: MUTED, lineHeight: 1.6 }}>
-          <span style={{ color: TEAL, fontWeight: 700 }}>Как выбрать:</span> Концепция 01 лучше всего читается на favicon-размерах (16–32px) и максимально чётко передаёт идею синхронизации. Концепция 02 — наиболее буквальная метафора продукта. Концепция 03 — самая элегантная, подходит для позиционирования как premium-инструмент. Концепции 04–05 — кодинг-нативные, максимально считываемые аудиторией разработчиков.
+          <span style={{ color: TEAL, fontWeight: 700 }}>Как выбрать:</span> Концепции 06–08 — самые узнаваемые для разработчиков. «Окно терминала» (06) считывается мгновенно, «Редактор кода» (07) ближе к IDE-инструментам, «Фигурные скобки» (08) — язык-нейтральный символ программирования с добавлением метафоры соединения.
         </div>
       </div>
     </div>
