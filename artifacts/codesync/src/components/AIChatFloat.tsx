@@ -980,8 +980,6 @@ export function AIChatFloat({
                 padding: "0 8px 8px",
                 gap: 4,
                 zIndex: 5,
-                background: "linear-gradient(to top, rgba(30,32,38,0.98) 60%, transparent)",
-                borderRadius: "0 0 14px 14px",
               }}>
                 {/* File attach — bottom left */}
                 <button
