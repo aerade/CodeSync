@@ -224,6 +224,8 @@ async function findOrCreateImagesFolder(roomId: string, userId: string): Promise
   }
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 async function executeFileTool(toolName: string, args: Record<string, string>, roomId: string, userId: string): Promise<string> {
   try {
     if (toolName === "create_file") {
@@ -241,6 +243,10 @@ async function executeFileTool(toolName: string, args: Record<string, string>, r
     if (toolName === "edit_file") {
       const fileId = args.fileId ?? "";
       const content = args.content ?? "";
+      // Validate UUID before hitting DB — AI sometimes passes language name instead of ID
+      if (!UUID_RE.test(fileId)) {
+        return JSON.stringify({ success: false, error: `Неверный fileId: "${fileId}". Нужен UUID из раздела "Актуальные файлы в комнате", например "3f8a5c12-1234-...". Используй id файла, а не его название или язык.` });
+      }
       const existing = await db.query.filesTable.findFirst({ where: and(eq(filesTable.id, fileId), eq(filesTable.roomId, roomId)) });
       if (existing && existing.content !== content) {
         await saveFileSnapshot(fileId, roomId, existing.content, userId, "AI (before edit)").catch(() => {});
@@ -254,6 +260,9 @@ async function executeFileTool(toolName: string, args: Record<string, string>, r
 
     if (toolName === "delete_file") {
       const fileId = args.fileId ?? "";
+      if (!UUID_RE.test(fileId)) {
+        return JSON.stringify({ success: false, error: `Неверный fileId: "${fileId}". Нужен UUID из списка файлов.` });
+      }
       const file = await db.query.filesTable.findFirst({ where: and(eq(filesTable.id, fileId), eq(filesTable.roomId, roomId)) });
       if (!file) return JSON.stringify({ success: false, error: "Файл не найден" });
       await db.delete(filesTable).where(and(eq(filesTable.id, fileId), eq(filesTable.roomId, roomId)));

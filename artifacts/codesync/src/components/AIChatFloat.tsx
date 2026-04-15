@@ -396,7 +396,11 @@ export function AIChatFloat({
               fileStream?: { toolName: string; fileId?: string; fileName?: string; content: string; done?: boolean };
             };
             if (parsed.error) {
-              setMessages((prev) => [...prev, { role: "assistant", content: `⚠ ${parsed.error}` }]);
+              const rawErr = parsed.error as string;
+              // Sanitize: never show raw SQL, stack traces or Drizzle internals to the user
+              const isTechnical = /Failed query|select .* from|drizzle|stack trace|at Object\.|\.mjs:/i.test(rawErr);
+              const userMsg = isTechnical ? "Произошла внутренняя ошибка. Попробуйте ещё раз." : rawErr;
+              setMessages((prev) => [...prev, { role: "assistant", content: `⚠ ${userMsg}` }]);
             }
             if (parsed.fileStream) {
               const fs = parsed.fileStream;
@@ -433,7 +437,8 @@ export function AIChatFloat({
                   if (editedId) statsAcc[editedId] = { added, removed };
                 } else if (tc.name === "delete_file") { opCounts.delete++; }
               } else if (tc.result && !tc.result.success && tc.result.error) {
-                setMessages((prev) => [...prev, { role: "assistant", content: `⚠ ${tc.result.error}` }]);
+                // Tool errors are returned to AI for self-correction — don't show raw errors to user
+                console.warn("[AI tool error]", tc.name, tc.result.error);
               }
               if (tc.name === "create_file" && tc.result?.success && tc.result?.fileId) {
                 const createdName = (tc.result.name ?? tc.args.name ?? "") as string;
