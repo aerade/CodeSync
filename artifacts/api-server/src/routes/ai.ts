@@ -372,8 +372,13 @@ async function chatHandler(req: Request, res: Response): Promise<void> {
   const filesToContext = allFilesBody.filter((f) => f.language !== "image");
   if (filesToContext.length > 0) {
     const parts = filesToContext.slice(0, 10).map((f) => {
-      const truncated = f.content && f.content.length > 3000 ? f.content.slice(0, 3000) + "\n...(обрезано)" : f.content;
-      return `\n### ${f.name} (id: ${f.id}, ${f.language})\n\`\`\`${f.language}\n${truncated}\n\`\`\``;
+      const isEmpty = !f.content || f.content.trim().length === 0;
+      const truncated = isEmpty
+        ? "⚠️ ФАЙЛ ПУСТОЙ — содержимого нет, требует создания кода"
+        : f.content.length > 3000
+          ? f.content.slice(0, 3000) + "\n...(обрезано)"
+          : f.content;
+      return `\n### ${f.name} (id: ${f.id}, ${f.language})${isEmpty ? " [ПУСТОЙ]" : ""}\n\`\`\`${f.language}\n${truncated}\n\`\`\``;
     });
     fileContextStr = `\n\n## Файлы в комнате (${filesToContext.length} шт.):\n${parts.join("\n")}`;
   } else if (roomFilesResult.length > 0) {
@@ -400,6 +405,7 @@ async function chatHandler(req: Request, res: Response): Promise<void> {
 - После вызова инструмента кратко объясни что сделал (1-2 предложения), но не дублируй весь код в сообщение.
 - Если файлов несколько — создавай их последовательно, по одному инструменту за раз.
 - Не объясняй что "собираешься сделать" — просто делай.
+- КРИТИЧНО: если файл помечен как [ПУСТОЙ] или содержит "⚠️ ФАЙЛ ПУСТОЙ" — он существует, но в нём НЕТ кода. Ты ОБЯЗАН записать в него код через edit_file, не пропускай его.
 
 Для работы с изображениями:
 - Используй search_images для поиска (запрос лучше на английском)
@@ -408,7 +414,11 @@ async function chatHandler(req: Request, res: Response): Promise<void> {
 - В HTML-коде используй имя файла: <img src="images/hero.jpg">
 - При создании сайтов с картинками — сначала скачай нужные (максимум 3-4 штуки), потом создавай HTML
 - Не пытайся скачать одно и то же изображение повторно если первый раз не получилось
-${context ? `\nТекущий файл (${language}):\n\`\`\`${language}\n${context}\n\`\`\`` : ""}${fileContextStr}${planModeInstructions}`;
+${context
+    ? `\nТекущий открытый файл (${language}):\n\`\`\`${language}\n${context}\n\`\`\``
+    : language
+      ? `\nТекущий открытый файл (${language}): ⚠️ ПУСТОЙ — содержимого нет, требует написания кода`
+      : ""}${fileContextStr}${planModeInstructions}`;
 
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
