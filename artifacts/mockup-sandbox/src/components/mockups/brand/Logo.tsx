@@ -1,4 +1,3 @@
-// Logo identical to the one shown top-left in ColorTypography board
 function SynchroLogo({ size = 48, textSize = 26, dark = false }: { size?: number; textSize?: number; dark?: boolean }) {
   const r = Math.round(size * 0.27);
   const iconSize = Math.round(size * 0.54);
@@ -96,9 +95,9 @@ export function Logo() {
           <div key={sz} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
             <div style={{ width: sz, height: sz, borderRadius: Math.round(sz * 0.25), background: "#00C2A8", display: "flex", alignItems: "center", justifyContent: "center" }}>
               <svg width={Math.round(sz * 0.56)} height={Math.round(sz * 0.56)} viewBox="0 0 24 24" fill="none">
-                <path d="M7 8l-4 4 4 4" stroke="#080C14" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M17 8l4 4-4 4" stroke="#080C14" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M9 16.5l6-9" stroke="#080C14" strokeWidth="2.5" strokeLinecap="round"/>
+                <path d="M7 8l-4 4 4 4" stroke="#080C14" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M17 8l4 4-4 4" stroke="#080C14" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M9 16.5l6-9" stroke="#080C14" strokeWidth="2.2" strokeLinecap="round"/>
               </svg>
             </div>
             <span style={{ fontSize: 9, fontFamily: "'JetBrains Mono', monospace", color: "#5A6880" }}>{sz}px</span>

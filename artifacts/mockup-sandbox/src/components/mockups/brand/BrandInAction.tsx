@@ -31,9 +31,9 @@ export function BrandInAction() {
             <div style={{ padding: "10px 14px", borderBottom: "1px solid #1E2D42", display: "flex", alignItems: "center", gap: 10 }}>
               <div style={{ width: 24, height: 24, borderRadius: 7, background: "#00C2A8", display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
-                  <path d="M7 8l-4 4 4 4" stroke="#080C14" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  <path d="M17 8l4 4-4 4" stroke="#080C14" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  <path d="M9 16.5l6-9" stroke="#080C14" strokeWidth="2.5" strokeLinecap="round"/>
+                  <path d="M7 8l-4 4 4 4" stroke="#080C14" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M17 8l4 4-4 4" stroke="#080C14" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M9 16.5l6-9" stroke="#080C14" strokeWidth="2.2" strokeLinecap="round"/>
                 </svg>
               </div>
               <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "-0.01em" }}>СИНХРОН</span>
@@ -92,9 +92,9 @@ export function BrandInAction() {
               <div style={{ padding: "14px 24px", borderBottom: "1px solid #1E2D42", display: "flex", alignItems: "center", gap: 12 }}>
                 <div style={{ width: 28, height: 28, borderRadius: 8, background: "#00C2A8", display: "flex", alignItems: "center", justifyContent: "center" }}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                    <path d="M7 8l-4 4 4 4" stroke="#080C14" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                    <path d="M17 8l4 4-4 4" stroke="#080C14" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                    <path d="M9 16.5l6-9" stroke="#080C14" strokeWidth="2.5" strokeLinecap="round"/>
+                    <path d="M7 8l-4 4 4 4" stroke="#080C14" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M17 8l4 4-4 4" stroke="#080C14" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M9 16.5l6-9" stroke="#080C14" strokeWidth="2.2" strokeLinecap="round"/>
                   </svg>
                 </div>
                 <span style={{ fontSize: 14, fontWeight: 800, letterSpacing: "-0.01em" }}>СИНХРОН</span>

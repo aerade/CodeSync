@@ -50,9 +50,10 @@ export function ColorTypography() {
       <div style={{ marginBottom: 48 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 8 }}>
           <div style={{ width: 36, height: 36, borderRadius: 10, background: "#00C2A8", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#080C14" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M8 9l3 3-3 3"/><line x1="13" y1="15" x2="16" y2="15"/>
-              <rect x="3" y="3" width="18" height="18" rx="3"/>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <path d="M7 8l-4 4 4 4" stroke="#080C14" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M17 8l4 4-4 4" stroke="#080C14" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M9 16.5l6-9" stroke="#080C14" strokeWidth="2.2" strokeLinecap="round"/>
             </svg>
           </div>
           <span style={{ fontSize: 22, fontWeight: 800, letterSpacing: "-0.02em" }}>СИНХРОН</span>
