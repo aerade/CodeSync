@@ -328,7 +328,7 @@ export default function Home() {
                     marginBottom: 0,
                   }}
                 >
-                  CodeSync
+                  Code<span style={{ color: "rgba(255,255,255,0.35)" }}>Sync</span>
                 </motion.h1>
               </div>
 

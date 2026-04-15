@@ -8,20 +8,20 @@ export function Logo({ size = 28, className }: LogoProps) {
     <svg
       width={size}
       height={size}
-      viewBox="0 0 28 28"
+      viewBox="0 0 32 32"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       className={className}
     >
-      <rect width="28" height="28" rx="7" fill="#0d1117" />
+      <rect width="32" height="32" rx="8" fill="#0d1117" />
       <text
-        x="14"
-        y="19"
+        x="16"
+        y="22"
         textAnchor="middle"
         fontFamily="'SF Mono', 'Fira Code', 'Fira Mono', monospace"
-        fontSize="11"
+        fontSize="13"
         fontWeight="700"
-        fill="#58a6ff"
+        fill="#ffffff"
         letterSpacing="-0.5"
       >
         {"</>"}
