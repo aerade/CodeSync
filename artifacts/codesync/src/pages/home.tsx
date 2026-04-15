@@ -7,21 +7,14 @@ import { GuestModal } from "@/components/GuestModal";
 
 const CODE_LINES = [
   { text: "import { Server } from 'socket.io';",        color: "#79c0ff", delay: 0    },
-  { text: "import { setupCRDT } from '@синхрон/core';", color: "#79c0ff", delay: 100  },
   { text: "",                                            color: "",        delay: 0    },
-  { text: "const io = new Server(3000);",                color: "#e6edf3", delay: 200  },
+  { text: "const io = new Server(3000);",                color: "#e6edf3", delay: 160  },
   { text: "",                                            color: "",        delay: 0    },
   { text: "io.on('connection', (socket) => {",           color: "#e6edf3", delay: 320  },
-  { text: "  const doc = setupCRDT(socket.id);",        color: "#3fb950", delay: 440  },
-  { text: "",                                            color: "",        delay: 0    },
-  { text: "  socket.on('code-change', (data) => {",     color: "#e6edf3", delay: 560  },
-  { text: "    doc.applyUpdate(data.update);",          color: "#d2a8ff", delay: 680  },
-  { text: "    socket.broadcast.emit('sync', data);",   color: "#d2a8ff", delay: 800  },
-  { text: "  });",                                       color: "#e6edf3", delay: 920  },
-  { text: "",                                            color: "",        delay: 0    },
-  { text: "  // 3 участника онлайн",                    color: "#8b949e", delay: 1040 },
-  { text: "  socket.emit('ready', { synced: true });",  color: "#ffa657", delay: 1160 },
-  { text: "});",                                         color: "#e6edf3", delay: 1280 },
+  { text: "  socket.on('code-change', (data) => {",     color: "#e6edf3", delay: 480  },
+  { text: "    socket.broadcast.emit('update', data);", color: "#d2a8ff", delay: 640  },
+  { text: "  });",                                       color: "#e6edf3", delay: 800  },
+  { text: "});",                                         color: "#e6edf3", delay: 960  },
 ];
 
 const FEATURES = [
@@ -89,37 +82,9 @@ const FEATURES = [
 ];
 
 const STEPS = [
-  {
-    n: "01",
-    title: "Создайте комнату",
-    desc: "Дайте название, выберите приватность и лимит участников — займёт секунду",
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="3" y="3" width="18" height="18" rx="3"/><path d="M12 8v8M8 12h8"/>
-      </svg>
-    ),
-  },
-  {
-    n: "02",
-    title: "Поделитесь кодом",
-    desc: "Отправьте код-приглашения — коллеги войдут по ссылке без регистрации",
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
-        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
-      </svg>
-    ),
-  },
-  {
-    n: "03",
-    title: "Пишите код вместе",
-    desc: "Курсоры всех участников видны в реальном времени — изменения появляются мгновенно",
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-        <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
-      </svg>
-    ),
-  },
+  { n: "01", title: "Создайте комнату", desc: "Дайте название, выберите приватность и лимит участников" },
+  { n: "02", title: "Поделитесь кодом", desc: "Отправьте код-приглашения — коллеги войдут без регистрации" },
+  { n: "03", title: "Пишите код вместе", desc: "Изменения синхронизируются мгновенно через Yjs CRDT" },
 ];
 
 function AnimatedCode() {
@@ -163,7 +128,7 @@ function AnimatedCode() {
         </div>
       </div>
       {/* Code */}
-      <div className="p-5" style={{ lineHeight: "1.8", minHeight: 300 }}>
+      <div className="p-5" style={{ lineHeight: "1.8", minHeight: 220 }}>
         {CODE_LINES.map((line, idx) => {
           if (line.text) lineCount++;
           const show = line.text === "" || lineCount <= visible;
@@ -291,28 +256,6 @@ export default function Home() {
           </motion.div>
 
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.5, delay: 0.1 }}
-            className="hidden md:flex items-center gap-6"
-          >
-            {[
-              { label: "Возможности", href: "#features" },
-              { label: "Как работает", href: "#how-it-works" },
-            ].map(({ label, href }) => (
-              <a
-                key={label}
-                href={href}
-                style={{ fontSize: 13, color: "rgba(255,255,255,0.45)", textDecoration: "none", fontWeight: 500, transition: "color 0.15s" }}
-                onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.85)")}
-                onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.45)")}
-              >
-                {label}
-              </a>
-            ))}
-          </motion.div>
-
-          <motion.div
             initial={{ opacity: 0, x: 12 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5 }}
@@ -367,7 +310,7 @@ export default function Home() {
                   transition={{ duration: 2, repeat: Infinity }}
                   style={{ width: 6, height: 6, borderRadius: "50%", background: "#3fb950", display: "inline-block", flexShrink: 0 }}
                 />
-                Реальное время · без конфликтов · WebSocket
+                Реальное время · Yjs CRDT · WebSocket
               </motion.div>
 
               {/* Title — per-char reveal */}
@@ -479,7 +422,7 @@ export default function Home() {
         </section>
 
         {/* ── HOW IT WORKS ── */}
-        <section id="how-it-works" className="px-6 py-16" style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+        <section className="px-6 py-16" style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}>
           <div className="max-w-4xl mx-auto">
             <motion.div
               initial={{ opacity: 0, y: 16 }}
@@ -496,51 +439,31 @@ export default function Home() {
               </h2>
             </motion.div>
 
-            <div className="flex flex-col sm:flex-row items-stretch gap-0">
+            <div className="grid sm:grid-cols-3 gap-6">
               {STEPS.map((step, i) => (
-                <div key={step.n} className="flex sm:flex-col items-center flex-1">
-                  <motion.div
-                    initial={{ opacity: 0, y: 24 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    transition={{ delay: i * 0.12, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-                    className="flex flex-col gap-4 p-6 rounded-2xl w-full h-full"
-                    style={{
-                      background: "rgba(255,255,255,0.02)",
-                      border: "1px solid rgba(255,255,255,0.06)",
-                    }}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div style={{
-                        width: 38, height: 38, borderRadius: 10, flexShrink: 0,
-                        background: "rgba(255,255,255,0.05)",
-                        border: "1px solid rgba(255,255,255,0.08)",
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        color: "rgba(255,255,255,0.5)",
-                      }}>
-                        {step.icon}
-                      </div>
-                      <span style={{ fontFamily: "monospace", fontSize: 11, color: "rgba(255,255,255,0.2)", fontWeight: 700 }}>{step.n}</span>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: 15, fontWeight: 700, color: "#fff", marginBottom: 6 }}>{step.title}</div>
-                      <div style={{ fontSize: 13, color: "rgba(255,255,255,0.38)", lineHeight: 1.65 }}>{step.desc}</div>
-                    </div>
-                  </motion.div>
-                  {i < STEPS.length - 1 && (
-                    <div className="flex-shrink-0" style={{ color: "rgba(255,255,255,0.1)", padding: "0 8px" }}>
-                      <svg className="hidden sm:block" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M5 12h14M15 8l4 4-4 4"/></svg>
-                      <svg className="block sm:hidden" style={{ transform: "rotate(90deg)", margin: "8px 0" }} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M5 12h14M15 8l4 4-4 4"/></svg>
-                    </div>
-                  )}
-                </div>
+                <motion.div
+                  key={step.n}
+                  initial={{ opacity: 0, y: 24 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: i * 0.12, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+                  className="flex flex-col gap-3 p-5 rounded-xl"
+                  style={{
+                    background: "rgba(255,255,255,0.02)",
+                    border: "1px solid rgba(255,255,255,0.06)",
+                  }}
+                >
+                  <div style={{ fontFamily: "monospace", fontSize: 13, color: "rgba(255,255,255,0.2)", fontWeight: 700 }}>{step.n}</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: "#fff" }}>{step.title}</div>
+                  <div style={{ fontSize: 13, color: "rgba(255,255,255,0.38)", lineHeight: 1.6 }}>{step.desc}</div>
+                </motion.div>
               ))}
             </div>
           </div>
         </section>
 
         {/* ── FEATURES ── */}
-        <section id="features" ref={featuresRef} className="px-6 py-16" style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+        <section ref={featuresRef} className="px-6 py-16" style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}>
           <div className="max-w-5xl mx-auto">
             <motion.div
               initial={{ opacity: 0, y: 16 }}
@@ -568,33 +491,15 @@ export default function Home() {
         {/* ── CTA BOTTOM ── */}
         <section
           className="px-6 py-20 text-center"
-          style={{ borderTop: "1px solid rgba(255,255,255,0.05)", position: "relative", overflow: "hidden" }}
+          style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}
         >
-          {/* Background glow */}
-          <div className="absolute inset-0 pointer-events-none" style={{
-            background: "radial-gradient(ellipse 60% 50% at 50% 100%, rgba(255,255,255,0.025) 0%, transparent 70%)",
-          }} />
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
-            className="relative max-w-xl mx-auto"
+            className="max-w-xl mx-auto"
           >
-            {/* Social proof */}
-            <div className="flex items-center justify-center gap-5 mb-8 flex-wrap">
-              {[
-                { icon: "⚡", text: "Бесплатно" },
-                { icon: "🔒", text: "Без регистрации для гостей" },
-                { icon: "∞", text: "Неограниченные комнаты" },
-              ].map(({ icon, text }) => (
-                <div key={text} className="flex items-center gap-1.5" style={{ fontSize: 12, color: "rgba(255,255,255,0.3)" }}>
-                  <span>{icon}</span>
-                  <span>{text}</span>
-                </div>
-              ))}
-            </div>
-
             <h2 style={{ fontSize: "clamp(28px, 5vw, 48px)", fontWeight: 800, color: "#fff", letterSpacing: "-1.5px", marginBottom: 16 }}>
               Начните прямо сейчас
             </h2>
@@ -607,7 +512,7 @@ export default function Home() {
                   className="px-8 py-3.5 rounded-xl text-sm font-semibold transition-all hover:opacity-90 active:scale-95"
                   style={{ background: "#fff", color: "#000", border: "none", cursor: "pointer", boxShadow: "0 0 40px rgba(255,255,255,0.12)" }}
                 >
-                  Создать аккаунт
+                  Зарегистрироваться
                 </button>
               </SignUpButton>
               <button
@@ -620,7 +525,7 @@ export default function Home() {
                   cursor: "pointer",
                 }}
               >
-                Войти как гость →
+                Войти как гость
               </button>
             </div>
           </motion.div>
@@ -628,34 +533,10 @@ export default function Home() {
 
         {/* Footer */}
         <footer
-          className="px-6 py-8"
-          style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}
+          className="px-6 py-5 text-center"
+          style={{ borderTop: "1px solid rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.18)", fontSize: 12 }}
         >
-          <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
-              <Logo size={18} />
-              <span style={{ fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,0.4)" }}>СИНХРОН</span>
-            </div>
-            <div className="flex items-center gap-6 flex-wrap justify-center">
-              {[
-                { label: "Возможности", href: "#features" },
-                { label: "Как работает", href: "#how-it-works" },
-              ].map(({ label, href }) => (
-                <a
-                  key={label}
-                  href={href}
-                  style={{ fontSize: 12, color: "rgba(255,255,255,0.25)", textDecoration: "none" }}
-                  onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.5)")}
-                  onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.25)")}
-                >
-                  {label}
-                </a>
-              ))}
-            </div>
-            <span style={{ fontSize: 12, color: "rgba(255,255,255,0.18)" }}>
-              © 2025 СИНХРОН
-            </span>
-          </div>
+          СИНХРОН — совместная онлайн IDE
         </footer>
       </div>
     </div>

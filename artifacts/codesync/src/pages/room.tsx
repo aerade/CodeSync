@@ -760,18 +760,8 @@ export default function RoomPage() {
 
   if (!room) {
     return (
-      <div className="flex flex-col items-center justify-center h-screen gap-4" style={{ background: "#0D1117" }}>
-        <motion.div
-          animate={{ rotate: 360 }}
-          transition={{ duration: 1.2, repeat: Infinity, ease: "linear" }}
-          style={{
-            width: 28, height: 28,
-            border: "2.5px solid rgba(255,255,255,0.07)",
-            borderTopColor: "rgba(255,255,255,0.45)",
-            borderRadius: "50%",
-          }}
-        />
-        <span style={{ fontSize: 13, color: "#484F58", letterSpacing: "0.02em" }}>Загрузка комнаты…</span>
+      <div className="flex items-center justify-center h-screen" style={{ background: "#161B22" }}>
+        <div className="text-sm" style={{ color: "#8B949E" }}>Загрузка комнаты...</div>
       </div>
     );
   }
@@ -783,15 +773,12 @@ export default function RoomPage() {
       {/* TOP BAR */}
       <div className="ide-topbar">
         <button
-          className="flex items-center gap-1.5 transition-all hover:opacity-70"
-          style={{ color: "#E6EDF3", cursor: "pointer", background: "none", border: "none", padding: 0 }}
+          className="text-sm font-semibold transition-colors hover:opacity-80"
+          style={{ color: "#E6EDF3", cursor: "pointer", background: "none", border: "none" }}
           onClick={() => setLocation("/dashboard")}
           data-testid="btn-back-dashboard"
         >
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M15 18l-6-6 6-6"/>
-          </svg>
-          <span className="text-sm font-semibold">СИНХРОН</span>
+          СИНХРОН
         </button>
         <span style={{ color: "#30363D" }}>/</span>
         <span className="text-sm font-medium truncate" style={{ color: "#E6EDF3", maxWidth: 200 }}>
@@ -898,38 +885,19 @@ export default function RoomPage() {
           </button>
 
           <button
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-md transition-all hover:bg-white/6"
-            style={{
-              color: isSidebarOpen ? "#E6EDF3" : "#6E7681",
-              border: `1px solid ${isSidebarOpen ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.06)"}`,
-              background: isSidebarOpen ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.03)",
-              cursor: "pointer", fontSize: 11, fontWeight: 500,
-            }}
+            className="text-xs px-2 py-0.5 rounded hover:bg-white/5 transition-colors"
+            style={{ color: "#8B949E", border: "none", background: "transparent", cursor: "pointer" }}
             onClick={() => setIsSidebarOpen(!isSidebarOpen)}
             data-testid="btn-toggle-sidebar"
           >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-              <circle cx="9" cy="7" r="4"/>
-              <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
-            </svg>
             Участники
           </button>
           <button
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-md transition-all hover:bg-white/6"
-            style={{
-              color: isRightOpen ? "#E6EDF3" : "#6E7681",
-              border: `1px solid ${isRightOpen ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.06)"}`,
-              background: isRightOpen ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.03)",
-              cursor: "pointer", fontSize: 11, fontWeight: 500,
-            }}
+            className="text-xs px-2 py-0.5 rounded hover:bg-white/5 transition-colors"
+            style={{ color: "#8B949E", border: "none", background: "transparent", cursor: "pointer" }}
             onClick={() => setIsRightOpen(!isRightOpen)}
             data-testid="btn-toggle-ai"
           >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-              <path d="M12 2a10 10 0 1 0 10 10H12V2z"/>
-              <path d="M12 2a10 10 0 0 1 10 10"/>
-            </svg>
             AI
           </button>
         </div>

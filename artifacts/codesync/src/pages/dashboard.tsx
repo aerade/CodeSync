@@ -834,40 +834,26 @@ export default function Dashboard() {
               </AnimatePresence>
             </motion.div>
           ) : (
-            <div className="flex flex-col items-center justify-center py-24 text-center px-4">
-              <div style={{
-                width: 64, height: 64, borderRadius: 16, marginBottom: 20,
-                background: "rgba(255,255,255,0.03)",
-                border: "1px solid rgba(255,255,255,0.07)",
-                display: "flex", alignItems: "center", justifyContent: "center",
-              }}>
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18"/><path d="M9 21V9"/>
+            <div className="text-center py-20" style={{ color: "rgba(255,255,255,0.2)" }}>
+              <div className="mb-4">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ margin: "0 auto", opacity: 0.4 }}>
+                  <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/>
                 </svg>
               </div>
-              <p style={{ fontSize: 15, fontWeight: 600, color: "rgba(255,255,255,0.5)", marginBottom: 8 }}>
-                {isGuest ? "Нет публичных комнат" : "Пока нет комнат"}
-              </p>
-              <p style={{ fontSize: 13, color: "rgba(255,255,255,0.22)", marginBottom: 24, maxWidth: 280, lineHeight: 1.6 }}>
-                {isGuest
-                  ? "Попросите организатора поделиться кодом приглашения и введите его выше"
-                  : "Создайте свою первую комнату и пригласите команду"}
+              <p className="mb-4 text-sm">
+                {isGuest ? "Нет публичных комнат. Войдите по коду приглашения." : "Нет публичных комнат"}
               </p>
               {!isGuest && (
                 <button
                   onClick={() => setCreateOpen(true)}
-                  className="flex items-center gap-2 transition-all hover:opacity-90 active:scale-95"
                   style={{
-                    height: 40, padding: "0 20px",
+                    height: 36, padding: "0 18px",
                     background: "#fff", color: "#000",
-                    border: "none", borderRadius: 10,
+                    border: "none", borderRadius: 8,
                     fontWeight: 600, fontSize: 13, cursor: "pointer",
                   }}
                 >
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                    <path d="M12 5v14M5 12h14"/>
-                  </svg>
-                  Создать комнату
+                  Создать первую
                 </button>
               )}
             </div>
