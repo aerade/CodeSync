@@ -13,7 +13,7 @@ export function Logo({ size = 28, className }: LogoProps) {
       xmlns="http://www.w3.org/2000/svg"
       className={className}
     >
-      <rect width="28" height="28" rx="7" fill="#00C2A8" />
+      <rect width="28" height="28" rx="7" fill="#ffffff" />
       {/* Window frame */}
       <rect x="4" y="4.5" width="20" height="17" rx="3" stroke="#080C14" strokeWidth="1.8" fill="none" />
       {/* Title bar divider */}
