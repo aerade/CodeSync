@@ -94,6 +94,26 @@ function buildSrcDoc(files: FileEntry[], entryName?: string): string | null {
   // vfsScript must run BEFORE user JS so window.sync is available at script-load time
   const vfsScript = `<script>
 (function() {
+  // localStorage / sessionStorage polyfill — sandboxed iframes block real storage APIs.
+  // This provides a transparent in-memory replacement so user code doesn't crash.
+  function makeStorage() {
+    var d = {};
+    return {
+      getItem: function(k) { return Object.prototype.hasOwnProperty.call(d, k) ? d[k] : null; },
+      setItem: function(k, v) { d[String(k)] = String(v); },
+      removeItem: function(k) { delete d[k]; },
+      clear: function() { d = {}; },
+      key: function(i) { var ks = Object.keys(d); return i < ks.length ? ks[i] : null; },
+      get length() { return Object.keys(d).length; }
+    };
+  }
+  try { localStorage.getItem('__ping__'); } catch(e) {
+    try { Object.defineProperty(window, 'localStorage',  { value: makeStorage(), configurable: true }); } catch(e2) {}
+  }
+  try { sessionStorage.getItem('__ping__'); } catch(e) {
+    try { Object.defineProperty(window, 'sessionStorage', { value: makeStorage(), configurable: true }); } catch(e2) {}
+  }
+
   // Multi-user sync bus — available to all user scripts as window.sync
   // Usage: window.sync.send(data)  /  window.sync.onmessage = function(data) { ... }
   window.sync = { onmessage: null, send: function(payload) {
