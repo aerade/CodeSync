@@ -91,37 +91,30 @@ function buildSrcDoc(files: FileEntry[], entryName?: string): string | null {
   }
   const htmlNames = htmlFiles.map((f) => f.name);
 
+  // vfsScript must run BEFORE user JS so window.sync is available at script-load time
   const vfsScript = `<script>
 (function() {
-  // ── Multi-user preview sync bus ────────────────────────────────────────────
-  // Games and apps can use window.sync to share state with all participants:
-  //   window.sync.send({ type: 'move', from: 'e2', to: 'e4' })
-  //   window.sync.onmessage = function(data) { applyRemoteMove(data); }
-  window.sync = (function() {
-    var _handler = null;
-    // Receive broadcast from other participants (sent by parent frame)
-    window.addEventListener('message', function(e) {
-      if (e.data && e.data.__type === '__preview_broadcast' && _handler) {
-        try { _handler(e.data.payload); } catch(err) { console.error('[sync]', err); }
+  // Multi-user sync bus — available to all user scripts as window.sync
+  // Usage: window.sync.send(data)  /  window.sync.onmessage = function(data) { ... }
+  window.sync = { onmessage: null, send: function(payload) {
+    window.parent.postMessage({ __type: '__preview_sync', payload: payload }, '*');
+  }};
+  window.addEventListener('message', function(e) {
+    if (e.data && e.data.__type === '__preview_broadcast') {
+      if (typeof window.sync.onmessage === 'function') {
+        try { window.sync.onmessage(e.data.payload); } catch(err) { console.error('[sync]', err); }
       }
-    });
-    return {
-      send: function(payload) {
-        window.parent.postMessage({ __type: '__preview_sync', payload: payload }, '*');
-      },
-      set onmessage(fn) { _handler = fn; },
-      get onmessage() { return _handler; }
-    };
-  })();
+    }
+  });
 
-  // Error overlay — shows JS errors visually in the preview
+  // Error overlay
   window.addEventListener('error', function(e) {
     var existing = document.getElementById('__preview_err__');
     if (existing) existing.remove();
     var div = document.createElement('div');
     div.id = '__preview_err__';
     div.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#c0392b;color:#fff;padding:8px 12px;font:12px/1.4 monospace;z-index:99999;white-space:pre-wrap;word-break:break-all';
-    div.textContent = '\\u26a0 JS Error: ' + e.message + (e.lineno ? ' (line ' + e.lineno + ')' : '');
+    div.textContent = '\u26a0 JS Error: ' + e.message + (e.lineno ? ' (line ' + e.lineno + ')' : '');
     document.body ? document.body.appendChild(div) : document.documentElement.appendChild(div);
   });
 
@@ -133,7 +126,6 @@ function buildSrcDoc(files: FileEntry[], entryName?: string): string | null {
       var src = img.getAttribute('src') || '';
       var name = src.split('/').pop();
       if (name && _imgs[name]) img.src = _imgs[name];
-      // also try full path
       if (!_imgs[name] && _imgs[src]) img.src = _imgs[src];
     });
   }
@@ -155,7 +147,8 @@ function buildSrcDoc(files: FileEntry[], entryName?: string): string | null {
 })();
 <\/script>`;
 
-  const inject = (jsBlock ? jsBlock + "\n" : "") + vfsScript;
+  // vfsScript injects FIRST — user scripts come after so window.sync is already defined
+  const inject = vfsScript + (jsBlock ? "\n" + jsBlock : "");
   if (/<\/body>/i.test(html)) html = html.replace(/<\/body>/i, `${inject}\n</body>`);
   else html += "\n" + inject;
 
