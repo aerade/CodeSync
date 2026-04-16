@@ -14,6 +14,10 @@ interface Props {
   isOpen: boolean;
   onClose: () => void;
   defaultPage?: string;
+  /** Called when the iframe broadcasts a preview-sync message to other participants */
+  onSyncSend?: (data: unknown) => void;
+  /** Incoming sync data from another participant — forwarded into the iframe */
+  syncMessage?: { data: unknown; seq: number } | null;
 }
 
 // Escape </script> so HTML parser doesn't terminate the tag early
@@ -89,6 +93,27 @@ function buildSrcDoc(files: FileEntry[], entryName?: string): string | null {
 
   const vfsScript = `<script>
 (function() {
+  // ── Multi-user preview sync bus ────────────────────────────────────────────
+  // Games and apps can use window.sync to share state with all participants:
+  //   window.sync.send({ type: 'move', from: 'e2', to: 'e4' })
+  //   window.sync.onmessage = function(data) { applyRemoteMove(data); }
+  window.sync = (function() {
+    var _handler = null;
+    // Receive broadcast from other participants (sent by parent frame)
+    window.addEventListener('message', function(e) {
+      if (e.data && e.data.__type === '__preview_broadcast' && _handler) {
+        try { _handler(e.data.payload); } catch(err) { console.error('[sync]', err); }
+      }
+    });
+    return {
+      send: function(payload) {
+        window.parent.postMessage({ __type: '__preview_sync', payload: payload }, '*');
+      },
+      set onmessage(fn) { _handler = fn; },
+      get onmessage() { return _handler; }
+    };
+  })();
+
   // Error overlay — shows JS errors visually in the preview
   window.addEventListener('error', function(e) {
     var existing = document.getElementById('__preview_err__');
@@ -154,7 +179,7 @@ function getInitPos(w: number, h: number) {
   };
 }
 
-export function PreviewPanel({ files, isOpen, onClose, defaultPage }: Props) {
+export function PreviewPanel({ files, isOpen, onClose, defaultPage, onSyncSend, syncMessage }: Props) {
   const [iframeKey, setIframeKey] = useState(0);
   const [currentPage, setCurrentPage] = useState<string>("");
   const [history, setHistory] = useState<string[]>([]);
@@ -203,15 +228,6 @@ export function PreviewPanel({ files, isOpen, onClose, defaultPage }: Props) {
       setIframeKey((k) => k + 1);
     }
   }, [isOpen, startPage]);
-
-  useEffect(() => {
-    function handleMsg(e: MessageEvent) {
-      const data = e.data as { type?: string; page?: string };
-      if (data?.type === "preview-navigate" && data.page) navigateTo(data.page);
-    }
-    window.addEventListener("message", handleMsg);
-    return () => window.removeEventListener("message", handleMsg);
-  });
 
   function navigateTo(page: string) {
     setCurrentPage(page);
@@ -373,6 +389,28 @@ export function PreviewPanel({ files, isOpen, onClose, defaultPage }: Props) {
   }
 
   const panelNodeRef = useRef<HTMLDivElement | null>(null);
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
+
+  // Forward messages FROM iframe to room (multi-user sync bus)
+  useEffect(() => {
+    function handleMsg(e: MessageEvent) {
+      const d = e.data as { __type?: string; payload?: unknown; type?: string; page?: string };
+      if (d?.__type === "__preview_sync" && onSyncSend) {
+        onSyncSend(d.payload);
+      }
+      if (d?.type === "preview-navigate" && d.page) navigateTo(d.page);
+    }
+    window.addEventListener("message", handleMsg);
+    return () => window.removeEventListener("message", handleMsg);
+  }); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Forward messages FROM room into iframe (received broadcast from another participant)
+  useEffect(() => {
+    if (!syncMessage) return;
+    const iframe = iframeRef.current;
+    if (!iframe?.contentWindow) return;
+    iframe.contentWindow.postMessage({ __type: "__preview_broadcast", payload: syncMessage.data }, "*");
+  }, [syncMessage]);
 
   const srcDoc = buildSrcDoc(files, currentPage || undefined);
   const canBack = historyIdx > 0;
@@ -543,6 +581,7 @@ export function PreviewPanel({ files, isOpen, onClose, defaultPage }: Props) {
               ) : (
                 <iframe
                   key={iframeKey}
+                  ref={iframeRef}
                   srcDoc={srcDoc}
                   title="Preview"
                   sandbox="allow-scripts allow-forms allow-popups allow-modals"

@@ -258,6 +258,8 @@ interface WsMessage {
   activeFileId?: string;
   emoji?: string;
   remove?: boolean;
+  // preview sync bus
+  data?: unknown;
 }
 
 export function setupWebSocketServer(wss: WebSocketServer) {
@@ -538,6 +540,26 @@ export function setupWebSocketServer(wss: WebSocketServer) {
             for (const [client] of fr.clients) {
               if (client.readyState === WebSocket.OPEN) {
                 client.send(reactionMsg);
+              }
+            }
+          }
+        }
+      } else if (msg.type === "preview-sync") {
+        // Broadcast preview state to all room participants (including sender)
+        // so every open preview iframe stays in sync
+        const info = fileRoom.clients.get(ws);
+        if (info) {
+          const syncMsg = JSON.stringify({
+            type: "preview-sync",
+            senderId: info.userId,
+            data: msg.data,
+          });
+          for (const [rKey, fr] of fileRooms) {
+            if (!rKey.startsWith(`${roomId}:`)) continue;
+            for (const [client, clientInfo] of fr.clients) {
+              // send to everyone except the originator (they applied it locally already)
+              if (client !== ws && client.readyState === WebSocket.OPEN && clientInfo.userId !== info.userId) {
+                client.send(syncMsg);
               }
             }
           }

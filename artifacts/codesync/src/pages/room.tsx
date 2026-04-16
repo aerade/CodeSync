@@ -79,6 +79,8 @@ interface WSMessage {
   isTyping?: boolean;
   emoji?: string;
   remove?: boolean;
+  data?: unknown;
+  senderId?: string;
 }
 
 interface MouseCursorInfo {
@@ -184,6 +186,8 @@ export default function RoomPage() {
   const myUserIdRef = useRef<string>("");
   const [inviteCopied, setInviteCopied] = useState(false);
   const [cursors, setCursors] = useState<CollabCursorInfo[]>([]);
+  const [previewSyncMessage, setPreviewSyncMessage] = useState<{ data: unknown; seq: number } | null>(null);
+  const previewSyncSeqRef = useRef(0);
 
   const wsRef = useRef<WebSocket | null>(null);
   const ydocRef = useRef<Y.Doc | null>(null);
@@ -537,6 +541,9 @@ export default function RoomPage() {
                 lastSeen: Date.now(),
               },
             }));
+          } else if (msg.type === "preview-sync" && msg.data !== undefined) {
+            // Incoming sync data from another participant — deliver to preview iframe
+            setPreviewSyncMessage({ data: msg.data, seq: ++previewSyncSeqRef.current });
           }
         } catch (err) {
           console.error("WS message error:", err);
@@ -704,6 +711,12 @@ export default function RoomPage() {
     setChatMessages((prev) => prev.filter((m) => m.id !== messageId));
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({ type: "chat_delete", messageId }));
+    }
+  }
+
+  function sendPreviewSync(data: unknown) {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: "preview-sync", data }));
     }
   }
 
@@ -1291,6 +1304,8 @@ export default function RoomPage() {
           files={files.filter((f) => !f.isFolder)}
           isOpen={isPreviewOpen}
           onClose={() => setIsPreviewOpen(false)}
+          onSyncSend={sendPreviewSync}
+          syncMessage={previewSyncMessage}
         />
 
         {/* Session sidebar */}
