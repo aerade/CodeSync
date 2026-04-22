@@ -7,8 +7,15 @@
     "dev": "vite --config vite.config.ts --host 0.0.0.0",
     "build": "vite build --config vite.config.ts",
     "serve": "vite preview --config vite.config.ts --host 0.0.0.0",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "electron:compile": "tsc --project tsconfig.electron.json",
+    "electron:dev": "concurrently \"pnpm run dev\" \"wait-on http://localhost:21098/desktop/ && electron .\"",
+    "electron:build": "ELECTRON_BUILD=1 vite build --config vite.config.ts && pnpm run electron:compile && electron-builder build --config electron-builder.yml",
+    "electron:build:win": "ELECTRON_BUILD=1 vite build --config vite.config.ts && pnpm run electron:compile && electron-builder build --win --config electron-builder.yml",
+    "electron:build:mac": "ELECTRON_BUILD=1 vite build --config vite.config.ts && pnpm run electron:compile && electron-builder build --mac --config electron-builder.yml",
+    "electron:build:linux": "ELECTRON_BUILD=1 vite build --config vite.config.ts && pnpm run electron:compile && electron-builder build --linux --config electron-builder.yml"
   },
+  "main": "dist/electron-main/main.js",
   "dependencies": {
     "@clerk/react": "^6.2.0",
     "@monaco-editor/react": "^4.7.0",
@@ -80,6 +87,10 @@
     "vaul": "^1.1.2",
     "vite": "catalog:",
     "wouter": "^3.3.5",
-    "zod": "catalog:"
+    "zod": "catalog:",
+    "concurrently": "^9.1.2",
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8",
+    "wait-on": "^8.0.1"
   }
 }

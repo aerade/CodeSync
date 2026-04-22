@@ -1,0 +1,74 @@
+appId: com.codesync.desktop
+productName: CodeSync
+copyright: Copyright 2025 CodeSync
+
+# Point at the built Vite output
+directories:
+  buildResources: build
+  output: dist/electron
+
+# Main process entry (compiled from electron/main.ts)
+main: dist/electron-main/main.js
+
+files:
+  - dist/public/**/*
+  - dist/electron-main/**/*
+  - node_modules/**/*
+  - "!node_modules/**/{CHANGELOG.md,README.md,README,readme.md,readme}"
+  - "!node_modules/**/*.{iml,o,hprof,orig,pyc,pyo,rbc,swp,cscope.out}"
+  - "!node_modules/.bin"
+
+# macOS
+mac:
+  category: public.app-category.developer-tools
+  icon: build/icon.icns
+  hardenedRuntime: true
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+  target:
+    - target: dmg
+      arch: [x64, arm64]
+    - target: zip
+      arch: [x64, arm64]
+
+dmg:
+  contents:
+    - x: 130
+      y: 220
+    - x: 410
+      y: 220
+      type: link
+      path: /Applications
+
+# Windows
+win:
+  icon: build/icon.ico
+  target:
+    - target: nsis
+      arch: [x64]
+    - target: portable
+      arch: [x64]
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+
+# Linux
+linux:
+  icon: build/icons
+  category: Development
+  target:
+    - target: AppImage
+      arch: [x64]
+    - target: deb
+      arch: [x64]
+    - target: rpm
+      arch: [x64]
+
+# Auto-update (optional — requires a publish endpoint)
+publish:
+  provider: github
+  owner: your-org
+  repo: codesync

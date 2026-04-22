@@ -3,7 +3,7 @@ import { useParams, useLocation } from "wouter";
 import Editor, { type OnMount } from "@monaco-editor/react";
 import type * as MonacoType from "monaco-editor";
 import * as Y from "yjs";
-import { api, type File as RoomFile, type RoomMember, type User, getToken, getCurrentUser } from "@/lib/api";
+import { api, type File as RoomFile, type RoomMember, type User, getToken, getCurrentUser, API_BASE } from "@/lib/api";
 import { getLanguageFromFilename } from "@/lib/utils";
 import { FileTree } from "@/components/FileTree";
 import { AIPanel } from "@/components/AIPanel";
@@ -11,7 +11,7 @@ import { TerminalPanel } from "@/components/TerminalPanel";
 import { SessionSidebar } from "@/components/SessionSidebar";
 import { toast } from "sonner";
 import {
-  ChevronLeft, Settings, Copy, Users, Play, SquareTerminal,
+  ChevronLeft, Copy, Users, SquareTerminal,
   Eye, X, PanelLeft, PanelRight, Loader2
 } from "lucide-react";
 
@@ -22,10 +22,33 @@ const LANG_LABELS: Record<string, string> = {
   shell: "SH", sql: "SQL", plaintext: "Text",
 };
 
-function getWsUrl(roomId: string, fileId: string): string {
+async function fetchCollabToken(): Promise<string | null> {
+  const token = getToken();
+  if (!token) return null;
+  try {
+    // Guest sessions use x-guest-token header; Clerk sessions use Authorization Bearer.
+    // The backend collab endpoint checks both.
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`,
+      "x-guest-token": token,
+    };
+    const res = await fetch(`${API_BASE}/collab/token`, {
+      method: "POST",
+      headers,
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    return json.token ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function getWsUrl(roomId: string, fileId: string, collabToken: string): string {
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
   const host = window.location.host;
-  return `${protocol}//${host}/ws/rooms/${roomId}/files/${fileId}`;
+  return `${protocol}//${host}/ws/rooms/${roomId}/files/${fileId}?token=${encodeURIComponent(collabToken)}`;
 }
 
 export default function Room() {
@@ -47,13 +70,12 @@ export default function Room() {
   const [showTerminal, setShowTerminal] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [bottomTab, setBottomTab] = useState<"terminal" | "preview">("terminal");
-  const [showSettings, setShowSettings] = useState(false);
 
   const editorRef = useRef<MonacoType.editor.IStandaloneCodeEditor | null>(null);
-  const monacoRef = useRef<typeof MonacoType | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const ydocRef = useRef<Y.Doc | null>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const collabTokenRef = useRef<string | null>(null);
 
   const activeFile = files.find((f) => f.id === activeFileId) ?? null;
 
@@ -65,14 +87,20 @@ export default function Room() {
   async function loadRoom() {
     try {
       setLoadingRoom(true);
-      const [roomData, filesData, membersData] = await Promise.all([
+
+      // Fetch collab token alongside room data
+      const [roomData, filesData, membersData, collabToken] = await Promise.all([
         api.getRoom(roomId),
         api.getRoomFiles(roomId),
         api.getRoomMembers(roomId),
+        fetchCollabToken(),
       ]);
+
+      collabTokenRef.current = collabToken;
       setRoom(roomData);
       setFiles(filesData);
       setMembers(membersData);
+
       const firstFile = filesData.find((f) => !f.isFolder);
       if (firstFile) {
         setActiveFileId(firstFile.id);
@@ -93,50 +121,70 @@ export default function Room() {
       setFileContents((prev) => ({ ...prev, [activeFileId]: file.content }));
     }
     connectWs(activeFileId);
-    return () => { wsRef.current?.close(); };
+    return () => {
+      wsRef.current?.close();
+      wsRef.current = null;
+    };
   }, [activeFileId]);
 
   function connectWs(fileId: string) {
-    wsRef.current?.close();
+    if (wsRef.current) {
+      wsRef.current.close();
+      wsRef.current = null;
+    }
+
+    const collabToken = collabTokenRef.current;
+    if (!collabToken) {
+      // No collab token — still allow editing but without real-time sync
+      return;
+    }
+
     const ydoc = new Y.Doc();
     ydocRef.current = ydoc;
-    const ws = new WebSocket(getWsUrl(roomId, fileId));
-    wsRef.current = ws;
 
-    ws.onopen = () => {
-      const token = getToken();
-      if (token) ws.send(JSON.stringify({ type: "auth", token }));
-    };
+    const ws = new WebSocket(getWsUrl(roomId, fileId, collabToken));
+    wsRef.current = ws;
 
     ws.onmessage = (evt) => {
       try {
         const msg = JSON.parse(evt.data);
-        if (msg.type === "update" && msg.update) {
+
+        // Server sends initial Yjs state on "init"
+        if (msg.type === "init" && msg.update) {
           const update = Uint8Array.from(atob(msg.update), (c) => c.charCodeAt(0));
           Y.applyUpdate(ydoc, update);
           const text = ydoc.getText("content").toString();
-          if (text && editorRef.current && editorRef.current.getModel()?.getValue() !== text) {
+          if (text && editorRef.current) {
             const editor = editorRef.current;
-            const position = editor.getPosition();
+            const pos = editor.getPosition();
             editor.getModel()?.setValue(text);
-            if (position) editor.setPosition(position);
+            if (pos) editor.setPosition(pos);
+            setFileContents((prev) => ({ ...prev, [fileId]: text }));
           }
         }
-        if (msg.type === "file_updated" && msg.fileId === fileId && msg.content !== undefined) {
-          setFileContents((prev) => ({ ...prev, [fileId]: msg.content }));
-          if (editorRef.current && editorRef.current.getModel()?.getValue() !== msg.content) {
-            editorRef.current.getModel()?.setValue(msg.content);
+
+        // Incremental Yjs updates from other collaborators
+        if (msg.type === "yjs-update" && msg.update) {
+          const update = Uint8Array.from(atob(msg.update), (c) => c.charCodeAt(0));
+          Y.applyUpdate(ydoc, update);
+          const text = ydoc.getText("content").toString();
+          if (editorRef.current && editorRef.current.getModel()?.getValue() !== text) {
+            const editor = editorRef.current;
+            const pos = editor.getPosition();
+            editor.getModel()?.setValue(text);
+            if (pos) editor.setPosition(pos);
           }
+          setFileContents((prev) => ({ ...prev, [fileId]: text }));
         }
-      } catch { /* ignore */ }
+      } catch { /* ignore parse errors */ }
     };
 
-    ws.onerror = () => { /* silently reconnect later */ };
+    ws.onerror = () => { /* silently handle — reconnect logic could be added */ };
+    ws.onclose = () => { if (wsRef.current === ws) wsRef.current = null; };
   }
 
   const handleEditorMount: OnMount = (editor, monaco) => {
     editorRef.current = editor;
-    monacoRef.current = monaco;
     monaco.editor.setTheme("vs-dark");
     editor.updateOptions({
       fontSize: 13,
@@ -150,8 +198,6 @@ export default function Room() {
       cursorBlinking: "smooth",
       smoothScrolling: true,
       bracketPairColorization: { enabled: true },
-      guides: { bracketPairs: true },
-      suggest: { insertMode: "replace" },
       wordWrap: "off",
     });
   };
@@ -160,10 +206,25 @@ export default function Room() {
     if (!activeFileId || value === undefined) return;
     setFileContents((prev) => ({ ...prev, [activeFileId]: value }));
 
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ type: "content_change", content: value }));
+    // Send Yjs update to collaborators
+    const ydoc = ydocRef.current;
+    const ws = wsRef.current;
+    if (ydoc && ws && ws.readyState === WebSocket.OPEN) {
+      const yText = ydoc.getText("content");
+      // Only update Yjs if content actually differs (prevents echo loops)
+      const current = yText.toString();
+      if (current !== value) {
+        ydoc.transact(() => {
+          yText.delete(0, yText.length);
+          yText.insert(0, value);
+        });
+        const update = Y.encodeStateAsUpdate(ydoc);
+        const encoded = btoa(String.fromCharCode(...update));
+        ws.send(JSON.stringify({ type: "yjs-update", update: encoded }));
+      }
     }
 
+    // Auto-save to DB after 1.5s idle
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(async () => {
       try {
@@ -212,7 +273,7 @@ export default function Room() {
     if (!editorRef.current || !activeFileId) return;
     const model = editorRef.current.getModel();
     if (!model) return;
-    const full = model.getFullModelRange();
+    const full = editorRef.current.getModel()!.getFullModelRange();
     editorRef.current.executeEdits("ai", [{ range: full, text: code }]);
   }
 
@@ -244,7 +305,7 @@ export default function Room() {
           <ChevronLeft size={14} />
         </button>
         <span className="font-medium text-sm mr-2 truncate max-w-[200px]" style={{ color: "var(--foreground)" }}>{room?.title}</span>
-        {saving && <span className="text-xs" style={{ color: "var(--muted-foreground)" }}>Saving...</span>}
+        {saving && <span className="text-xs" style={{ color: "var(--muted-foreground)" }}>Saving…</span>}
         <div className="flex items-center gap-1 ml-auto">
           <button
             onClick={() => setShowFileTree((v) => !v)}
@@ -298,7 +359,6 @@ export default function Room() {
           members={members}
           currentUser={currentUser}
           room={room}
-          onSettingsOpen={() => setShowSettings(true)}
         />
 
         {/* File tree */}
@@ -333,10 +393,7 @@ export default function Room() {
               >
                 {file.name}
                 {file.id === activeFileId && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setActiveFileId(null); }}
-                    className="ml-1 hover:opacity-70"
-                  >
+                  <button onClick={(e) => { e.stopPropagation(); setActiveFileId(null); }} className="ml-1 hover:opacity-70">
                     <X size={10} />
                   </button>
                 )}
@@ -344,9 +401,9 @@ export default function Room() {
             ))}
           </div>
 
-          {/* Editor */}
-          <div className="flex-1 overflow-hidden" style={{ display: (showTerminal || showPreview) ? "flex" : "block", flexDirection: "column" }}>
-            <div style={{ flex: (showTerminal || showPreview) ? "1 1 60%" : "1", overflow: "hidden" }}>
+          {/* Editor + optional bottom panel */}
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <div style={{ flex: (showTerminal || showPreview) ? "1 1 60%" : "1 1 100%", overflow: "hidden", minHeight: 0 }}>
               {activeFile ? (
                 <Editor
                   height="100%"
@@ -369,8 +426,8 @@ export default function Room() {
 
             {/* Bottom panel */}
             {(showTerminal || showPreview) && (
-              <div className="border-t shrink-0" style={{ flex: "0 0 240px", borderColor: "var(--border)", background: "var(--surface)", overflow: "hidden" }}>
-                <div className="flex items-center gap-2 px-3 border-b" style={{ height: "30px", borderColor: "var(--border)" }}>
+              <div className="border-t shrink-0 flex flex-col" style={{ flex: "0 0 240px", borderColor: "var(--border)", background: "var(--surface)" }}>
+                <div className="flex items-center gap-2 px-3 border-b shrink-0" style={{ height: "30px", borderColor: "var(--border)" }}>
                   <button
                     onClick={() => { setBottomTab("terminal"); setShowTerminal(true); setShowPreview(false); }}
                     className="text-xs px-2 py-0.5 rounded"
@@ -385,21 +442,13 @@ export default function Room() {
                   >
                     Preview
                   </button>
-                  <button
-                    onClick={() => { setShowTerminal(false); setShowPreview(false); }}
-                    className="ml-auto hover:opacity-70"
-                    style={{ color: "var(--muted-foreground)" }}
-                  >
+                  <button onClick={() => { setShowTerminal(false); setShowPreview(false); }} className="ml-auto hover:opacity-70" style={{ color: "var(--muted-foreground)" }}>
                     <X size={12} />
                   </button>
                 </div>
-                <div className="h-[calc(100%-30px)] overflow-hidden">
+                <div className="flex-1 overflow-hidden">
                   {showTerminal && (
-                    <TerminalPanel
-                      roomId={roomId}
-                      language={language}
-                      code={currentContent}
-                    />
+                    <TerminalPanel roomId={roomId} language={language} code={currentContent} />
                   )}
                   {showPreview && activeFile && (
                     <iframe
@@ -424,7 +473,7 @@ export default function Room() {
                 <span>{activeFile.path}</span>
               </>
             )}
-            <span className="ml-auto">{saving ? "Saving..." : "Saved"}</span>
+            <span className="ml-auto">{saving ? "Saving…" : "Saved"}</span>
           </div>
         </div>
 

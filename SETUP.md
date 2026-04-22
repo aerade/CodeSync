@@ -99,37 +99,68 @@ App is available at:
 
 ## Option 3: Desktop App (Electron)
 
-The desktop app uses the same backend as the web version but runs as a standalone
-Electron window with the new dark Cursor-inspired UI.
+The desktop app wraps the same React + Vite frontend in a native Electron window,
+giving you a true native app experience with the dark Cursor-inspired UI.
+It connects to a remote (or local) CodeSync API server — configure the address
+via `VITE_API_URL` before building.
 
-### Running the Desktop App in Dev Mode
+**Supported platforms:** Windows 10+, macOS 11+, Linux (Ubuntu 20.04+)
 
-```bash
-# Requires the API server to be running first (Option 2 Step 4)
-pnpm --filter @workspace/desktop run dev
-```
-
-Then open `http://localhost:21098/desktop/` in your browser, or package it as an
-Electron `.exe`/`.dmg`/`.AppImage` using the build steps below.
-
-### Building Electron Binaries
+### Dev Mode (Electron window + hot-reload)
 
 ```bash
-# Install electron-builder globally
-npm install -g electron-builder
+# 1. Start the API server (must be running)
+pnpm --filter @workspace/api-server run dev
 
-# Build for current platform
+# 2. In a second terminal, launch Electron in dev mode
 cd artifacts/desktop
-electron-builder build
-
-# Build for all platforms
-electron-builder build --mac --win --linux
+VITE_API_URL=http://localhost:8080/api pnpm run electron:dev
 ```
 
-Output binaries are placed in `artifacts/desktop/dist/`:
-- **Windows:** `CodeSync-Setup-x.x.x.exe`
-- **macOS:** `CodeSync-x.x.x.dmg`
-- **Linux:** `CodeSync-x.x.x.AppImage`
+A native Electron window opens and connects to `http://localhost:21098/desktop/`
+with full hot-module reload.
+
+### Building Installable Binaries
+
+```bash
+cd artifacts/desktop
+
+# Set the API server URL your users will connect to
+export VITE_API_URL=https://your-codesync-server.com/api
+
+# Build for the current platform (produces installer in dist/electron/)
+pnpm run electron:build
+
+# Or build for a specific platform
+pnpm run electron:build:mac    # macOS DMG + ZIP (Intel + Apple Silicon)
+pnpm run electron:build:win    # Windows NSIS installer + portable EXE
+pnpm run electron:build:linux  # Linux AppImage + .deb + .rpm
+```
+
+Output is in `artifacts/desktop/dist/electron/`:
+
+| Platform | Output |
+|----------|--------|
+| Windows  | `CodeSync Setup x.x.x.exe` (installer), `CodeSync x.x.x.exe` (portable) |
+| macOS    | `CodeSync-x.x.x.dmg` (Intel), `CodeSync-x.x.x-arm64.dmg` (Apple Silicon) |
+| Linux    | `CodeSync-x.x.x.AppImage`, `codesync_x.x.x_amd64.deb` |
+
+> Cross-compiling macOS binaries requires running on macOS; Windows requires WINE or
+> a Windows machine. Linux AppImages can be built on any Linux host.
+
+### Connecting to a Self-Hosted Server
+
+Set `VITE_API_URL` before building to point the desktop app at your own server:
+
+```bash
+VITE_API_URL=https://my-codesync.example.com/api pnpm run electron:build
+```
+
+Or for local testing point it at the Docker Compose stack from Option 1:
+
+```bash
+VITE_API_URL=http://localhost:8080/api pnpm run electron:dev
+```
 
 ---
 
@@ -182,6 +213,8 @@ All endpoints are prefixed with `/api`:
 │   ├── api-server/     # Express 5 backend + WebSocket + Yjs
 │   ├── codesync/       # Web frontend (original design)
 │   └── desktop/        # Desktop app (new dark Cursor-inspired design)
+│       ├── electron/   # Electron main process (main.ts, preload.ts)
+│       └── src/        # Vite + React renderer
 ├── lib/
 │   ├── db/             # PostgreSQL schema (Drizzle ORM)
 │   ├── api-spec/       # OpenAPI spec

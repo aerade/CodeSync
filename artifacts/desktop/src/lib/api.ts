@@ -1,6 +1,10 @@
-const BASE_URL = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
-
 function getApiBase(): string {
+  // When running inside Electron (packaged), window.electronAPI.getApiUrl() returns
+  // the configured server URL. We cannot use it synchronously here, so we fall back
+  // to the env-var VITE_API_URL which electron-builder bakes in at build time.
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL as string;
+  }
   if (typeof window === "undefined") return "/api";
   const origin = window.location.origin;
   const pathParts = window.location.pathname.split("/").filter(Boolean);
