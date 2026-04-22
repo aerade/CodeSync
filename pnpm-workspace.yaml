@@ -31,6 +31,7 @@ minimumReleaseAgeExclude:
 
 packages:
   - artifacts/*
+  - artifacts/desktop/server
   - lib/*
   - lib/integrations/*
   - scripts
@@ -61,6 +62,7 @@ autoInstallPeers: false
 
 onlyBuiltDependencies:
   - '@swc/core'
+  - better-sqlite3
   - esbuild
   - msw
   - node-pty

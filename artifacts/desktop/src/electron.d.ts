@@ -2,9 +2,17 @@ declare global {
   interface Window {
     electronAPI?: {
       getApiUrl: () => Promise<string>;
+      getApiUrlSync: () => string;
+      getSettings: () => Promise<{ openaiApiKey: string; anthropicApiKey: string; firstRun: boolean }>;
+      saveSettings: (settings: { openaiApiKey?: string; anthropicApiKey?: string }) => Promise<{ ok: boolean }>;
+      getAppVersion: () => Promise<string>;
+      onOpenSettings: (cb: () => void) => () => void;
+      onServerRestarted: (cb: (data: { apiUrl: string }) => void) => () => void;
       platform: string;
       version: string;
+      isElectron: boolean;
     };
+    __ELECTRON_API_URL__?: string;
   }
 }
 

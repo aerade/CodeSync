@@ -14,10 +14,12 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "electron:compile": "tsc --project tsconfig.electron.json && for f in dist/electron-main/*.js; do mv \"$f\" \"${f%.js}.cjs\"; done",
     "electron:dev": "concurrently \"pnpm run dev\" \"wait-on http://localhost:21098/desktop/ && electron .\"",
-    "electron:build": "pnpm run electron:vite-build && pnpm run electron:compile && electron-builder build --config electron-builder.yml",
-    "electron:build:win": "pnpm run electron:vite-build && pnpm run electron:compile && electron-builder build --win --config electron-builder.yml",
-    "electron:build:mac": "pnpm run electron:vite-build && pnpm run electron:compile && electron-builder build --mac --config electron-builder.yml",
-    "electron:build:linux": "pnpm run electron:vite-build && pnpm run electron:compile && electron-builder build --linux --config electron-builder.yml"
+    "server:build": "cd server && node build.mjs",
+    "electron:build": "pnpm run server:build && pnpm run electron:vite-build && pnpm run electron:compile && electron-builder build --config electron-builder.yml",
+    "electron:build:win": "pnpm run server:build && pnpm run electron:vite-build && pnpm run electron:compile && electron-builder build --win --config electron-builder.yml",
+    "electron:build:mac": "pnpm run server:build && pnpm run electron:vite-build && pnpm run electron:compile && electron-builder build --mac --config electron-builder.yml",
+    "electron:build:linux": "pnpm run server:build && pnpm run electron:vite-build && pnpm run electron:compile && electron-builder build --linux --config electron-builder.yml",
+    "build:full": "pnpm run server:build && pnpm run electron:build:linux"
   },
   "main": "dist/electron-main/main.cjs",
   "dependencies": {

@@ -1,7 +1,14 @@
 function getApiBase(): string {
-  // When running inside Electron (packaged), window.electronAPI.getApiUrl() returns
-  // the configured server URL. We cannot use it synchronously here, so we fall back
-  // to the env-var VITE_API_URL which electron-builder bakes in at build time.
+  // Priority 1: Electron preload injected URL (synchronous, available before React loads)
+  if (typeof window !== "undefined" && (window as any).__ELECTRON_API_URL__) {
+    return `${(window as any).__ELECTRON_API_URL__}/api`;
+  }
+  // Priority 2: Electron IPC synchronous call
+  if (typeof window !== "undefined" && (window as any).electronAPI?.getApiUrlSync) {
+    const url = (window as any).electronAPI.getApiUrlSync() as string;
+    if (url) return `${url}/api`;
+  }
+  // Priority 3: Build-time env var (for Replit dev server or Docker)
   if (import.meta.env.VITE_API_URL) {
     return import.meta.env.VITE_API_URL as string;
   }
@@ -201,7 +208,11 @@ export const api = {
           if (raw === "[DONE]") return;
           try {
             const json = JSON.parse(raw);
-            const text = json.choices?.[0]?.delta?.content ?? json.text ?? "";
+            if (json.done) return;
+            if (json.error) throw new Error(json.error);
+            // Embedded server format: { delta: "..." }
+            // OpenAI-proxy format: { choices: [{delta: {content: "..."}}] }
+            const text = json.delta ?? json.choices?.[0]?.delta?.content ?? json.text ?? "";
             if (text) onChunk(text);
           } catch {
             if (raw) onChunk(raw);

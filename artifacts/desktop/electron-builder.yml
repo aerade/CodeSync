@@ -2,29 +2,26 @@ appId: com.codesync.desktop
 productName: CodeSync
 copyright: Copyright 2025 CodeSync
 
-# Set main entry in the packaged app's package.json
 extraMetadata:
   main: dist/electron-main/main.cjs
 
-# Build resources (icons) and output directory
 directories:
   buildResources: build
   output: dist/electron
 
-# The renderer is a pre-built Vite bundle — only ship the compiled assets and
-# the compiled Electron main/preload. Do NOT ship node_modules (pnpm hoisting
-# causes path resolution errors with electron-builder's traversal).
 files:
   - dist/public/**/*
   - dist/electron-main/**/*
   - package.json
 
-# Electron itself is bundled by electron-builder; no native deps to rebuild.
-asar: true
+# Include the pre-built embedded server and its native modules
+extraResources:
+  - from: server/dist/
+    to: server/
+    filter:
+      - "**/*"
 
-# Skip native module rebuild — the main process has no native Node.js addons.
-# This avoids traversal of pnpm-hoisted node_modules (which causes ENOENT
-# errors for hoisted Replit-internal packages).
+asar: true
 npmRebuild: false
 
 # macOS
@@ -68,7 +65,6 @@ linux:
     - target: deb
       arch: [x64]
 
-# Auto-update (configure owner/repo for GitHub Releases)
 publish:
   provider: github
   owner: your-org

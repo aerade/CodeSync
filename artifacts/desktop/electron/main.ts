@@ -1,112 +1,225 @@
-import { app, BrowserWindow, Menu, shell, ipcMain } from "electron";
+import { app, BrowserWindow, Menu, shell, ipcMain, safeStorage, dialog } from "electron";
 import * as path from "path";
-import * as url from "url";
+import * as fs from "fs";
+import * as net from "net";
+import { fork, ChildProcess } from "child_process";
 
 const isDev = process.env.NODE_ENV === "development" || !app.isPackaged;
-
-// Remote API server URL (override via CODESYNC_API_URL env var for self-hosting)
-const API_URL = process.env.CODESYNC_API_URL ?? "https://your-codesync-server.com";
-
-// In dev mode, point at the local Vite dev server
 const DEV_URL = "http://localhost:21098/desktop/";
 
-function createWindow(): BrowserWindow {
-  const win = new BrowserWindow({
+let mainWindow: BrowserWindow | null = null;
+let serverProcess: ChildProcess | null = null;
+let serverPort = 57321;
+let serverReady = false;
+
+const SETTINGS_FILE = path.join(app.getPath("userData"), "settings.json");
+
+interface Settings {
+  openaiApiKey?: string;
+  anthropicApiKey?: string;
+  firstRun?: boolean;
+}
+
+function loadSettings(): Settings {
+  try {
+    if (fs.existsSync(SETTINGS_FILE)) {
+      const raw = fs.readFileSync(SETTINGS_FILE, "utf8");
+      const data = JSON.parse(raw) as Settings;
+      if (safeStorage.isEncryptionAvailable() && data.openaiApiKey) {
+        try { data.openaiApiKey = safeStorage.decryptString(Buffer.from(data.openaiApiKey, "base64")); } catch {}
+      }
+      if (safeStorage.isEncryptionAvailable() && data.anthropicApiKey) {
+        try { data.anthropicApiKey = safeStorage.decryptString(Buffer.from(data.anthropicApiKey, "base64")); } catch {}
+      }
+      return data;
+    }
+  } catch {}
+  return { firstRun: true };
+}
+
+function saveSettings(settings: Settings): void {
+  const toSave = { ...settings };
+  if (safeStorage.isEncryptionAvailable()) {
+    if (toSave.openaiApiKey) {
+      toSave.openaiApiKey = safeStorage.encryptString(toSave.openaiApiKey).toString("base64");
+    }
+    if (toSave.anthropicApiKey) {
+      toSave.anthropicApiKey = safeStorage.encryptString(toSave.anthropicApiKey).toString("base64");
+    }
+  }
+  fs.mkdirSync(path.dirname(SETTINGS_FILE), { recursive: true });
+  fs.writeFileSync(SETTINGS_FILE, JSON.stringify(toSave, null, 2), "utf8");
+}
+
+function getFreePort(): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const server = net.createServer();
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      server.close(() => {
+        if (address && typeof address === "object") {
+          resolve(address.port);
+        } else {
+          reject(new Error("Could not get free port"));
+        }
+      });
+    });
+    server.on("error", reject);
+  });
+}
+
+function getServerPath(): string {
+  if (isDev) {
+    return path.join(__dirname, "../../server/dist/server.cjs");
+  }
+  return path.join(process.resourcesPath, "server", "server.cjs");
+}
+
+function getDbPath(): string {
+  return path.join(app.getPath("userData"), "codesync.db");
+}
+
+async function startServer(): Promise<void> {
+  const settings = loadSettings();
+  const serverPath = getServerPath();
+
+  if (!fs.existsSync(serverPath)) {
+    if (!isDev) {
+      dialog.showErrorBox("Server Error", `Embedded server not found at:\n${serverPath}\n\nPlease reinstall CodeSync.`);
+    }
+    return;
+  }
+
+  try { serverPort = await getFreePort(); } catch { serverPort = 57321; }
+
+  const env: NodeJS.ProcessEnv = {
+    ...process.env,
+    PORT: String(serverPort),
+    DATABASE_URL: getDbPath(),
+    NODE_ENV: "production",
+  };
+
+  if (settings.openaiApiKey) env.OPENAI_API_KEY = settings.openaiApiKey;
+  if (settings.anthropicApiKey) env.ANTHROPIC_API_KEY = settings.anthropicApiKey;
+
+  const serverDir = path.dirname(serverPath);
+  serverProcess = fork(serverPath, [], {
+    env,
+    stdio: isDev ? "inherit" : "ignore",
+    detached: false,
+    cwd: serverDir,
+  });
+
+  serverProcess.on("error", (err) => {
+    console.error("[electron] Server process error:", err);
+  });
+
+  serverProcess.on("exit", (code) => {
+    if (code !== 0 && mainWindow) {
+      console.warn(`[electron] Server exited with code ${code}`);
+    }
+    serverProcess = null;
+    serverReady = false;
+  });
+
+  await waitForServer(serverPort, 30);
+  serverReady = true;
+  console.log(`[electron] Embedded server ready on port ${serverPort}`);
+}
+
+async function waitForServer(port: number, maxAttempts: number): Promise<void> {
+  const http = await import("http");
+  for (let i = 0; i < maxAttempts; i++) {
+    await new Promise<void>((resolve) => setTimeout(resolve, 500));
+    const ok = await new Promise<boolean>((resolve) => {
+      const req = http.get(`http://127.0.0.1:${port}/api/healthz`, (res) => {
+        resolve(res.statusCode === 200);
+      });
+      req.on("error", () => resolve(false));
+      req.setTimeout(1000, () => { req.destroy(); resolve(false); });
+    });
+    if (ok) return;
+  }
+  console.warn("[electron] Server did not become ready in time, continuing anyway");
+}
+
+function createWindow(): void {
+  mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
     minWidth: 900,
     minHeight: 600,
     backgroundColor: "#0C0C0E",
-    titleBarStyle: "hiddenInset",
-    trafficLightPosition: { x: 12, y: 12 },
-    vibrancy: "under-window",
-    visualEffectState: "active",
+    titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "default",
+    trafficLightPosition: process.platform === "darwin" ? { x: 12, y: 12 } : undefined,
     icon: path.join(__dirname, "../public/icon.png"),
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       nodeIntegration: false,
       contextIsolation: true,
-      sandbox: true,
+      sandbox: false,
       webSecurity: true,
     },
     show: false,
   });
 
   if (isDev) {
-    win.loadURL(DEV_URL);
-    win.webContents.openDevTools({ mode: "detach" });
+    mainWindow.loadURL(DEV_URL);
+    mainWindow.webContents.openDevTools({ mode: "detach" });
   } else {
-    // __dirname is dist/electron-main/, so go up one level to dist/public/
-    win.loadFile(path.join(__dirname, "../public/index.html"));
+    mainWindow.loadFile(path.join(__dirname, "../public/index.html"));
   }
 
-  win.once("ready-to-show", () => win.show());
+  mainWindow.once("ready-to-show", () => {
+    mainWindow?.show();
+  });
 
-  // Open external links in system browser
-  win.webContents.setWindowOpenHandler(({ url: href }) => {
+  mainWindow.webContents.setWindowOpenHandler(({ url: href }) => {
     if (href.startsWith("https://") || href.startsWith("http://")) {
       shell.openExternal(href);
     }
     return { action: "deny" };
   });
 
-  return win;
+  mainWindow.on("closed", () => { mainWindow = null; });
 }
 
-function buildMenu(win: BrowserWindow) {
+function buildMenu(): void {
   const template: Electron.MenuItemConstructorOptions[] = [
-    {
+    ...(process.platform === "darwin" ? [{
       label: "CodeSync",
       submenu: [
-        { label: "About CodeSync", role: "about" },
-        { type: "separator" },
-        { label: "Hide CodeSync", role: "hide" },
-        { role: "hideOthers" },
-        { role: "unhide" },
-        { type: "separator" },
-        { label: "Quit CodeSync", role: "quit" },
+        { label: "About CodeSync", role: "about" as const },
+        { type: "separator" as const },
+        { label: "Settings", accelerator: "Cmd+,", click: () => openSettings() },
+        { type: "separator" as const },
+        { label: "Quit CodeSync", role: "quit" as const },
       ],
-    },
+    }] : []),
     {
       label: "Edit",
       submenu: [
-        { role: "undo" }, { role: "redo" },
-        { type: "separator" },
-        { role: "cut" }, { role: "copy" }, { role: "paste" },
-        { role: "selectAll" },
+        { role: "undo" as const }, { role: "redo" as const },
+        { type: "separator" as const },
+        { role: "cut" as const }, { role: "copy" as const }, { role: "paste" as const },
+        { role: "selectAll" as const },
       ],
     },
     {
       label: "View",
       submenu: [
-        { role: "reload" }, { role: "forceReload" },
-        { type: "separator" },
-        { role: "resetZoom" }, { role: "zoomIn" }, { role: "zoomOut" },
-        { type: "separator" },
-        { role: "togglefullscreen" },
+        { role: "reload" as const }, { role: "forceReload" as const },
+        { type: "separator" as const },
+        { role: "resetZoom" as const }, { role: "zoomIn" as const }, { role: "zoomOut" as const },
+        { type: "separator" as const },
+        { role: "togglefullscreen" as const },
         ...(isDev ? [{ role: "toggleDevTools" as const }] : []),
       ],
     },
     {
-      label: "Window",
+      label: "Tools",
       submenu: [
-        { role: "minimize" },
-        { role: "zoom" },
-        { type: "separator" },
-        { role: "front" },
-      ],
-    },
-    {
-      label: "Help",
-      submenu: [
-        {
-          label: "Documentation",
-          click: () => shell.openExternal("https://github.com/your-org/codesync#readme"),
-        },
-        {
-          label: "Report an Issue",
-          click: () => shell.openExternal("https://github.com/your-org/codesync/issues"),
-        },
+        { label: "Settings", accelerator: process.platform === "darwin" ? "Cmd+," : "Ctrl+,", click: () => openSettings() },
       ],
     },
   ];
@@ -114,19 +227,68 @@ function buildMenu(win: BrowserWindow) {
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
-app.whenReady().then(() => {
-  const win = createWindow();
-  buildMenu(win);
+function openSettings(): void {
+  mainWindow?.webContents.send("open-settings");
+}
 
-  // macOS: re-create window when dock icon is clicked
+// ─── IPC Handlers ────────────────────────────────────────────────────────────
+
+ipcMain.handle("get-api-url", () => {
+  return `http://127.0.0.1:${serverPort}`;
+});
+
+ipcMain.on("get-api-url-sync", (event) => {
+  event.returnValue = `http://127.0.0.1:${serverPort}`;
+});
+
+ipcMain.handle("get-settings", () => {
+  const settings = loadSettings();
+  return {
+    openaiApiKey: settings.openaiApiKey ?? "",
+    anthropicApiKey: settings.anthropicApiKey ?? "",
+    firstRun: settings.firstRun ?? false,
+  };
+});
+
+ipcMain.handle("save-settings", async (_event, settings: { openaiApiKey?: string; anthropicApiKey?: string }) => {
+  const current = loadSettings();
+  const updated = { ...current, ...settings, firstRun: false };
+  saveSettings(updated);
+
+  if (serverProcess && serverProcess.pid) {
+    serverProcess.kill("SIGTERM");
+    await new Promise<void>((resolve) => setTimeout(resolve, 500));
+    await startServer();
+    mainWindow?.webContents.send("server-restarted", { apiUrl: `http://127.0.0.1:${serverPort}` });
+  }
+
+  return { ok: true };
+});
+
+ipcMain.handle("get-app-version", () => app.getVersion());
+
+// ─── App Lifecycle ────────────────────────────────────────────────────────────
+
+app.whenReady().then(async () => {
+  await startServer();
+  createWindow();
+  buildMenu();
+
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
 });
 
 app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") app.quit();
+  if (process.platform !== "darwin") {
+    if (serverProcess) serverProcess.kill("SIGTERM");
+    app.quit();
+  }
 });
 
-// IPC: expose API base URL to renderer
-ipcMain.handle("get-api-url", () => API_URL);
+app.on("before-quit", () => {
+  if (serverProcess) {
+    serverProcess.kill("SIGTERM");
+    serverProcess = null;
+  }
+});
