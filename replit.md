@@ -38,11 +38,22 @@ artifacts/
       pages/           # home.tsx, dashboard.tsx, room.tsx, not-found.tsx
       components/      # FileTree, AIPanel, Terminal, SessionSidebar, ParticleBackground
       hooks/           # useCurrentUser.ts
-  desktop/             # NEW: Desktop app — dark Cursor-inspired design (port 21098, previewPath "/desktop/")
+  desktop/             # NEW: Standalone Desktop app — Electron + embedded SQLite server
     src/
-      pages/           # home.tsx (auth + room list), room.tsx (3-col IDE layout)
+      pages/           # home.tsx (auth + room list), room.tsx (3-col IDE layout), settings.tsx
       components/      # FileTree.tsx, AIPanel.tsx, SessionSidebar.tsx, TerminalPanel.tsx
-      lib/             # api.ts (custom API client, no Clerk), utils.ts
+      lib/             # api.ts (reads __ELECTRON_API_URL__ injected by preload), utils.ts
+    electron/          # main.ts (spawns embedded server, safeStorage), preload.ts (IPC bridge)
+    server/            # SELF-CONTAINED embedded API server (no PostgreSQL, no Clerk)
+      src/
+        index.ts       # Express + WebSocket, calls initDb + setupSchema on startup
+        db.ts          # @libsql/client SQLite setup + schema creation
+        auth.ts        # HMAC JWT middleware, guest tokens
+        routes/        # auth.ts, rooms.ts, files.ts, execute.ts, ai.ts
+        ws/collab.ts   # Yjs WebSocket collaboration
+      build.mjs        # esbuild → dist/server.cjs (bundles everything, externalizes @libsql native)
+      dist/            # Built output: server.cjs + node_modules/@libsql/linux-x64-gnu/
+    electron-builder.yml: extraResources: server/dist/ → resources/server/
     Design tokens: bg #0C0C0E, surface #16161A, accent #7C6FF7 (purple), font: Geist
 lib/
   db/                  # Drizzle ORM + PostgreSQL schema

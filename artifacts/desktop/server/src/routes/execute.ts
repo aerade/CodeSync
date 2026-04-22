@@ -23,7 +23,8 @@ const LANGUAGE_CONFIG: Record<string, { compile?: string[]; run: string[]; ext: 
 const EXEC_TIMEOUT = 15_000;
 
 router.post("/execute", authMiddleware, async (req, res) => {
-  const { code, language } = req.body as { code?: string; language?: string };
+  interface ExecuteBody { code?: string; language?: string; }
+  const { code, language } = req.body as ExecuteBody;
   if (!code || !language) { res.status(400).json({ error: "code and language required" }); return; }
 
   const config = LANGUAGE_CONFIG[language];
@@ -36,42 +37,59 @@ router.post("/execute", authMiddleware, async (req, res) => {
   const filePath = join(workDir, `main.${config.ext}`);
   const outPath = join(workDir, "out");
 
+  const startMs = Date.now();
+
   try {
     await mkdir(workDir, { recursive: true });
     await writeFile(filePath, code, "utf8");
 
-    const resolve = (cmd: string) => cmd
+    const resolvePath = (cmd: string) => cmd
       .replace("__FILE__", filePath)
       .replace("__OUT__", outPath);
 
     const runCmd = async (args: string[]): Promise<{ stdout: string; stderr: string; exitCode: number }> => {
       return new Promise((resolveP) => {
-        const [bin, ...rest] = args.map(resolve);
+        const [bin, ...rest] = args.map(resolvePath);
         let stdout = "";
         let stderr = "";
+        let timedOut = false;
 
-        const proc = spawn(bin, rest, { cwd: workDir, timeout: EXEC_TIMEOUT });
+        const proc = spawn(bin, rest, { cwd: workDir });
+        const timer = setTimeout(() => {
+          timedOut = true;
+          proc.kill("SIGKILL");
+        }, EXEC_TIMEOUT);
+
         proc.stdout.on("data", (d: Buffer) => { stdout += d.toString(); });
         proc.stderr.on("data", (d: Buffer) => { stderr += d.toString(); });
-        proc.on("close", (code) => resolveP({ stdout, stderr, exitCode: code ?? 0 }));
-        proc.on("error", (err) => resolveP({ stdout: "", stderr: err.message, exitCode: 1 }));
-
-        setTimeout(() => { proc.kill(); resolveP({ stdout, stderr: "Execution timed out", exitCode: 1 }); }, EXEC_TIMEOUT);
+        proc.on("close", (code) => {
+          clearTimeout(timer);
+          resolveP({
+            stdout,
+            stderr: timedOut ? "Execution timed out (15s)" : stderr,
+            exitCode: timedOut ? 1 : (code ?? 0),
+          });
+        });
+        proc.on("error", (err: NodeJS.ErrnoException) => {
+          clearTimeout(timer);
+          resolveP({ stdout: "", stderr: err.message, exitCode: 1 });
+        });
       });
     };
 
     if (config.compile) {
       const compileResult = await runCmd(config.compile);
       if (compileResult.exitCode !== 0) {
-        res.json(compileResult);
+        res.json({ ...compileResult, runtime: (Date.now() - startMs) / 1000, language });
         return;
       }
     }
 
     const result = await runCmd(config.run);
-    res.json(result);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    res.json({ ...result, runtime: (Date.now() - startMs) / 1000, language });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: message });
   } finally {
     rm(workDir, { recursive: true, force: true }).catch(() => {});
   }

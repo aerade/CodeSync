@@ -23,8 +23,10 @@ router.get("/rooms/:roomId/files", authMiddleware, async (req: Request, res: Res
   res.json(result.rows.map(r => mapFile(r as unknown as Record<string, unknown>)));
 });
 
+interface CreateFileBody { name?: string; path?: string; language?: string; content?: string; parentId?: string; isFolder?: boolean; }
+
 router.post("/rooms/:roomId/files", authMiddleware, async (req: Request, res: Response) => {
-  const { name, path: filePath, language, content, parentId, isFolder } = req.body as any;
+  const { name, path: filePath, language, content, parentId, isFolder } = req.body as CreateFileBody;
   if (!name?.trim()) { res.status(400).json({ error: "name required" }); return; }
 
   const id = newId();
@@ -55,7 +57,7 @@ router.patch("/rooms/:roomId/files/:fileId", authMiddleware, async (req: Request
   });
   if (!checkRes.rows.length) { res.status(404).json({ error: "File not found" }); return; }
 
-  const { content, name, language } = req.body as any;
+  const { content, name, language } = req.body as { content?: string; name?: string; language?: string };
   const updates: string[] = [];
   const args: unknown[] = [];
 

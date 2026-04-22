@@ -172,6 +172,14 @@ function createWindow(): void {
 
   mainWindow.once("ready-to-show", () => {
     mainWindow?.show();
+
+    // On first run, auto-open the settings dialog so user can add API keys
+    const settings = loadSettings();
+    if (settings.firstRun) {
+      setTimeout(() => {
+        mainWindow?.webContents.send("open-settings");
+      }, 1500);
+    }
   });
 
   mainWindow.webContents.setWindowOpenHandler(({ url: href }) => {

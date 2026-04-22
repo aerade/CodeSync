@@ -36,8 +36,10 @@ router.get("/rooms", authMiddleware, async (req: Request, res: Response) => {
   res.json(result.rows.map(r => mapRoom(r as unknown as Record<string, unknown>)));
 });
 
+interface CreateRoomBody { title?: string; description?: string; isPrivate?: boolean; maxUsers?: number; }
+
 router.post("/rooms", authMiddleware, async (req: Request, res: Response) => {
-  const { title, description, isPrivate, maxUsers } = req.body as any;
+  const { title, description, isPrivate, maxUsers } = req.body as CreateRoomBody;
   if (!title?.trim()) { res.status(400).json({ error: "title required" }); return; }
 
   const id = newId();
@@ -82,12 +84,11 @@ router.delete("/rooms/:id", authMiddleware, async (req: Request, res: Response) 
   const room = result.rows[0] as unknown as Record<string, unknown>;
   if (room.owner_id !== req.user!.id) { res.status(403).json({ error: "Forbidden" }); return; }
 
-  await client.executeMultiple(`
-    DELETE FROM files WHERE room_id = '${req.params.id}';
-    DELETE FROM room_members WHERE room_id = '${req.params.id}';
-    DELETE FROM events WHERE room_id = '${req.params.id}';
-    DELETE FROM rooms WHERE id = '${req.params.id}';
-  `);
+  const roomId = req.params.id;
+  await client.execute({ sql: "DELETE FROM files WHERE room_id = ?", args: [roomId] });
+  await client.execute({ sql: "DELETE FROM room_members WHERE room_id = ?", args: [roomId] });
+  await client.execute({ sql: "DELETE FROM events WHERE room_id = ?", args: [roomId] });
+  await client.execute({ sql: "DELETE FROM rooms WHERE id = ?", args: [roomId] });
   res.json({ ok: true });
 });
 
@@ -107,7 +108,7 @@ router.get("/rooms/:id/members", authMiddleware, async (req: Request, res: Respo
 });
 
 router.post("/rooms/:id/members", authMiddleware, async (req: Request, res: Response) => {
-  const { color } = req.body as any;
+  const { color } = req.body as { color?: string };
   const ts = now();
   const id = newId();
   try {
