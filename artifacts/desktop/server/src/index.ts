@@ -50,8 +50,9 @@ async function main() {
 
   app.use(cors({
     origin: (origin, cb) => {
-      // Allow requests with no origin (file:// in packaged Electron) or known localhost
-      if (!origin || ALLOWED_ORIGINS.has(origin)) {
+      // Allow requests with no origin header, "null" string origin (file:// in packaged Electron),
+      // or known localhost origins
+      if (!origin || origin === "null" || ALLOWED_ORIGINS.has(origin)) {
         cb(null, true);
       } else {
         cb(new Error("CORS: origin not allowed"));
