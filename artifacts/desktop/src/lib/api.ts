@@ -1,9 +1,5 @@
 function getApiBase(): string {
-  // Priority 1: Electron preload injected URL (synchronous, available before React loads)
-  if (typeof window !== "undefined" && window.__ELECTRON_API_URL__) {
-    return `${window.__ELECTRON_API_URL__}/api`;
-  }
-  // Priority 2: Electron IPC synchronous call
+  // Priority 1: Electron API exposed via contextBridge (synchronous, available at script load)
   if (typeof window !== "undefined" && window.electronAPI?.getApiUrlSync) {
     const url = window.electronAPI.getApiUrlSync();
     if (url) return `${url}/api`;
@@ -108,7 +104,7 @@ export function clearAuth() {
 }
 
 function getInternalToken(): string | undefined {
-  if (typeof window !== "undefined" && window.__INTERNAL_TOKEN__) return window.__INTERNAL_TOKEN__;
+  if (typeof window !== "undefined") return window.electronAPI?.getInternalTokenSync() || undefined;
   return undefined;
 }
 

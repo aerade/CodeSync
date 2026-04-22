@@ -32,7 +32,7 @@ async function fetchCollabToken(): Promise<string | null> {
       "x-guest-token": token,
     };
     // Required by the embedded desktop server's INTERNAL_TOKEN guard
-    const internalToken = typeof window !== "undefined" ? window.__INTERNAL_TOKEN__ : undefined;
+    const internalToken = typeof window !== "undefined" ? window.electronAPI?.getInternalTokenSync() : undefined;
     if (internalToken) headers["X-Internal-Token"] = internalToken;
     const res = await fetch(`${API_BASE}/collab/token`, {
       method: "POST",

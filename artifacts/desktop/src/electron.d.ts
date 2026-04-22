@@ -3,6 +3,7 @@ declare global {
     electronAPI?: {
       getApiUrl: () => Promise<string>;
       getApiUrlSync: () => string;
+      getInternalTokenSync: () => string;
       getSettings: () => Promise<{ openaiApiKey: string; anthropicApiKey: string; firstRun: boolean }>;
       saveSettings: (settings: { openaiApiKey?: string; anthropicApiKey?: string }) => Promise<{ ok: boolean }>;
       getAppVersion: () => Promise<string>;
@@ -12,8 +13,6 @@ declare global {
       version: string;
       isElectron: boolean;
     };
-    __ELECTRON_API_URL__?: string;
-    __INTERNAL_TOKEN__?: string;
   }
 }
 
