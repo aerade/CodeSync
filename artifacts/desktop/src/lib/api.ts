@@ -107,6 +107,11 @@ export function clearAuth() {
   localStorage.removeItem("cs_token");
 }
 
+function getInternalToken(): string | undefined {
+  if (typeof window !== "undefined" && window.__INTERNAL_TOKEN__) return window.__INTERNAL_TOKEN__;
+  return undefined;
+}
+
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = getToken();
   const headers: Record<string, string> = {
@@ -114,6 +119,8 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     ...(options.headers as Record<string, string> ?? {}),
   };
   if (token) headers["Authorization"] = `Bearer ${token}`;
+  const internalToken = getInternalToken();
+  if (internalToken) headers["X-Internal-Token"] = internalToken;
 
   const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
   if (!res.ok) {
@@ -178,6 +185,8 @@ export const api = {
     const token = getToken();
     const headers: Record<string, string> = { "Content-Type": "application/json" };
     if (token) headers["Authorization"] = `Bearer ${token}`;
+    const internalToken = getInternalToken();
+    if (internalToken) headers["X-Internal-Token"] = internalToken;
 
     const res = await fetch(`${API_BASE}/ai/chat`, {
       method: "POST",

@@ -1,6 +1,9 @@
 import { createHmac, randomBytes } from "crypto";
 
-const SECRET = process.env.JWT_SECRET || randomBytes(32).toString("hex");
+const SECRET = process.env.JWT_SECRET ?? randomBytes(32).toString("hex");
+if (!process.env.JWT_SECRET) {
+  console.warn("[codesync-server] JWT_SECRET not set — sessions will be ephemeral (lost on restart)");
+}
 
 function base64url(buf: Buffer | string): string {
   return Buffer.from(buf).toString("base64url");

@@ -2,6 +2,7 @@ import { app, BrowserWindow, Menu, shell, ipcMain, safeStorage, dialog } from "e
 import * as path from "path";
 import * as fs from "fs";
 import * as net from "net";
+import * as crypto from "crypto";
 import { fork, ChildProcess } from "child_process";
 
 const isDev = process.env.NODE_ENV === "development" || !app.isPackaged;
@@ -13,6 +14,30 @@ let serverPort = 57321;
 let serverReady = false;
 
 const SETTINGS_FILE = path.join(app.getPath("userData"), "settings.json");
+const SECRETS_FILE = path.join(app.getPath("userData"), "secrets.json");
+
+interface AppSecrets { jwtSecret: string; internalToken: string; }
+
+function loadOrCreateSecrets(): AppSecrets {
+  try {
+    if (fs.existsSync(SECRETS_FILE)) {
+      const raw = fs.readFileSync(SECRETS_FILE, "utf8");
+      const parsed = JSON.parse(raw) as Partial<AppSecrets>;
+      if (parsed.jwtSecret && parsed.internalToken) {
+        return parsed as AppSecrets;
+      }
+    }
+  } catch { /* will recreate */ }
+  const secrets: AppSecrets = {
+    jwtSecret: crypto.randomBytes(32).toString("hex"),
+    internalToken: crypto.randomBytes(32).toString("hex"),
+  };
+  fs.mkdirSync(path.dirname(SECRETS_FILE), { recursive: true });
+  fs.writeFileSync(SECRETS_FILE, JSON.stringify(secrets, null, 2), "utf8");
+  return secrets;
+}
+
+const appSecrets = loadOrCreateSecrets();
 
 interface Settings {
   openaiApiKey?: string;
@@ -102,6 +127,8 @@ async function startServer(reusePort?: number): Promise<void> {
     PORT: String(serverPort),
     DATABASE_URL: getDbPath(),
     NODE_ENV: "production",
+    JWT_SECRET: appSecrets.jwtSecret,
+    INTERNAL_TOKEN: appSecrets.internalToken,
   };
 
   if (settings.openaiApiKey) env.OPENAI_API_KEY = settings.openaiApiKey;
@@ -252,6 +279,10 @@ ipcMain.handle("get-api-url", () => {
 
 ipcMain.on("get-api-url-sync", (event) => {
   event.returnValue = `http://127.0.0.1:${serverPort}`;
+});
+
+ipcMain.on("get-internal-token-sync", (event) => {
+  event.returnValue = appSecrets.internalToken;
 });
 
 ipcMain.handle("get-settings", () => {

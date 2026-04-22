@@ -1,4 +1,4 @@
-import express from "express";
+import express, { Request, Response, NextFunction } from "express";
 import cors from "cors";
 import { createServer } from "http";
 import { WebSocketServer } from "ws";
@@ -14,6 +14,33 @@ import { setupCollabServer } from "./ws/collab.js";
 const PORT = Number(process.env.PORT ?? 57321);
 const DB_PATH = process.env.DATABASE_URL ?? path.join(process.cwd(), "codesync.db");
 
+// Internal token guards all API access — only the Electron renderer knows this value.
+// If missing, the server will refuse all API requests (safe default).
+const INTERNAL_TOKEN = process.env.INTERNAL_TOKEN;
+if (!INTERNAL_TOKEN) {
+  console.warn("[codesync-server] INTERNAL_TOKEN not set — API access will be blocked");
+}
+
+// Allowed localhost origins for the Electron renderer
+const ALLOWED_ORIGINS = new Set([
+  `http://127.0.0.1:${PORT}`,
+  `http://localhost:${PORT}`,
+  "http://localhost:21098",   // Vite dev server
+  `http://127.0.0.1:21098`,
+]);
+
+function internalTokenMiddleware(req: Request, res: Response, next: NextFunction): void {
+  // Healthz endpoint always accessible (used by main.ts for readiness check)
+  if (req.path === "/healthz") { next(); return; }
+
+  const provided = req.headers["x-internal-token"];
+  if (!INTERNAL_TOKEN || provided !== INTERNAL_TOKEN) {
+    res.status(403).json({ error: "Forbidden: missing or invalid internal token" });
+    return;
+  }
+  next();
+}
+
 async function main() {
   initDb(DB_PATH);
   await setupSchema();
@@ -21,9 +48,23 @@ async function main() {
 
   const app = express();
 
-  app.use(cors({ origin: true, credentials: true }));
+  app.use(cors({
+    origin: (origin, cb) => {
+      // Allow requests with no origin (file:// in packaged Electron) or known localhost
+      if (!origin || ALLOWED_ORIGINS.has(origin)) {
+        cb(null, true);
+      } else {
+        cb(new Error("CORS: origin not allowed"));
+      }
+    },
+    credentials: true,
+  }));
+
   app.use(express.json({ limit: "10mb" }));
   app.use(express.urlencoded({ extended: true }));
+
+  // Internal token guard applies to all /api routes
+  app.use("/api", internalTokenMiddleware);
 
   app.use("/api", authRouter);
   app.use("/api", roomsRouter);

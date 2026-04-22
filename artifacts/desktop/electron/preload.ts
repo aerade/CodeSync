@@ -1,11 +1,13 @@
 import { contextBridge, ipcRenderer } from "electron";
 
 const apiUrl: string = ipcRenderer.sendSync("get-api-url-sync") ?? "http://127.0.0.1:57321";
+const internalToken: string = ipcRenderer.sendSync("get-internal-token-sync") ?? "";
 
-// Inject API URL globally before any React code runs
+// Inject API URL and internal token globally before any React code runs
 // globalThis in the preload context is the renderer window object
-declare global { interface Window { __ELECTRON_API_URL__?: string; } }
+declare global { interface Window { __ELECTRON_API_URL__?: string; __INTERNAL_TOKEN__?: string; } }
 (globalThis as unknown as Window).__ELECTRON_API_URL__ = apiUrl;
+(globalThis as unknown as Window).__INTERNAL_TOKEN__ = internalToken;
 
 contextBridge.exposeInMainWorld("electronAPI", {
   getApiUrl: (): Promise<string> => ipcRenderer.invoke("get-api-url"),

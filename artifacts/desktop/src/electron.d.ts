@@ -13,6 +13,7 @@ declare global {
       isElectron: boolean;
     };
     __ELECTRON_API_URL__?: string;
+    __INTERNAL_TOKEN__?: string;
   }
 }
 
