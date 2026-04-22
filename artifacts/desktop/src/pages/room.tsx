@@ -26,13 +26,14 @@ async function fetchCollabToken(): Promise<string | null> {
   const token = getToken();
   if (!token) return null;
   try {
-    // Guest sessions use x-guest-token header; Clerk sessions use Authorization Bearer.
-    // The backend collab endpoint checks both.
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
       "Authorization": `Bearer ${token}`,
       "x-guest-token": token,
     };
+    // Required by the embedded desktop server's INTERNAL_TOKEN guard
+    const internalToken = typeof window !== "undefined" ? window.__INTERNAL_TOKEN__ : undefined;
+    if (internalToken) headers["X-Internal-Token"] = internalToken;
     const res = await fetch(`${API_BASE}/collab/token`, {
       method: "POST",
       headers,
