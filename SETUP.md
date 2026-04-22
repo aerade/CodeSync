@@ -1,39 +1,54 @@
-# CodeSync — Руководство по запуску и настройке
+# CodeSync — Setup & Installation Guide
 
-## Содержание
+## Three Ways to Run CodeSync
 
-1. [Требования](#требования)
-2. [Быстрый старт](#быстрый-старт)
-3. [Настройка Clerk (авторизация)](#настройка-clerk-авторизация)
-4. [Настройка OpenAI / AI-интеграция](#настройка-openai--ai-интеграция)
-5. [Настройка базы данных](#настройка-базы-данных)
-6. [Переменные окружения](#переменные-окружения)
-7. [Структура проекта](#структура-проекта)
-8. [Команды разработчика](#команды-разработчика)
-9. [API-маршруты](#api-маршруты)
-10. [WebSocket](#websocket)
-11. [Внешние сервисы](#внешние-сервисы)
+### Option 1: Docker Compose (Recommended — Easiest)
+### Option 2: Local Development
+### Option 3: Download Desktop App
 
 ---
 
-## Требования
+## Option 1: Docker Compose (Self-Hosted)
 
-| Инструмент | Версия |
-|---|---|
-| Node.js | 24+ |
-| pnpm | 9+ |
-| PostgreSQL | 15+ |
+**Requirements:** Docker 24+, Docker Compose v2
 
 ```bash
-node --version   # v24.x.x
-pnpm --version   # 9.x.x
+# 1. Clone the repo
+git clone <repo-url>
+cd codesync
+
+# 2. Copy and edit environment variables
+cp .env.example .env
+# Edit .env — at minimum set OPENAI_API_KEY or ANTHROPIC_API_KEY
+
+# 3. Start everything (PostgreSQL + API + Web frontend)
+docker compose up -d
+
+# 4. Open in browser
+open http://localhost
+```
+
+**Services started:**
+| Container | Port | Role |
+|-----------|------|------|
+| `db`      | 5432 | PostgreSQL 16 |
+| `api`     | 8080 | REST + WebSocket API |
+| `web`     | 80   | React frontend (Nginx) |
+
+**Stop:**
+```bash
+docker compose down
+# To also remove database data:
+docker compose down -v
 ```
 
 ---
 
-## Быстрый старт
+## Option 2: Local Development
 
-### 1. Клонирование и установка зависимостей
+**Requirements:** Node.js 22+, pnpm 10+, PostgreSQL 16+
+
+### Step 1 — Install dependencies
 
 ```bash
 git clone <repo-url>
@@ -41,358 +56,159 @@ cd codesync
 pnpm install
 ```
 
-### 2. Заполнить переменные окружения
+### Step 2 — Configure environment
 
-Создать файл `.env` в корне проекта:
+Create `.env` in the project root:
 
 ```env
-DATABASE_URL=postgresql://user:password@localhost:5432/codesync
-CLERK_SECRET_KEY=sk_...
-CLERK_PUBLISHABLE_KEY=pk_...
-VITE_CLERK_PUBLISHABLE_KEY=pk_...
-VITE_CLERK_PROXY_URL=https://your-domain.com/clerk
-AI_INTEGRATIONS_OPENAI_BASE_URL=https://api.openai.com
-AI_INTEGRATIONS_OPENAI_API_KEY=sk-...
+DATABASE_URL=postgres://postgres:password@localhost:5432/codesync
+OPENAI_API_KEY=sk-...          # Required for AI features
+ANTHROPIC_API_KEY=             # Optional alternative to OpenAI
+CLERK_SECRET_KEY=              # Optional — enables full auth; guests work without it
+PORT=8080
 ```
 
-### 3. Применить схему базы данных
+### Step 3 — Set up the database
 
 ```bash
-pnpm --filter @workspace/db run push
-```
-
-### 4. Запуск серверов
-
-Запустить в двух отдельных терминалах:
-
-```bash
-# Терминал 1 — backend (Express, порт 8080)
-pnpm --filter @workspace/api-server run dev
-
-# Терминал 2 — frontend (React+Vite, порт 25034)
-pnpm --filter @workspace/codesync run dev
-```
-
-Приложение доступно по адресу: `http://localhost:25034`
-
----
-
-## Настройка Clerk (авторизация)
-
-Clerk обеспечивает авторизацию пользователей. В проекте также реализован **гостевой режим** — пользователи могут заходить в комнаты без регистрации (только просмотр и редактирование, без создания комнат).
-
-### Шаг 1. Создать приложение в Clerk
-
-1. Зайти на [clerk.com](https://clerk.com) и создать аккаунт.
-2. Создать новое приложение (Application).
-3. Выбрать методы входа: Email, Google, GitHub — по необходимости.
-4. Перейти в раздел **API Keys**.
-
-### Шаг 2. Получить ключи
-
-| Ключ | Где взять | Куда вставить |
-|---|---|---|
-| `Publishable Key` | Clerk Dashboard → API Keys | `CLERK_PUBLISHABLE_KEY` и `VITE_CLERK_PUBLISHABLE_KEY` |
-| `Secret Key` | Clerk Dashboard → API Keys | `CLERK_SECRET_KEY` |
-
-### Шаг 3. Настроить Proxy URL (опционально, для production)
-
-Если используется собственный домен, в Clerk Dashboard → **Domains** добавить домен и выставить переменную:
-
-```env
-VITE_CLERK_PROXY_URL=https://your-domain.com/clerk
-```
-
-Если proxy не нужен — переменную можно не задавать.
-
-### Шаг 4. Настроить Redirect URLs
-
-В Clerk Dashboard → **Redirect URLs** добавить адреса вашего приложения:
-
-```
-http://localhost:25034
-http://localhost:25034/dashboard
-https://your-domain.com
-https://your-domain.com/dashboard
-```
-
-### Использование в проекте
-
-- **Backend**: `artifacts/api-server/src/app.ts` — Clerk middleware для проверки JWT-токенов
-- **Frontend**: `artifacts/codesync/src/` — `ClerkProvider` и хук `useCurrentUser`
-- **Гостевой режим**: токен хранится в `localStorage` под ключом `x-guest-token`, передаётся в заголовке запроса
-
----
-
-## Настройка OpenAI / AI-интеграция
-
-В проекте используется модель **gpt-4o** для двух функций:
-- **Code Review** — анализ выбранного кода (SSE-стриминг)
-- **AI Chat** — диалог с ИИ, который может создавать/редактировать/удалять файлы в IDE через tool-calling
-
-### Получить API-ключ OpenAI
-
-1. Зайти на [platform.openai.com](https://platform.openai.com).
-2. Создать API-ключ в разделе **API keys**.
-3. Выставить переменные окружения:
-
-```env
-AI_INTEGRATIONS_OPENAI_BASE_URL=https://api.openai.com
-AI_INTEGRATIONS_OPENAI_API_KEY=sk-...
-```
-
-### Альтернативный провайдер (OpenAI-совместимый)
-
-Если используется прокси или другой OpenAI-совместимый провайдер (Azure, Together AI, Groq и др.), достаточно изменить `BASE_URL`:
-
-```env
-AI_INTEGRATIONS_OPENAI_BASE_URL=https://your-proxy.example.com
-AI_INTEGRATIONS_OPENAI_API_KEY=<ключ провайдера>
-```
-
-### Использование в проекте
-
-- **Клиент OpenAI**: `lib/integrations-openai-ai-server/`
-- **AI-маршруты**: `artifacts/api-server/src/routes/ai.ts`
-  - `POST /api/ai/chat` — чат с ИИ (SSE)
-  - `POST /api/ai/review` — code review (SSE)
-
----
-
-## Настройка базы данных
-
-Проект использует **PostgreSQL** с **Drizzle ORM**.
-
-### Схема данных
-
-| Таблица | Описание |
-|---|---|
-| `users` | Пользователи (Clerk ID + гостевые токены) |
-| `rooms` | Комнаты для совместного редактирования |
-| `room_members` | Участники комнат |
-| `files` | Файлы в комнатах |
-| `events` | Лента событий (join, edit и т.д.) |
-| `yjs_snapshots` | Снапшоты Yjs-документов |
-| `file_snapshots` | История версий файлов |
-
-### Локальный PostgreSQL
-
-```bash
-# Создать базу данных
+# Create the database
 createdb codesync
 
-# Задать переменную окружения
-DATABASE_URL=postgresql://postgres:password@localhost:5432/codesync
-
-# Применить схему
+# Push schema (Drizzle ORM)
 pnpm --filter @workspace/db run push
 ```
 
-### Облачная БД (Supabase, Neon, Railway и др.)
-
-Создать базу данных в выбранном сервисе, скопировать строку подключения и задать переменную:
-
-```env
-DATABASE_URL=postgresql://user:password@db.example.com:5432/codesync
-```
-
-Затем применить схему:
+### Step 4 — Start the servers
 
 ```bash
-pnpm --filter @workspace/db run push
+# Terminal 1: API server (port 8080)
+pnpm --filter @workspace/api-server run dev
+
+# Terminal 2: Web frontend
+pnpm --filter @workspace/codesync run dev
+
+# Terminal 3: Desktop app (new dark theme, port 21098)
+pnpm --filter @workspace/desktop run dev
 ```
 
----
-
-## Переменные окружения
-
-### Полный список
-
-| Переменная | Обязательная | Описание |
-|---|---|---|
-| `DATABASE_URL` | Да | PostgreSQL строка подключения |
-| `CLERK_SECRET_KEY` | Да | Clerk секретный ключ (backend) |
-| `CLERK_PUBLISHABLE_KEY` | Да | Clerk публичный ключ (backend) |
-| `VITE_CLERK_PUBLISHABLE_KEY` | Да | Clerk публичный ключ (frontend Vite) |
-| `VITE_CLERK_PROXY_URL` | Нет | URL прокси Clerk (для production) |
-| `AI_INTEGRATIONS_OPENAI_BASE_URL` | Да | Базовый URL OpenAI или совместимого провайдера |
-| `AI_INTEGRATIONS_OPENAI_API_KEY` | Да | API-ключ OpenAI |
-| `PORT` | Нет | Порт API-сервера (по умолчанию 8080) |
-
-> **Важно**: никогда не коммитить файл `.env` в git. Добавьте его в `.gitignore`.
+App is available at:
+- **Web version:** `http://localhost:<port>/`
+- **Desktop version:** `http://localhost:21098/desktop/`
 
 ---
 
-## Структура проекта
+## Option 3: Desktop App (Electron)
+
+The desktop app uses the same backend as the web version but runs as a standalone
+Electron window with the new dark Cursor-inspired UI.
+
+### Running the Desktop App in Dev Mode
+
+```bash
+# Requires the API server to be running first (Option 2 Step 4)
+pnpm --filter @workspace/desktop run dev
+```
+
+Then open `http://localhost:21098/desktop/` in your browser, or package it as an
+Electron `.exe`/`.dmg`/`.AppImage` using the build steps below.
+
+### Building Electron Binaries
+
+```bash
+# Install electron-builder globally
+npm install -g electron-builder
+
+# Build for current platform
+cd artifacts/desktop
+electron-builder build
+
+# Build for all platforms
+electron-builder build --mac --win --linux
+```
+
+Output binaries are placed in `artifacts/desktop/dist/`:
+- **Windows:** `CodeSync-Setup-x.x.x.exe`
+- **macOS:** `CodeSync-x.x.x.dmg`
+- **Linux:** `CodeSync-x.x.x.AppImage`
+
+---
+
+## Environment Variables Reference
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `DATABASE_URL` | Yes | PostgreSQL connection string |
+| `PORT` | No | API server port (default: 8080) |
+| `OPENAI_API_KEY` | For AI | OpenAI API key for AI chat & code review |
+| `ANTHROPIC_API_KEY` | For AI | Anthropic API key (alternative to OpenAI) |
+| `CLERK_SECRET_KEY` | No | Enables Clerk auth; guest mode works without it |
+| `POSTGRES_PASSWORD` | Docker only | PostgreSQL password for Docker Compose |
+
+> Never commit `.env` to version control — add it to `.gitignore`.
+
+---
+
+## API Endpoints
+
+All endpoints are prefixed with `/api`:
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/healthz` | Health check |
+| `GET` | `/api/auth/me` | Current user |
+| `POST` | `/api/auth/guest` | Create guest session |
+| `GET` | `/api/rooms` | List public rooms |
+| `POST` | `/api/rooms` | Create room |
+| `GET` | `/api/rooms/:id` | Get room |
+| `DELETE` | `/api/rooms/:id` | Delete room |
+| `GET` | `/api/rooms/join/:code` | Join by invite code |
+| `GET` | `/api/rooms/:id/files` | List files |
+| `POST` | `/api/rooms/:id/files` | Create file |
+| `PATCH` | `/api/rooms/:id/files/:fid` | Update file |
+| `DELETE` | `/api/rooms/:id/files/:fid` | Delete file |
+| `POST` | `/api/execute` | Execute code (50+ languages) |
+| `POST` | `/api/ai/chat` | AI chat (SSE streaming) |
+| `POST` | `/api/ai/review` | AI code review |
+
+**WebSocket:** `ws://host/ws/rooms/:roomId/files/:fileId` (real-time collaboration)
+
+---
+
+## Project Structure
 
 ```
 /
 ├── artifacts/
-│   ├── api-server/              # Express 5 backend
-│   │   └── src/
-│   │       ├── routes/          # REST API маршруты
-│   │       │   ├── auth.ts      # /api/auth/*
-│   │       │   ├── rooms.ts     # /api/rooms/*
-│   │       │   ├── files.ts     # /api/rooms/:id/files/*
-│   │       │   ├── events.ts    # /api/rooms/:id/events
-│   │       │   ├── execute.ts   # /api/execute
-│   │       │   └── ai.ts        # /api/ai/*
-│   │       ├── ws/
-│   │       │   └── collaborationServer.ts  # WebSocket + Yjs
-│   │       ├── middlewares/
-│   │       │   └── clerkProxyMiddleware.ts
-│   │       ├── app.ts           # Express app
-│   │       └── index.ts         # HTTP + WS сервер
-│   │
-│   ├── codesync/                # React + Vite frontend
-│   │   └── src/
-│   │       ├── pages/           # home, dashboard, room, not-found
-│   │       ├── components/      # FileTree, AIPanel, Terminal, SessionSidebar
-│   │       └── hooks/           # useCurrentUser.ts
-│   │
-│   └── mockup-sandbox/          # UI-прототипы (для разработки)
-│
-└── lib/
-    ├── db/                      # Drizzle ORM + схемы таблиц
-    │   └── src/schema/
-    ├── api-spec/                # OpenAPI YAML спецификация
-    ├── api-client-react/        # Сгенерированные React Query хуки
-    ├── api-zod/                 # Сгенерированные Zod схемы
-    └── integrations-openai-ai-server/  # OpenAI клиент
+│   ├── api-server/     # Express 5 backend + WebSocket + Yjs
+│   ├── codesync/       # Web frontend (original design)
+│   └── desktop/        # Desktop app (new dark Cursor-inspired design)
+├── lib/
+│   ├── db/             # PostgreSQL schema (Drizzle ORM)
+│   ├── api-spec/       # OpenAPI spec
+│   ├── api-client-react/ # Generated React Query hooks
+│   └── api-zod/        # Generated Zod schemas
+├── docker-compose.yml  # Self-hosting (PostgreSQL + API + Nginx)
+├── Dockerfile.api      # API server container
+├── Dockerfile.web      # Web frontend container (Nginx)
+├── .env.example        # Environment variable template
+└── SETUP.md            # This file
 ```
 
 ---
 
-## Команды разработчика
+## Common Issues
 
-```bash
-# Установить все зависимости
-pnpm install
+**`DATABASE_URL connection refused`**
+PostgreSQL is not running. Start it with `pg_ctl start` or check Docker status.
 
-# Применить схему БД (только dev)
-pnpm --filter @workspace/db run push
+**`AI features not working`**
+Ensure `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` is set and valid in `.env`.
 
-# Запустить backend (порт 8080)
-pnpm --filter @workspace/api-server run dev
+**`Port already in use`**
+Change the `PORT` variable in `.env` or stop the conflicting process.
 
-# Запустить frontend (порт 25034)
-pnpm --filter @workspace/codesync run dev
+**`pnpm install fails`**
+Ensure Node.js 22+ and pnpm 10+ are installed: `node -v && pnpm -v`.
 
-# Регенерировать API-хуки и Zod-схемы из OpenAPI спецификации
-pnpm --filter @workspace/api-spec run codegen
-
-# Typecheck всего монорепо
-pnpm run typecheck
-
-# Сборка всего монорепо
-pnpm run build
-```
-
----
-
-## API-маршруты
-
-Все маршруты с префиксом `/api`:
-
-### Авторизация
-| Метод | Путь | Описание |
-|---|---|---|
-| `GET` | `/api/healthz` | Проверка работоспособности |
-| `GET` | `/api/auth/me` | Текущий пользователь (Clerk или гость) |
-| `POST` | `/api/auth/guest` | Создать гостевую сессию |
-
-### Комнаты
-| Метод | Путь | Описание |
-|---|---|---|
-| `GET` | `/api/rooms` | Список публичных комнат |
-| `POST` | `/api/rooms` | Создать комнату (требует авторизации) |
-| `GET` | `/api/rooms/:roomId` | Получить комнату |
-| `DELETE` | `/api/rooms/:roomId` | Удалить комнату (только владелец) |
-| `GET` | `/api/rooms/join/:inviteCode` | Войти по коду приглашения |
-| `GET` | `/api/rooms/:roomId/members` | Список участников |
-
-### Файлы
-| Метод | Путь | Описание |
-|---|---|---|
-| `GET` | `/api/rooms/:roomId/files` | Список файлов в комнате |
-| `POST` | `/api/rooms/:roomId/files` | Создать файл |
-| `GET` | `/api/rooms/:roomId/files/:fileId` | Получить файл |
-| `PATCH` | `/api/rooms/:roomId/files/:fileId` | Обновить файл |
-| `DELETE` | `/api/rooms/:roomId/files/:fileId` | Удалить файл |
-
-### События и AI
-| Метод | Путь | Описание |
-|---|---|---|
-| `GET` | `/api/rooms/:roomId/events` | Лента событий комнаты |
-| `POST` | `/api/execute` | Выполнить код |
-| `POST` | `/api/ai/chat` | Чат с ИИ (SSE стриминг) |
-| `POST` | `/api/ai/review` | Code review (SSE стриминг) |
-
----
-
-## WebSocket
-
-**Путь**: `/ws/rooms/:roomId/files/:fileId`
-
-**Query-параметры**:
-| Параметр | Описание |
-|---|---|
-| `userId` | ID пользователя |
-| `username` | Имя пользователя |
-| `guestToken` | Токен гостя (если нет аккаунта) |
-
-**Типы сообщений**:
-| Тип | Описание |
-|---|---|
-| `init` | Инициализация Yjs-документа |
-| `yjs-update` | Обновление CRDT (изменения в тексте) |
-| `awareness` | Информация о курсорах других пользователей |
-| `cursor` | Позиция курсора |
-| `joined` | Уведомление о входе пользователя |
-
----
-
-## Внешние сервисы
-
-### Обзор всех зависимостей
-
-| Сервис | Назначение | Обязательный | Ссылка |
-|---|---|---|---|
-| **Clerk** | Аутентификация пользователей | Да | [clerk.com](https://clerk.com) |
-| **OpenAI (gpt-4o)** | AI-чат и code review | Да | [platform.openai.com](https://platform.openai.com) |
-| **PostgreSQL** | Хранение данных | Да | [postgresql.org](https://postgresql.org) |
-| **Piston API** | Выполнение кода (50+ языков) | Нет* | [piston.run](https://piston.run) |
-| **Yjs** | Real-time CRDT синхронизация | Встроен | — |
-
-*Piston API — публичный бесплатный сервис, не требует ключа. Используется для `/api/execute`.
-
-### Piston API
-
-Выполнение кода происходит через [Piston](https://github.com/engineer-man/piston) — публичный open-source API.
-
-- URL: `https://emkc.org/api/v2/piston`
-- Ключ не нужен
-- Лимит запросов: ~5 в секунду
-- Поддерживает: JavaScript, TypeScript, Python, C, C++, Bash, Java, Go и 50+ языков
-
----
-
-## Частые проблемы
-
-### `CLERK_SECRET_KEY is not set`
-Убедитесь, что переменная задана в `.env`. Проверьте, что backend перезапущен после изменения.
-
-### `DATABASE_URL connection refused`
-Проверьте, что PostgreSQL запущен и строка подключения корректна. Убедитесь, что база данных создана командой `createdb codesync`.
-
-### `Cannot find module '@workspace/db'`
-Запустите `pnpm install` — возможно, зависимости не были установлены после клонирования.
-
-### AI не отвечает
-Проверьте переменные `AI_INTEGRATIONS_OPENAI_BASE_URL` и `AI_INTEGRATIONS_OPENAI_API_KEY`. Убедитесь, что API-ключ действителен и есть баланс на аккаунте OpenAI.
-
-### Изменения в OpenAPI спеке не применяются
-После правок `lib/api-spec/openapi.yaml` запустите:
-```bash
-pnpm --filter @workspace/api-spec run codegen
-```
+**`Schema not found / table does not exist`**
+Run `pnpm --filter @workspace/db run push` to apply the database schema.

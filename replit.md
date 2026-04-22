@@ -33,11 +33,17 @@ artifacts/
       ws/              # collaborationServer.ts (Yjs + WebSocket)
       app.ts           # Express app + Clerk middleware
       index.ts         # HTTP + WebSocket server setup
-  codesync/            # React+Vite frontend (port 25034, previewPath "/")
+  codesync/            # React+Vite web frontend (ORIGINAL, unchanged)
     src/
       pages/           # home.tsx, dashboard.tsx, room.tsx, not-found.tsx
       components/      # FileTree, AIPanel, Terminal, SessionSidebar, ParticleBackground
       hooks/           # useCurrentUser.ts
+  desktop/             # NEW: Desktop app — dark Cursor-inspired design (port 21098, previewPath "/desktop/")
+    src/
+      pages/           # home.tsx (auth + room list), room.tsx (3-col IDE layout)
+      components/      # FileTree.tsx, AIPanel.tsx, SessionSidebar.tsx, TerminalPanel.tsx
+      lib/             # api.ts (custom API client, no Clerk), utils.ts
+    Design tokens: bg #0C0C0E, surface #16161A, accent #7C6FF7 (purple), font: Geist
 lib/
   db/                  # Drizzle ORM + PostgreSQL schema
     src/schema/        # users, rooms, roomMembers, files, events, yjsSnapshots, fileSnapshots
