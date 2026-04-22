@@ -42,8 +42,9 @@ export default function SettingsDialog({ open, onOpenChange }: SettingsDialogPro
       await api.saveSettings({ openaiApiKey: openaiKey, anthropicApiKey: anthropicKey });
       toast.success("Settings saved. Server restarted with new keys.");
       onOpenChange(false);
-    } catch (err: any) {
-      toast.error(`Failed to save: ${err.message}`);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      toast.error(`Failed to save: ${message}`);
     } finally {
       setSaving(false);
     }

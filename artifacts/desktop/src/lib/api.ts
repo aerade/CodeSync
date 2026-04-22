@@ -1,11 +1,11 @@
 function getApiBase(): string {
   // Priority 1: Electron preload injected URL (synchronous, available before React loads)
-  if (typeof window !== "undefined" && (window as any).__ELECTRON_API_URL__) {
-    return `${(window as any).__ELECTRON_API_URL__}/api`;
+  if (typeof window !== "undefined" && window.__ELECTRON_API_URL__) {
+    return `${window.__ELECTRON_API_URL__}/api`;
   }
   // Priority 2: Electron IPC synchronous call
-  if (typeof window !== "undefined" && (window as any).electronAPI?.getApiUrlSync) {
-    const url = (window as any).electronAPI.getApiUrlSync() as string;
+  if (typeof window !== "undefined" && window.electronAPI?.getApiUrlSync) {
+    const url = window.electronAPI.getApiUrlSync();
     if (url) return `${url}/api`;
   }
   // Priority 3: Build-time env var (for Replit dev server or Docker)
