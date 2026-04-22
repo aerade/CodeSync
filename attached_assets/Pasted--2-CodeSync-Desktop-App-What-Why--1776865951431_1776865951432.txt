@@ -1,0 +1,42 @@
+#2 - CodeSync Desktop App с новым дизайном
+What & Why
+Создать самостоятельное десктопное приложение CodeSync на базе Electron с новым красивым дизайном в стиле Claude/Cursor. Веб-сайт остаётся без изменений. Десктопное приложение имеет собственный React-фронтенд с новым UI, который подключается к тому же backend API. В конце — инструкции по скачиванию и запуску.
+
+Done looks like
+artifacts/desktop/ — новый Electron-артефакт с собственным React+Vite фронтендом
+Новый дизайн только в десктоп-версии: bg #0C0C0E, акцент #7C6FF7 (фиолетовый как в Claude), шрифт Geist, минималистичный интерфейс
+Лендинг десктоп-приложения: split-layout (текст + анимированный код), clean nav bar
+Дэшборд: левый sidebar с аватаром, grид комнат, empty state
+Комната-редактор: Cursor-like layout — файлы слева, Monaco по центру, AI-панель закреплена справа (не плавающая), минимальный toolbar
+AI Chat: постоянная боковая панель в стиле Claude (не floating)
+Session sidebar: slim icon-bar 48px (коллаборанты + чат)
+Terminal/Preview: нижние вкладки с анимацией slide-up
+Electron обёртка: нативное окно с кастомным title bar, app icon, системное меню
+docker-compose.yml в корне — полный локальный стек (api-server + PostgreSQL) одной командой
+SETUP.md — понятные инструкции: Option A (Electron installer), Option B (Docker), Option C (локально через Node.js)
+Out of scope
+Изменения в веб-сайте (artifacts/codesync/) — он остаётся как есть
+Изменения в backend (artifacts/api-server/) — десктоп использует тот же API
+Auto-updater, code signing, app store
+Полный офлайн-режим без сервера
+Steps
+Electron scaffold — Создать artifacts/desktop/ с package.json (electron + electron-builder + vite), electron/main.ts (BrowserWindow, custom title bar, меню), electron/preload.ts. Зарегистрировать как новый артефакт.
+Дизайн-система — В artifacts/desktop/src/ настроить Tailwind с новой палитрой (bg #0C0C0E, surface #16161A, elevated #1E1E24, accent #7C6FF7), импорт шрифта Geist, глобальные стили.
+Home & Dashboard — Переписать лендинг и дэшборд с новым дизайном. Использовать те же API-хуки из @workspace/api-client-react для данных комнат.
+Room editor layout — Cursor-like трёхколоночный layout: FileTree (240px, collapsible) | Monaco (flex-1) | AI Panel (320px, collapsible). Весь функционал (Yjs, WebSocket, исполнение кода) — как в веб-версии.
+AI Panel redesign — Закреплённая правая панель в стиле Claude с message bubbles, streaming, plan mode, file attachment. Убрать floating behaviour.
+Session sidebar & Terminal — Session sidebar как slim icon-bar. Terminal и Preview как нижние tabbed панели.
+Dockerfiles + Docker Compose — Dockerfile.api, Dockerfile.web, docker-compose.yml с PostgreSQL 16, api-server, codesync (оригинальный веб-сайт), health checks, .env.example.
+Electron build config — Настроить electron-builder: Windows (.exe NSIS), macOS (.dmg), Linux (.AppImage). App icon, metadata.
+SETUP.md — Пошаговые инструкции для трёх вариантов запуска с командами, требованиями и troubleshooting.
+Relevant files
+artifacts/api-server/src/routes/ (все роуты — reference только)
+artifacts/codesync/src/pages/room.tsx (reference для переноса логики)
+artifacts/codesync/src/components/AIChatFloat.tsx
+artifacts/codesync/src/components/FileTree.tsx
+artifacts/codesync/src/components/SessionSidebar.tsx
+artifacts/codesync/src/components/Terminal.tsx
+artifacts/codesync/src/components/PreviewPanel.tsx
+artifacts/codesync/src/components/AIPanel.tsx
+artifacts/api-server/package.json
+pnpm-workspace.yaml

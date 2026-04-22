@@ -1,247 +1,252 @@
-# CodeSync — Setup & Installation Guide
+# CodeSync — Руководство по установке
 
-## Three Ways to Run CodeSync
+## Быстрый старт (один файл)
 
-### Option 1: Docker Compose (Recommended — Easiest)
-### Option 2: Local Development
-### Option 3: Download Desktop App
+Скачай и запусти один скрипт — он сделает всё за тебя.
+
+### macOS / Linux
+
+```bash
+bash install.sh
+```
+
+### Windows
+
+Дважды кликни по файлу **`install.ps1`** правой кнопкой мыши и выбери **"Запустить с PowerShell"**.
+
+Или в терминале:
+```powershell
+powershell -ExecutionPolicy Bypass -File install.ps1
+```
+
+**Что делает скрипт:**
+- Проверяет наличие Docker
+- Создаёт файл `.env` с настройками
+- Предлагает ввести API-ключ для AI-функций
+- Собирает и запускает все сервисы одной командой
+- Открывает браузер с приложением
+
+**Единственное требование:** [Docker Desktop](https://www.docker.com/products/docker-desktop)
 
 ---
 
-## Option 1: Docker Compose (Self-Hosted)
+## Три способа запуска
 
-**Requirements:** Docker 24+, Docker Compose v2
+### Способ 1 — Docker (рекомендуется, самый простой)
+
+**Требования:** Docker 24+
 
 ```bash
-# 1. Clone the repo
-git clone <repo-url>
-cd codesync
-
-# 2. Copy and edit environment variables
+# 1. Скопируй файл с переменными окружения
 cp .env.example .env
-# Edit .env — at minimum set OPENAI_API_KEY or ANTHROPIC_API_KEY
+# Открой .env и вставь OPENAI_API_KEY или ANTHROPIC_API_KEY
 
-# 3. Start everything (PostgreSQL + API + Web frontend)
+# 2. Запусти всё одной командой
 docker compose up -d
 
-# 4. Open in browser
-open http://localhost
+# 3. Открой в браузере
+# http://localhost
 ```
 
-**Services started:**
-| Container | Port | Role |
+**Запущенные сервисы:**
+| Контейнер | Порт | Роль |
 |-----------|------|------|
 | `db`      | 5432 | PostgreSQL 16 |
 | `api`     | 8080 | REST + WebSocket API |
-| `web`     | 80   | React frontend (Nginx) |
+| `web`     | 80   | React фронтенд (Nginx) |
 
-**Stop:**
+**Управление:**
 ```bash
+# Остановить
 docker compose down
-# To also remove database data:
+
+# Остановить и удалить данные базы
 docker compose down -v
+
+# Посмотреть логи
+docker compose logs -f
+
+# Перезапустить
+docker compose restart
 ```
 
 ---
 
-## Option 2: Local Development
+### Способ 2 — Локальная разработка (Node.js)
 
-**Requirements:** Node.js 22+, pnpm 10+, PostgreSQL 16+
+**Требования:** Node.js 22+, pnpm 10+, PostgreSQL 16+
 
-### Step 1 — Install dependencies
+#### Шаг 1 — Устанавливаем зависимости
 
 ```bash
-git clone <repo-url>
-cd codesync
 pnpm install
 ```
 
-### Step 2 — Configure environment
+#### Шаг 2 — Настраиваем переменные окружения
 
-Create `.env` in the project root:
+Создай файл `.env` в корне проекта:
 
 ```env
-DATABASE_URL=postgres://postgres:password@localhost:5432/codesync
-OPENAI_API_KEY=sk-...          # Required for AI features
-ANTHROPIC_API_KEY=             # Optional alternative to OpenAI
-CLERK_SECRET_KEY=              # Optional — enables full auth; guests work without it
+DATABASE_URL=postgres://postgres:пароль@localhost:5432/codesync
+OPENAI_API_KEY=sk-...          # Нужен для AI-функций
+ANTHROPIC_API_KEY=             # Альтернатива OpenAI
+CLERK_SECRET_KEY=              # Опционально — полная авторизация; гостевой режим работает без него
 PORT=8080
 ```
 
-### Step 3 — Set up the database
+#### Шаг 3 — Создаём базу данных
 
 ```bash
-# Create the database
 createdb codesync
-
-# Push schema (Drizzle ORM)
 pnpm --filter @workspace/db run push
 ```
 
-### Step 4 — Start the servers
+#### Шаг 4 — Запускаем серверы
 
 ```bash
-# Terminal 1: API server (port 8080)
+# Терминал 1: API-сервер (порт 8080)
 pnpm --filter @workspace/api-server run dev
 
-# Terminal 2: Web frontend
+# Терминал 2: Веб-фронтенд
 pnpm --filter @workspace/codesync run dev
 
-# Terminal 3: Desktop app (new dark theme, port 21098)
+# Терминал 3: Десктопное приложение (порт 21098/desktop/)
 pnpm --filter @workspace/desktop run dev
 ```
 
-App is available at:
-- **Web version:** `http://localhost:<port>/`
-- **Desktop version:** `http://localhost:21098/desktop/`
+Приложение доступно по адресам:
+- **Веб-версия:** `http://localhost:<порт>/`
+- **Десктопная версия:** `http://localhost:21098/desktop/`
 
 ---
 
-## Option 3: Desktop App (Electron)
+### Способ 3 — Сборка Electron (нативное приложение)
 
-The desktop app wraps the same React + Vite frontend in a native Electron window,
-giving you a true native app experience with the dark Cursor-inspired UI.
-It connects to a remote (or local) CodeSync API server — configure the address
-via `VITE_API_URL` before building.
+Десктопное приложение можно собрать в нативный установщик (.exe, .dmg, .AppImage).
 
-**Supported platforms:** Windows 10+, macOS 11+, Linux (Ubuntu 20.04+)
-
-### Dev Mode (Electron window + hot-reload)
+#### Dev-режим (Electron окно + горячая перезагрузка)
 
 ```bash
-# 1. Start the API server (must be running)
+# Сначала запусти API-сервер
 pnpm --filter @workspace/api-server run dev
 
-# 2. In a second terminal, launch Electron in dev mode
+# Затем в другом терминале
 cd artifacts/desktop
 VITE_API_URL=http://localhost:8080/api pnpm run electron:dev
 ```
 
-A native Electron window opens and connects to `http://localhost:21098/desktop/`
-with full hot-module reload.
-
-### Building Installable Binaries
+#### Сборка установщика
 
 ```bash
 cd artifacts/desktop
 
-# Set the API server URL your users will connect to
-export VITE_API_URL=https://your-codesync-server.com/api
+# Укажи адрес твоего сервера
+export VITE_API_URL=https://твой-сервер.com/api
 
-# Build for the current platform (produces installer in dist/electron/)
+# Сборка для текущей платформы
 pnpm run electron:build
 
-# Or build for a specific platform
-pnpm run electron:build:mac    # macOS DMG + ZIP (Intel + Apple Silicon)
-pnpm run electron:build:win    # Windows NSIS installer + portable EXE
-pnpm run electron:build:linux  # Linux AppImage + .deb + .rpm
+# Или для конкретной платформы:
+pnpm run electron:build:mac    # macOS .dmg (Intel + Apple Silicon)
+pnpm run electron:build:win    # Windows .exe (NSIS установщик)
+pnpm run electron:build:linux  # Linux .AppImage + .deb + .rpm
 ```
 
-Output is in `artifacts/desktop/dist/electron/`:
+Результат в папке `artifacts/desktop/dist/electron/`:
 
-| Platform | Output |
-|----------|--------|
-| Windows  | `CodeSync Setup x.x.x.exe` (installer), `CodeSync x.x.x.exe` (portable) |
-| macOS    | `CodeSync-x.x.x.dmg` (Intel), `CodeSync-x.x.x-arm64.dmg` (Apple Silicon) |
-| Linux    | `CodeSync-x.x.x.AppImage`, `codesync_x.x.x_amd64.deb` |
+| Платформа | Файл |
+|-----------|------|
+| Windows   | `CodeSync Setup x.x.x.exe` (установщик), `CodeSync x.x.x.exe` (портативный) |
+| macOS     | `CodeSync-x.x.x.dmg` (Intel), `CodeSync-x.x.x-arm64.dmg` (Apple Silicon) |
+| Linux     | `CodeSync-x.x.x.AppImage`, `codesync_x.x.x_amd64.deb` |
 
-> Cross-compiling macOS binaries requires running on macOS; Windows requires WINE or
-> a Windows machine. Linux AppImages can be built on any Linux host.
-
-### Connecting to a Self-Hosted Server
-
-Set `VITE_API_URL` before building to point the desktop app at your own server:
-
-```bash
-VITE_API_URL=https://my-codesync.example.com/api pnpm run electron:build
-```
-
-Or for local testing point it at the Docker Compose stack from Option 1:
-
-```bash
-VITE_API_URL=http://localhost:8080/api pnpm run electron:dev
-```
+> Сборка под macOS возможна только на macOS; под Windows — только на Windows или с Wine. Linux AppImage собирается на любом Linux.
 
 ---
 
-## Environment Variables Reference
+## Переменные окружения
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `DATABASE_URL` | Yes | PostgreSQL connection string |
-| `PORT` | No | API server port (default: 8080) |
-| `OPENAI_API_KEY` | For AI | OpenAI API key for AI chat & code review |
-| `ANTHROPIC_API_KEY` | For AI | Anthropic API key (alternative to OpenAI) |
-| `CLERK_SECRET_KEY` | No | Enables Clerk auth; guest mode works without it |
-| `POSTGRES_PASSWORD` | Docker only | PostgreSQL password for Docker Compose |
+| Переменная | Обязательная | Описание |
+|------------|--------------|----------|
+| `DATABASE_URL` | Да | Строка подключения к PostgreSQL |
+| `PORT` | Нет | Порт API-сервера (по умолчанию: 8080) |
+| `OPENAI_API_KEY` | Для AI | Ключ OpenAI для чата и ревью кода |
+| `ANTHROPIC_API_KEY` | Для AI | Ключ Anthropic (альтернатива OpenAI) |
+| `CLERK_SECRET_KEY` | Нет | Включает авторизацию Clerk; гостевой режим работает без него |
+| `POSTGRES_PASSWORD` | Только Docker | Пароль PostgreSQL для Docker Compose |
 
-> Never commit `.env` to version control — add it to `.gitignore`.
-
----
-
-## API Endpoints
-
-All endpoints are prefixed with `/api`:
-
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/api/healthz` | Health check |
-| `GET` | `/api/auth/me` | Current user |
-| `POST` | `/api/auth/guest` | Create guest session |
-| `GET` | `/api/rooms` | List public rooms |
-| `POST` | `/api/rooms` | Create room |
-| `GET` | `/api/rooms/:id` | Get room |
-| `DELETE` | `/api/rooms/:id` | Delete room |
-| `GET` | `/api/rooms/join/:code` | Join by invite code |
-| `GET` | `/api/rooms/:id/files` | List files |
-| `POST` | `/api/rooms/:id/files` | Create file |
-| `PATCH` | `/api/rooms/:id/files/:fid` | Update file |
-| `DELETE` | `/api/rooms/:id/files/:fid` | Delete file |
-| `POST` | `/api/execute` | Execute code (50+ languages) |
-| `POST` | `/api/ai/chat` | AI chat (SSE streaming) |
-| `POST` | `/api/ai/review` | AI code review |
-
-**WebSocket:** `ws://host/ws/rooms/:roomId/files/:fileId` (real-time collaboration)
+> Никогда не добавляй `.env` в git — добавь его в `.gitignore`.
 
 ---
 
-## Project Structure
+## API-эндпоинты
+
+Все эндпоинты начинаются с `/api`:
+
+| Метод | Путь | Описание |
+|-------|------|----------|
+| `GET` | `/api/healthz` | Проверка работоспособности |
+| `GET` | `/api/auth/me` | Текущий пользователь |
+| `POST` | `/api/auth/guest` | Создать гостевую сессию |
+| `GET` | `/api/rooms` | Список публичных комнат |
+| `POST` | `/api/rooms` | Создать комнату |
+| `GET` | `/api/rooms/:id` | Получить комнату |
+| `DELETE` | `/api/rooms/:id` | Удалить комнату |
+| `GET` | `/api/rooms/join/:code` | Войти по коду приглашения |
+| `GET` | `/api/rooms/:id/files` | Список файлов |
+| `POST` | `/api/rooms/:id/files` | Создать файл |
+| `PATCH` | `/api/rooms/:id/files/:fid` | Обновить файл |
+| `DELETE` | `/api/rooms/:id/files/:fid` | Удалить файл |
+| `POST` | `/api/execute` | Выполнить код (50+ языков) |
+| `POST` | `/api/ai/chat` | AI-чат (SSE стриминг) |
+| `POST` | `/api/ai/review` | Ревью кода с AI |
+
+**WebSocket:** `ws://хост/ws/rooms/:roomId/files/:fileId` (совместное редактирование в реальном времени)
+
+---
+
+## Структура проекта
 
 ```
 /
 ├── artifacts/
-│   ├── api-server/     # Express 5 backend + WebSocket + Yjs
-│   ├── codesync/       # Web frontend (original design)
-│   └── desktop/        # Desktop app (new dark Cursor-inspired design)
+│   ├── api-server/     # Express 5 бэкенд + WebSocket + Yjs
+│   ├── codesync/       # Веб-фронтенд (оригинальный дизайн)
+│   └── desktop/        # Десктопное приложение (тёмный Cursor-стиль)
 │       ├── electron/   # Electron main process (main.ts, preload.ts)
-│       └── src/        # Vite + React renderer
+│       └── src/        # Vite + React рендерер
 ├── lib/
-│   ├── db/             # PostgreSQL schema (Drizzle ORM)
-│   ├── api-spec/       # OpenAPI spec
-│   ├── api-client-react/ # Generated React Query hooks
-│   └── api-zod/        # Generated Zod schemas
-├── docker-compose.yml  # Self-hosting (PostgreSQL + API + Nginx)
-├── Dockerfile.api      # API server container
-├── Dockerfile.web      # Web frontend container (Nginx)
-├── .env.example        # Environment variable template
-└── SETUP.md            # This file
+│   ├── db/             # PostgreSQL схема (Drizzle ORM)
+│   ├── api-spec/       # OpenAPI спецификация
+│   ├── api-client-react/ # Сгенерированные React Query хуки
+│   └── api-zod/        # Сгенерированные Zod-схемы
+├── docker-compose.yml  # Самохостинг (PostgreSQL + API + Nginx)
+├── Dockerfile.api      # Контейнер API-сервера
+├── Dockerfile.web      # Контейнер веб-фронтенда (Nginx)
+├── install.sh          # Установочный скрипт для macOS/Linux
+├── install.ps1         # Установочный скрипт для Windows
+├── .env.example        # Шаблон переменных окружения
+└── SETUP.md            # Этот файл
 ```
 
 ---
 
-## Common Issues
+## Решение частых проблем
 
 **`DATABASE_URL connection refused`**
-PostgreSQL is not running. Start it with `pg_ctl start` or check Docker status.
+PostgreSQL не запущен. Запусти командой `pg_ctl start` или проверь статус Docker.
 
-**`AI features not working`**
-Ensure `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` is set and valid in `.env`.
+**`AI-функции не работают`**
+Убедись что `OPENAI_API_KEY` или `ANTHROPIC_API_KEY` указан и действителен в `.env`.
 
-**`Port already in use`**
-Change the `PORT` variable in `.env` or stop the conflicting process.
+**`Порт уже используется`**
+Измени `PORT` в `.env` или останови конфликтующий процесс.
 
-**`pnpm install fails`**
-Ensure Node.js 22+ and pnpm 10+ are installed: `node -v && pnpm -v`.
+**`pnpm install завершается с ошибкой`**
+Убедись что установлены Node.js 22+ и pnpm 10+: `node -v && pnpm -v`.
 
-**`Schema not found / table does not exist`**
-Run `pnpm --filter @workspace/db run push` to apply the database schema.
+**`Таблица не найдена / Schema not found`**
+Запусти `pnpm --filter @workspace/db run push` для применения схемы базы данных.
+
+**`docker compose up завершается с ошибкой`**
+Проверь что Docker запущен: `docker info`. Посмотри логи: `docker compose logs`.
