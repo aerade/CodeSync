@@ -46,9 +46,21 @@ async function fetchCollabToken(): Promise<string | null> {
 }
 
 function getWsUrl(roomId: string, fileId: string, collabToken: string): string {
-  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-  const host = window.location.host;
-  return `${protocol}//${host}/ws/rooms/${roomId}/files/${fileId}?token=${encodeURIComponent(collabToken)}`;
+  // In packaged Electron, window.location is file://, so derive the WS host
+  // from the configured API_BASE URL instead of window.location.
+  try {
+    const apiUrl = new URL(API_BASE);
+    const wsProtocol = apiUrl.protocol === "https:" ? "wss:" : "ws:";
+    // Strip /api suffix to get the base origin for WS connections
+    const wsHost = apiUrl.host;
+    const wsPathBase = apiUrl.pathname.replace(/\/api\/?$/, "");
+    return `${wsProtocol}//${wsHost}${wsPathBase}/ws/rooms/${roomId}/files/${fileId}?token=${encodeURIComponent(collabToken)}`;
+  } catch {
+    // Fallback: relative URL using window.location (works in browser/dev)
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const host = window.location.host;
+    return `${protocol}//${host}/ws/rooms/${roomId}/files/${fileId}?token=${encodeURIComponent(collabToken)}`;
+  }
 }
 
 export default function Room() {

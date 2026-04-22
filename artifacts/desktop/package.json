@@ -8,14 +8,14 @@
     "build": "vite build --config vite.config.ts",
     "serve": "vite preview --config vite.config.ts --host 0.0.0.0",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "electron:compile": "tsc --project tsconfig.electron.json",
+    "electron:compile": "tsc --project tsconfig.electron.json && for f in dist/electron-main/*.js; do mv \"$f\" \"${f%.js}.cjs\"; done",
     "electron:dev": "concurrently \"pnpm run dev\" \"wait-on http://localhost:21098/desktop/ && electron .\"",
     "electron:build": "ELECTRON_BUILD=1 vite build --config vite.config.ts && pnpm run electron:compile && electron-builder build --config electron-builder.yml",
     "electron:build:win": "ELECTRON_BUILD=1 vite build --config vite.config.ts && pnpm run electron:compile && electron-builder build --win --config electron-builder.yml",
     "electron:build:mac": "ELECTRON_BUILD=1 vite build --config vite.config.ts && pnpm run electron:compile && electron-builder build --mac --config electron-builder.yml",
     "electron:build:linux": "ELECTRON_BUILD=1 vite build --config vite.config.ts && pnpm run electron:compile && electron-builder build --linux --config electron-builder.yml"
   },
-  "main": "dist/electron-main/main.js",
+  "main": "dist/electron-main/main.cjs",
   "dependencies": {
     "@clerk/react": "^6.2.0",
     "@monaco-editor/react": "^4.7.0",

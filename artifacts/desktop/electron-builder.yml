@@ -2,14 +2,16 @@ appId: com.codesync.desktop
 productName: CodeSync
 copyright: Copyright 2025 CodeSync
 
-# Point at the built Vite output
+# Override package.json fields in the packaged app
+extraMetadata:
+  main: dist/electron-main/main.cjs
+
+# Build resources (icons) and output directory
 directories:
   buildResources: build
   output: dist/electron
 
-# Main process entry (compiled from electron/main.ts)
-main: dist/electron-main/main.js
-
+# Files to include in the packaged app
 files:
   - dist/public/**/*
   - dist/electron-main/**/*
@@ -21,10 +23,7 @@ files:
 # macOS
 mac:
   category: public.app-category.developer-tools
-  icon: build/icon.icns
   hardenedRuntime: true
-  entitlements: build/entitlements.mac.plist
-  entitlementsInherit: build/entitlements.mac.plist
   target:
     - target: dmg
       arch: [x64, arm64]
@@ -42,7 +41,6 @@ dmg:
 
 # Windows
 win:
-  icon: build/icon.ico
   target:
     - target: nsis
       arch: [x64]
@@ -57,17 +55,14 @@ nsis:
 
 # Linux
 linux:
-  icon: build/icons
   category: Development
   target:
     - target: AppImage
       arch: [x64]
     - target: deb
       arch: [x64]
-    - target: rpm
-      arch: [x64]
 
-# Auto-update (optional — requires a publish endpoint)
+# Auto-update (optional — configure owner/repo for GitHub Releases)
 publish:
   provider: github
   owner: your-org
