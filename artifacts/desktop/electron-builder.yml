@@ -62,8 +62,6 @@ linux:
   target:
     - target: AppImage
       arch: [x64]
-    - target: deb
-      arch: [x64]
 
 publish:
   provider: github
