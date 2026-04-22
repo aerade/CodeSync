@@ -79,7 +79,7 @@ function getDbPath(): string {
   return path.join(app.getPath("userData"), "codesync.db");
 }
 
-async function startServer(): Promise<void> {
+async function startServer(reusePort?: number): Promise<void> {
   const settings = loadSettings();
   const serverPath = getServerPath();
 
@@ -90,7 +90,12 @@ async function startServer(): Promise<void> {
     return;
   }
 
-  try { serverPort = await getFreePort(); } catch { serverPort = 57321; }
+  // Reuse existing port on restart so frontend API_BASE stays valid
+  if (reusePort !== undefined) {
+    serverPort = reusePort;
+  } else {
+    try { serverPort = await getFreePort(); } catch { serverPort = 57321; }
+  }
 
   const env: NodeJS.ProcessEnv = {
     ...process.env,
@@ -154,10 +159,10 @@ function createWindow(): void {
     trafficLightPosition: process.platform === "darwin" ? { x: 12, y: 12 } : undefined,
     icon: path.join(__dirname, "../public/icon.png"),
     webPreferences: {
-      preload: path.join(__dirname, "preload.js"),
+      preload: path.join(__dirname, "preload.cjs"),
       nodeIntegration: false,
       contextIsolation: true,
-      sandbox: false,
+      sandbox: true,
       webSecurity: true,
     },
     show: false,
@@ -264,9 +269,10 @@ ipcMain.handle("save-settings", async (_event, settings: { openaiApiKey?: string
   saveSettings(updated);
 
   if (serverProcess && serverProcess.pid) {
+    const currentPort = serverPort;
     serverProcess.kill("SIGTERM");
     await new Promise<void>((resolve) => setTimeout(resolve, 500));
-    await startServer();
+    await startServer(currentPort);  // reuse same port — keeps frontend API_BASE valid
     mainWindow?.webContents.send("server-restarted", { apiUrl: `http://127.0.0.1:${serverPort}` });
   }
 
