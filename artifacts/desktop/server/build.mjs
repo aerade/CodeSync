@@ -41,12 +41,14 @@ console.log("[server-build] Copying native module binaries...");
 const nativeDir = path.join(distDir, "node_modules");
 await mkdir(nativeDir, { recursive: true });
 
-// Copy @libsql platform binary
+// Copy @libsql platform binary — include all platforms so builds work on any host
 const libsqlPlatforms = [
   "@libsql/linux-x64-gnu",
+  "@libsql/linux-x64-musl",
   "@libsql/linux-arm64-gnu",
   "@libsql/darwin-x64",
   "@libsql/darwin-arm64",
+  "@libsql/win32-x64-msvc",
 ];
 
 for (const pkg of libsqlPlatforms) {
