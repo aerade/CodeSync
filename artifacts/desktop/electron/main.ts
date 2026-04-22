@@ -36,7 +36,8 @@ function createWindow(): BrowserWindow {
     win.loadURL(DEV_URL);
     win.webContents.openDevTools({ mode: "detach" });
   } else {
-    win.loadFile(path.join(__dirname, "../dist/public/index.html"));
+    // __dirname is dist/electron-main/, so go up one level to dist/public/
+    win.loadFile(path.join(__dirname, "../public/index.html"));
   }
 
   win.once("ready-to-show", () => win.show());

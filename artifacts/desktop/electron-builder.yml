@@ -2,7 +2,7 @@ appId: com.codesync.desktop
 productName: CodeSync
 copyright: Copyright 2025 CodeSync
 
-# Override package.json fields in the packaged app
+# Set main entry in the packaged app's package.json
 extraMetadata:
   main: dist/electron-main/main.cjs
 
@@ -11,19 +11,25 @@ directories:
   buildResources: build
   output: dist/electron
 
-# Files to include in the packaged app
+# The renderer is a pre-built Vite bundle — only ship the compiled assets and
+# the compiled Electron main/preload. Do NOT ship node_modules (pnpm hoisting
+# causes path resolution errors with electron-builder's traversal).
 files:
   - dist/public/**/*
   - dist/electron-main/**/*
-  - node_modules/**/*
-  - "!node_modules/**/{CHANGELOG.md,README.md,README,readme.md,readme}"
-  - "!node_modules/**/*.{iml,o,hprof,orig,pyc,pyo,rbc,swp,cscope.out}"
-  - "!node_modules/.bin"
+  - package.json
+
+# Electron itself is bundled by electron-builder; no native deps to rebuild.
+asar: true
+
+# Skip native module rebuild — the main process has no native Node.js addons.
+# This avoids traversal of pnpm-hoisted node_modules (which causes ENOENT
+# errors for hoisted Replit-internal packages).
+npmRebuild: false
 
 # macOS
 mac:
   category: public.app-category.developer-tools
-  hardenedRuntime: true
   target:
     - target: dmg
       arch: [x64, arm64]
@@ -62,7 +68,7 @@ linux:
     - target: deb
       arch: [x64]
 
-# Auto-update (optional — configure owner/repo for GitHub Releases)
+# Auto-update (configure owner/repo for GitHub Releases)
 publish:
   provider: github
   owner: your-org
