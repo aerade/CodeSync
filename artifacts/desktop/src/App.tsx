@@ -17,10 +17,12 @@ const queryClient = new QueryClient({
   },
 });
 
-function Router() {
+function Router({ onOpenSettings, hasApiKeys }: { onOpenSettings: () => void; hasApiKeys: boolean }) {
   return (
     <Switch>
-      <Route path="/" component={Home} />
+      <Route path="/">
+        {() => <Home onOpenSettings={onOpenSettings} hasApiKeys={hasApiKeys} />}
+      </Route>
       <Route path="/room/:roomId" component={Room} />
       <Route component={NotFound} />
     </Switch>
@@ -29,19 +31,30 @@ function Router() {
 
 function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [hasApiKeys, setHasApiKeys] = useState(true);
 
   useEffect(() => {
     const api = window.electronAPI;
-    if (!api?.onOpenSettings) return;
-    const cleanup = api.onOpenSettings(() => setSettingsOpen(true));
-    return cleanup;
+    if (!api) return;
+    if (api.onOpenSettings) {
+      const cleanup = api.onOpenSettings(() => setSettingsOpen(true));
+      return cleanup;
+    }
   }, []);
+
+  useEffect(() => {
+    const api = window.electronAPI;
+    if (!api?.getSettings) return;
+    api.getSettings().then((s) => {
+      setHasApiKeys(!!(s.openaiApiKey || s.anthropicApiKey));
+    }).catch(() => {});
+  }, [settingsOpen]);
 
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider delayDuration={300}>
         <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          <Router />
+          <Router onOpenSettings={() => setSettingsOpen(true)} hasApiKeys={hasApiKeys} />
         </WouterRouter>
         <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
         <Toaster

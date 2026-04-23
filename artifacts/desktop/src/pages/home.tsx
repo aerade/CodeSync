@@ -1,12 +1,17 @@
 import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Search, LogIn, Globe, Lock, Users, ArrowRight, Code2, Zap, GitBranch, Terminal } from "lucide-react";
+import { Plus, Search, LogIn, Globe, Lock, Users, ArrowRight, Code2, Zap, GitBranch, Terminal, Settings, AlertCircle } from "lucide-react";
 import { api, type Room, type User, setToken, setCurrentUser, getToken, getCurrentUser } from "@/lib/api";
 import { formatTime } from "@/lib/utils";
 import { toast } from "sonner";
 
-export default function Home() {
+interface HomeProps {
+  onOpenSettings?: () => void;
+  hasApiKeys?: boolean;
+}
+
+export default function Home({ onOpenSettings, hasApiKeys = true }: HomeProps) {
   const [, navigate] = useLocation();
   const [user, setUser] = useState<User | null>(null);
   const [rooms, setRooms] = useState<Room[]>([]);
@@ -234,8 +239,36 @@ export default function Home() {
             </div>
             <span className="text-xs" style={{ color: "var(--muted-foreground)" }}>{user?.username}</span>
           </div>
+          {onOpenSettings && (
+            <button
+              onClick={onOpenSettings}
+              title="Settings"
+              className="flex items-center justify-center w-7 h-7 rounded-lg transition-all hover:opacity-80 relative"
+              style={{ background: "var(--elevated)", border: "1px solid var(--border)", color: "var(--muted-foreground)" }}
+            >
+              <Settings size={13} />
+              {!hasApiKeys && (
+                <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full" style={{ background: "var(--primary)" }} />
+              )}
+            </button>
+          )}
         </div>
       </div>
+
+      {/* No API keys notice */}
+      {!hasApiKeys && onOpenSettings && (
+        <div
+          className="flex items-center gap-2 px-4 py-2 text-xs cursor-pointer hover:opacity-80 transition-opacity"
+          style={{ background: "color-mix(in srgb, var(--primary) 10%, transparent)", borderBottom: "1px solid color-mix(in srgb, var(--primary) 20%, transparent)" }}
+          onClick={onOpenSettings}
+        >
+          <AlertCircle size={12} style={{ color: "var(--primary)", flexShrink: 0 }} />
+          <span style={{ color: "var(--foreground)" }}>
+            No AI API keys configured — AI code review and chat won't work.{" "}
+            <span style={{ color: "var(--primary)", fontWeight: 500 }}>Add keys in Settings.</span>
+          </span>
+        </div>
+      )}
 
       {/* Search */}
       <div className="px-4 py-3 border-b" style={{ borderColor: "var(--border)" }}>
