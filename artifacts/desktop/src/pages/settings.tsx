@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { Eye, EyeOff, Key, Save, Info, BellOff } from "lucide-react";
+import { NOTICE_KEYS, resetAllNotices } from "@/lib/notices";
 
 interface SettingsDialogProps {
   open: boolean;
@@ -27,7 +28,7 @@ export default function SettingsDialog({ open, onOpenChange }: SettingsDialogPro
 
   useEffect(() => {
     if (!open) return;
-    setNoApiKeysBannerDismissed(readDismissed("noApiKeysBannerDismissed"));
+    setNoApiKeysBannerDismissed(readDismissed(NOTICE_KEYS.noApiKeysBanner));
     const api = window.electronAPI;
     if (!api) return;
     api.getSettings().then((s) => {
@@ -161,9 +162,7 @@ export default function SettingsDialog({ open, onOpenChange }: SettingsDialogPro
                 disabled={!noApiKeysBannerDismissed}
                 className="text-xs text-[var(--muted)] hover:text-[var(--foreground)] h-auto py-0.5 px-2 disabled:opacity-40 disabled:cursor-not-allowed"
                 onClick={() => {
-                  if (typeof localStorage !== "undefined") {
-                    localStorage.removeItem("noApiKeysBannerDismissed");
-                  }
+                  resetAllNotices();
                   setNoApiKeysBannerDismissed(false);
                   window.dispatchEvent(new CustomEvent("noticesReset"));
                   toast.success("All notices have been reset.");
@@ -195,7 +194,7 @@ export default function SettingsDialog({ open, onOpenChange }: SettingsDialogPro
                   className="text-xs border-[var(--border)] text-[var(--muted)] hover:text-[var(--foreground)] disabled:opacity-40 disabled:cursor-not-allowed"
                   onClick={() => {
                     if (typeof localStorage !== "undefined") {
-                      localStorage.removeItem("noApiKeysBannerDismissed");
+                      localStorage.removeItem(NOTICE_KEYS.noApiKeysBanner);
                     }
                     setNoApiKeysBannerDismissed(false);
                     window.dispatchEvent(new CustomEvent("noticesReset"));
