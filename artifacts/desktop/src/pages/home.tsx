@@ -57,6 +57,19 @@ export default function Home({ onOpenSettings, hasApiKeys = true }: HomeProps) {
     loadRooms();
   }, [user, search]);
 
+  useEffect(() => {
+    const prefetch = () => {
+      import("@/pages/room").catch(() => {});
+    };
+    if (typeof requestIdleCallback !== "undefined") {
+      const id = requestIdleCallback(prefetch, { timeout: 3000 });
+      return () => cancelIdleCallback(id);
+    } else {
+      const id = setTimeout(prefetch, 1000);
+      return () => clearTimeout(id);
+    }
+  }, []);
+
   async function loadRooms() {
     try {
       setLoading(true);
