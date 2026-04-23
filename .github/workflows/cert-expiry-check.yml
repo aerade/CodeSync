@@ -1,0 +1,339 @@
+name: Certificate Expiry Check
+
+on:
+  schedule:
+    - cron: "0 9 * * 1"  # Every Monday at 09:00 UTC
+  workflow_dispatch:      # Allow manual runs at any time
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check-certificates:
+    runs-on: ubuntu-latest
+    env:
+      ALERT_DAYS: 60
+
+    steps:
+      # ------------------------------------------------------------------ #
+      #  macOS — Apple Developer ID certificate (stored as base64 secret)   #
+      # ------------------------------------------------------------------ #
+      - name: Check Apple Developer ID certificate expiry
+        id: apple
+        env:
+          APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          if [ -z "$APPLE_CERTIFICATE_BASE64" ]; then
+            echo "apple_configured=false" >> "$GITHUB_OUTPUT"
+            echo "apple_alert=true"       >> "$GITHUB_OUTPUT"
+            echo "apple_reason=APPLE_CERTIFICATE_BASE64 secret is not set — macOS builds will be unsigned." >> "$GITHUB_OUTPUT"
+            echo "::warning::APPLE_CERTIFICATE_BASE64 is not configured."
+            exit 0
+          fi
+
+          echo "$APPLE_CERTIFICATE_BASE64" | base64 --decode > /tmp/apple_cert.p12
+
+          # Extract the leaf certificate (Developer ID Application) from the PKCS#12 bundle.
+          EXPIRY_RAW=$(openssl pkcs12 \
+            -in /tmp/apple_cert.p12 \
+            -nokeys \
+            -passin pass:"$APPLE_CERTIFICATE_PASSWORD" \
+            -legacy 2>/dev/null \
+          | openssl x509 -noout -enddate 2>/dev/null | head -1 | cut -d= -f2)
+
+          rm -f /tmp/apple_cert.p12
+
+          if [ -z "$EXPIRY_RAW" ]; then
+            echo "apple_configured=false" >> "$GITHUB_OUTPUT"
+            echo "apple_alert=true"       >> "$GITHUB_OUTPUT"
+            echo "apple_reason=Could not parse Apple certificate — check APPLE_CERTIFICATE_PASSWORD or certificate format." >> "$GITHUB_OUTPUT"
+            echo "::warning::Apple certificate could not be parsed."
+            exit 0
+          fi
+
+          EXPIRY_EPOCH=$(date -d "$EXPIRY_RAW" +%s)
+          NOW_EPOCH=$(date +%s)
+          DAYS_LEFT=$(( (EXPIRY_EPOCH - NOW_EPOCH) / 86400 ))
+
+          echo "apple_configured=true"    >> "$GITHUB_OUTPUT"
+          echo "apple_expiry=$EXPIRY_RAW" >> "$GITHUB_OUTPUT"
+          echo "apple_days=$DAYS_LEFT"    >> "$GITHUB_OUTPUT"
+
+          if [ "$DAYS_LEFT" -lt "$ALERT_DAYS" ]; then
+            echo "apple_alert=true"  >> "$GITHUB_OUTPUT"
+          else
+            echo "apple_alert=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          echo "Apple certificate expires: $EXPIRY_RAW (${DAYS_LEFT} days remaining)"
+
+      # ------------------------------------------------------------------ #
+      #  Windows — SSL.com eSigner EV cloud HSM (matches release.yml)       #
+      #  Secrets: SSL_COM_USERNAME, SSL_COM_PASSWORD,                        #
+      #           SSL_COM_CREDENTIAL_ID, SSL_COM_TOTP_SECRET                 #
+      # ------------------------------------------------------------------ #
+      - name: Check Windows SSL.com eSigner certificate expiry
+        id: windows
+        env:
+          SSL_COM_USERNAME:      ${{ secrets.SSL_COM_USERNAME }}
+          SSL_COM_PASSWORD:      ${{ secrets.SSL_COM_PASSWORD }}
+          SSL_COM_CREDENTIAL_ID: ${{ secrets.SSL_COM_CREDENTIAL_ID }}
+          SSL_COM_TOTP_SECRET:   ${{ secrets.SSL_COM_TOTP_SECRET }}
+        run: |
+          python3 - << 'PYEOF'
+          import hmac, hashlib, base64, time, struct, json, os, sys
+          import urllib.request, urllib.error
+
+          def get_totp(secret):
+              secret = secret.replace(" ", "").upper()
+              pad = len(secret) % 8
+              if pad:
+                  secret += "=" * (8 - pad)
+              key = base64.b32decode(secret)
+              counter = struct.pack(">Q", int(time.time()) // 30)
+              mac = hmac.new(key, counter, hashlib.sha1).digest()
+              offset = mac[-1] & 0x0F
+              code = struct.unpack(">I", mac[offset:offset+4])[0] & 0x7FFFFFFF
+              return f"{code % 1000000:06d}"
+
+          def set_output(key, value):
+              with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+                  f.write(f"{key}={value}\n")
+
+          username      = os.environ.get("SSL_COM_USERNAME", "")
+          password      = os.environ.get("SSL_COM_PASSWORD", "")
+          credential_id = os.environ.get("SSL_COM_CREDENTIAL_ID", "")
+          totp_secret   = os.environ.get("SSL_COM_TOTP_SECRET", "")
+
+          if not all([username, password, credential_id, totp_secret]):
+              set_output("win_configured", "false")
+              set_output("win_alert", "true")
+              set_output("win_reason",
+                  "One or more SSL_COM_* secrets are not set — Windows builds will be unsigned.")
+              print("::warning::SSL_COM_* secrets are not fully configured.")
+              sys.exit(0)
+
+          # --- Authenticate with SSL.com CSC API ---
+          BASE = "https://cs.ssl.com/csc/v0"
+          try:
+              totp = get_totp(totp_secret)
+              login_payload = json.dumps(
+                  {"userID": username, "password": password, "otp": totp}
+              ).encode()
+              req = urllib.request.Request(
+                  f"{BASE}/auth/login",
+                  data=login_payload,
+                  headers={"Content-Type": "application/json"},
+              )
+              with urllib.request.urlopen(req, timeout=30) as r:
+                  auth = json.loads(r.read())
+              access_token = auth.get("access_token", "")
+              if not access_token:
+                  raise RuntimeError(f"No access_token in response: {auth}")
+          except Exception as exc:
+              set_output("win_configured", "false")
+              set_output("win_alert", "true")
+              set_output("win_reason", f"SSL.com login failed: {exc}")
+              print(f"::warning::SSL.com login failed: {exc}")
+              sys.exit(0)
+
+          # --- Fetch credential info to get certificate expiry ---
+          #
+          # SSL.com CSC API — credentials/info response shape (relevant fields):
+          #   {
+          #     "credentialID": "...",
+          #     "cert": {
+          #       "status": "valid",
+          #       "certificates": [
+          #         "<PEM or base64-DER leaf cert>",   # index 0 — signing (leaf) cert
+          #         "<intermediate CA cert>",           # index 1+
+          #         ...
+          #       ]
+          #     }
+          #   }
+          # The leaf cert is always at index 0 per the CSC 1.0 spec (RFC 8588 / ETSI 119 432).
+          #
+          try:
+              info_payload = json.dumps(
+                  {"credentialID": credential_id, "certInfo": True}
+              ).encode()
+              req2 = urllib.request.Request(
+                  f"{BASE}/credentials/info",
+                  data=info_payload,
+                  headers={
+                      "Content-Type": "application/json",
+                      "Authorization": f"Bearer {access_token}",
+                  },
+              )
+              with urllib.request.urlopen(req2, timeout=30) as r2:
+                  info = json.loads(r2.read())
+          except Exception as exc:
+              set_output("win_configured", "false")
+              set_output("win_alert", "true")
+              set_output("win_reason", f"SSL.com credentials/info call failed: {exc}")
+              print(f"::warning::SSL.com credentials/info failed: {exc}")
+              sys.exit(0)
+
+          # --- Parse expiry from the leaf certificate PEM ---
+          # Index 0 is the leaf (signing) certificate per CSC spec.
+          # If multiple certs are present, we pick the one with the latest notAfter
+          # so a cert rotation that hasn't propagated to index 0 yet is still detected.
+          pem_certs = info.get("cert", {}).get("certificates", [])
+          if not pem_certs:
+              set_output("win_configured", "false")
+              set_output("win_alert", "true")
+              set_output("win_reason", "SSL.com credentials/info returned no certificates.")
+              print("::warning::No certificates in SSL.com response.")
+              sys.exit(0)
+
+          import subprocess, tempfile
+
+          def parse_expiry_epoch(raw_pem):
+              """Return (expiry_raw_str, epoch_int) for a PEM cert, or None on failure."""
+              pem = raw_pem if raw_pem.startswith("-----") else (
+                  "-----BEGIN CERTIFICATE-----\n" + raw_pem + "\n-----END CERTIFICATE-----"
+              )
+              with tempfile.NamedTemporaryFile(mode="w", suffix=".pem", delete=False) as f:
+                  f.write(pem)
+                  fname = f.name
+              r = subprocess.run(
+                  ["openssl", "x509", "-noout", "-enddate", "-in", fname],
+                  capture_output=True, text=True
+              )
+              os.unlink(fname)
+              if r.returncode != 0 or not r.stdout.strip():
+                  return None
+              expiry_raw = r.stdout.strip().split("=", 1)[1]
+              r2 = subprocess.run(["date", "-d", expiry_raw, "+%s"], capture_output=True, text=True)
+              if r2.returncode != 0:
+                  return None
+              return expiry_raw, int(r2.stdout.strip())
+
+          # Parse all certs; keep the one with the latest expiry (most likely leaf)
+          best = None
+          for raw_cert in pem_certs:
+              parsed = parse_expiry_epoch(raw_cert)
+              if parsed and (best is None or parsed[1] > best[1]):
+                  best = parsed
+
+          if best is None:
+              set_output("win_configured", "false")
+              set_output("win_alert", "true")
+              set_output("win_reason", "Could not parse any SSL.com certificate expiry with openssl.")
+              print("::warning::openssl failed to parse SSL.com certificate(s).")
+              sys.exit(0)
+
+          expiry_raw, expiry_epoch = best
+          days_left = (expiry_epoch - int(time.time())) // 86400
+
+          set_output("win_configured", "true")
+          set_output("win_expiry", expiry_raw)
+          set_output("win_days", str(days_left))
+          set_output("win_alert", "true" if days_left < int(os.environ.get("ALERT_DAYS", "60")) else "false")
+
+          print(f"Windows (SSL.com) certificate expires: {expiry_raw} ({days_left} days remaining)")
+          PYEOF
+
+      # ------------------------------------------------------------------ #
+      #  Ensure the cert-expiry label exists before creating/searching issues#
+      # ------------------------------------------------------------------ #
+      - name: Ensure cert-expiry label exists
+        if: steps.apple.outputs.apple_alert == 'true' || steps.windows.outputs.win_alert == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh label create "cert-expiry" \
+            --description "Code-signing certificate expiry alert" \
+            --color "D93F0B" 2>/dev/null || true
+
+      # ------------------------------------------------------------------ #
+      #  Open or update a GitHub issue when any alert condition is true      #
+      # ------------------------------------------------------------------ #
+      - name: Open GitHub issue if any certificate is expiring soon or unconfigured
+        if: steps.apple.outputs.apple_alert == 'true' || steps.windows.outputs.win_alert == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BODY="## Certificate Expiry Alert
+
+          One or more code-signing certificates require attention.
+          Without a valid certificate the next release will ship **unsigned**, triggering security
+          warnings (SmartScreen on Windows, Gatekeeper on macOS) for all users.
+
+          | Platform | Status | Expiry / Reason | Days remaining |
+          |----------|--------|-----------------|----------------|"
+
+          if [ "${{ steps.apple.outputs.apple_alert }}" = "true" ]; then
+            if [ "${{ steps.apple.outputs.apple_configured }}" = "true" ]; then
+              BODY="$BODY
+          | macOS (Apple Developer ID) | Expiring soon | ${{ steps.apple.outputs.apple_expiry }} | **${{ steps.apple.outputs.apple_days }}** |"
+            else
+              BODY="$BODY
+          | macOS (Apple Developer ID) | Not configured / unreadable | ${{ steps.apple.outputs.apple_reason }} | — |"
+            fi
+          fi
+
+          if [ "${{ steps.windows.outputs.win_alert }}" = "true" ]; then
+            if [ "${{ steps.windows.outputs.win_configured }}" = "true" ]; then
+              BODY="$BODY
+          | Windows (SSL.com eSigner) | Expiring soon | ${{ steps.windows.outputs.win_expiry }} | **${{ steps.windows.outputs.win_days }}** |"
+            else
+              BODY="$BODY
+          | Windows (SSL.com eSigner) | Not configured / unreadable | ${{ steps.windows.outputs.win_reason }} | — |"
+            fi
+          fi
+
+          BODY="$BODY
+
+          See **SETUP.md → Certificate Renewal** for step-by-step renewal and reconfiguration instructions."
+
+          # Avoid duplicate issues — update existing open cert-expiry issue if present.
+          # Use `// empty` so jq outputs an empty string (not the literal "null") when
+          # no matching issue exists, keeping the [ -n "$EXISTING" ] guard correct.
+          EXISTING=$(gh issue list \
+            --label "cert-expiry" \
+            --state open \
+            --json number \
+            --jq '.[0].number // empty' 2>/dev/null || true)
+
+          if [ -n "$EXISTING" ] && [ "$EXISTING" != "null" ]; then
+            echo "Updating existing issue #$EXISTING with latest status"
+            gh issue comment "$EXISTING" --body "$BODY"
+          else
+            echo "Creating new certificate expiry alert issue"
+            gh issue create \
+              --title "Certificate expiry alert: action required within ${{ env.ALERT_DAYS }} days" \
+              --body  "$BODY" \
+              --label "cert-expiry"
+          fi
+
+      # ------------------------------------------------------------------ #
+      #  Always write a human-readable summary to the Actions job summary    #
+      # ------------------------------------------------------------------ #
+      - name: Write job summary
+        if: always()
+        run: |
+          echo "### Certificate Expiry Report" >> "$GITHUB_STEP_SUMMARY"
+          echo ""                               >> "$GITHUB_STEP_SUMMARY"
+          echo "| Platform | Configured | Expires | Days remaining | Status |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|----------|------------|---------|----------------|--------|" >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "${{ steps.apple.outputs.apple_configured }}" = "true" ]; then
+            APPLE_STATUS="OK"
+            [ "${{ steps.apple.outputs.apple_alert }}" = "true" ] && APPLE_STATUS=":warning: EXPIRING SOON"
+            echo "| macOS (Apple Developer ID) | Yes | ${{ steps.apple.outputs.apple_expiry }} | ${{ steps.apple.outputs.apple_days }} | $APPLE_STATUS |" >> "$GITHUB_STEP_SUMMARY"
+          else
+            APPLE_REASON="${{ steps.apple.outputs.apple_reason }}"
+            echo "| macOS (Apple Developer ID) | No | $APPLE_REASON | — | :x: ALERT |" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          if [ "${{ steps.windows.outputs.win_configured }}" = "true" ]; then
+            WIN_STATUS="OK"
+            [ "${{ steps.windows.outputs.win_alert }}" = "true" ] && WIN_STATUS=":warning: EXPIRING SOON"
+            echo "| Windows (SSL.com eSigner) | Yes | ${{ steps.windows.outputs.win_expiry }} | ${{ steps.windows.outputs.win_days }} | $WIN_STATUS |" >> "$GITHUB_STEP_SUMMARY"
+          else
+            WIN_REASON="${{ steps.windows.outputs.win_reason }}"
+            echo "| Windows (SSL.com eSigner) | No | $WIN_REASON | — | :x: ALERT |" >> "$GITHUB_STEP_SUMMARY"
+          fi

@@ -211,6 +211,80 @@ git push origin v1.0.0
 
 ---
 
+## Certificate Renewal
+
+Code-signing certificates have a fixed validity period (typically 1–3 years). A GitHub Actions workflow (`.github/workflows/cert-expiry-check.yml`) runs every Monday and automatically opens a GitHub issue when fewer than **60 days** remain before a certificate expires, giving the team ample time to renew.
+
+### How the alert works
+
+- The workflow decodes the base64-encoded certificate secrets and reads the expiry date with `openssl`.
+- If any certificate is expiring within 60 days, a GitHub issue labelled **`cert-expiry`** is created.
+- Duplicate alerts are suppressed: if an open `cert-expiry` issue already exists, a comment is added instead of opening a new issue.
+- A run summary is always written to the GitHub Actions job summary tab for easy monitoring.
+
+You can also trigger the check manually from **Actions → Certificate Expiry Check → Run workflow**.
+
+---
+
+### macOS — Renewing the Developer ID Certificate
+
+Apple Developer ID certificates are issued for **1 year** and must be renewed annually.
+
+1. Sign in to [developer.apple.com](https://developer.apple.com) → **Certificates, Identifiers & Profiles**.
+2. Revoke the expiring **Developer ID Application** certificate and create a new one.
+3. Download the new certificate and import it into Keychain Access.
+4. Export it as a `.p12` file (include private key, set a strong password).
+5. Encode it to base64:
+   ```bash
+   base64 -i certificate.p12 | pbcopy
+   ```
+6. Update the following secrets in **GitHub → Settings → Secrets → Actions**:
+
+   | Secret | What to update |
+   |--------|----------------|
+   | `APPLE_CERTIFICATE_BASE64` | Paste the new base64 string |
+   | `APPLE_CERTIFICATE_PASSWORD` | Password chosen in step 4 |
+   | `APPLE_SIGNING_IDENTITY` | Common Name of the new certificate (e.g. `Developer ID Application: Your Name (TEAMID)`) |
+
+7. Trigger a manual release or push a test tag to verify the new certificate signs the DMG correctly.
+
+> **Note:** The private key associated with the old certificate must be kept securely until all builds using it are no longer distributed. After renewing, close the open `cert-expiry` GitHub issue.
+
+---
+
+### Windows — Renewing the SSL.com eSigner EV Certificate
+
+Windows installers are signed via **SSL.com eSigner** (cloud HSM). The EV certificate lives in SSL.com's KeyLocker and is accessed at build time using your SSL.com account credentials — no local `.pfx` file is involved.
+
+EV certificates are typically issued for **1–3 years**. Renew through SSL.com before expiry.
+
+**Steps:**
+
+1. Log in to the [SSL.com portal](https://www.ssl.com) and navigate to your Code Signing orders.
+2. Initiate renewal for your EV Code Signing certificate. Complete any required identity re-verification.
+3. Once the renewed certificate is issued and provisioned into KeyLocker, verify the new credential ID in the SSL.com dashboard.
+4. If the **credential ID has changed**, update the following secret in **GitHub → Settings → Secrets → Actions**:
+
+   | Secret | What to update |
+   |--------|----------------|
+   | `SSL_COM_CREDENTIAL_ID` | New credential ID from the SSL.com dashboard |
+
+5. If you changed your SSL.com account password, also update:
+
+   | Secret | What to update |
+   |--------|----------------|
+   | `SSL_COM_USERNAME` | SSL.com account username (email) |
+   | `SSL_COM_PASSWORD` | New SSL.com account password |
+   | `SSL_COM_TOTP_SECRET` | TOTP secret from your authenticator app (if reset) |
+
+6. Trigger a test build to confirm the installer is signed and SmartScreen shows a publisher name instead of "Unknown Publisher".
+
+> **Checking the credential:** You can verify the new certificate is active by running the **Certificate Expiry Check** workflow manually from the Actions tab. It will query SSL.com and report the new expiry date.
+
+After updating the secrets, close the open `cert-expiry` GitHub issue.
+
+---
+
 ## Настройки (AI-функции)
 
 Откройте **Tools → Settings** (или `Ctrl+,`):
