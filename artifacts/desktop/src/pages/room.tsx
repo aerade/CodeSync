@@ -64,6 +64,8 @@ function getWsUrl(roomId: string, fileId: string, collabToken: string): string {
   }
 }
 
+const isMac = typeof navigator !== "undefined" && /Mac/i.test(navigator.platform);
+
 export default function Room({ onOpenSettings, hasApiKeys = true }: { onOpenSettings?: () => void; hasApiKeys?: boolean }) {
   const params = useParams<{ roomId: string }>();
   const roomId = params.roomId ?? "";
@@ -366,7 +368,7 @@ export default function Room({ onOpenSettings, hasApiKeys = true }: { onOpenSett
               <div className="w-px h-4 mx-1" style={{ background: "var(--border)" }} />
               <button
                 onClick={onOpenSettings}
-                title="Settings"
+                title={isMac ? "Settings (⌘,)" : "Settings (Ctrl+,)"}
                 className="flex items-center justify-center w-7 h-7 rounded-lg transition-all hover:opacity-80 relative"
                 style={{ background: "var(--elevated)", border: "1px solid var(--border)", color: "var(--muted-foreground)" }}
               >

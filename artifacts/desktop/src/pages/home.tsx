@@ -11,6 +11,8 @@ interface HomeProps {
   hasApiKeys?: boolean;
 }
 
+const isMac = typeof navigator !== "undefined" && /Mac/i.test(navigator.platform);
+
 export default function Home({ onOpenSettings, hasApiKeys = true }: HomeProps) {
   const [, navigate] = useLocation();
   const [user, setUser] = useState<User | null>(null);
@@ -265,7 +267,7 @@ export default function Home({ onOpenSettings, hasApiKeys = true }: HomeProps) {
           {onOpenSettings && (
             <button
               onClick={onOpenSettings}
-              title="Settings"
+              title={isMac ? "Settings (⌘,)" : "Settings (Ctrl+,)"}
               className="flex items-center justify-center w-7 h-7 rounded-lg transition-all hover:opacity-80 relative"
               style={{ background: "var(--elevated)", border: "1px solid var(--border)", color: "var(--muted-foreground)" }}
             >
