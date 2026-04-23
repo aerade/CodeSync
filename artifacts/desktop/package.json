@@ -19,7 +19,7 @@
     "electron:dev": "pnpm run server:build && concurrently \"pnpm run dev\" \"wait-on http://localhost:21098/desktop/ && electron .\"",
     "server:build": "cd server && node build.mjs",
     "electron:build": "pnpm run server:build && pnpm run electron:vite-build && pnpm run electron:compile && electron-builder build --config electron-builder.yml",
-    "electron:build:win": "pnpm run server:build && pnpm run electron:vite-build && pnpm run electron:compile && electron-builder build --win --config electron-builder.yml",
+    "electron:build:win": "pnpm run server:build && pnpm run electron:vite-build && pnpm run electron:compile && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder build --win --config electron-builder.yml",
     "electron:build:mac": "pnpm run server:build && pnpm run electron:vite-build && pnpm run electron:compile && electron-builder build --mac --config electron-builder.yml",
     "electron:build:linux": "pnpm run server:build && pnpm run electron:vite-build && pnpm run electron:compile && electron-builder build --linux --config electron-builder.yml",
     "build:full": "pnpm run server:build && pnpm run electron:vite-build && pnpm run electron:compile && electron-builder build --config electron-builder.yml"

@@ -1,0 +1,197 @@
+[server-build] Bundling server...
+
+  dist\server.cjs  1.6mb ⚠️
+
+⚡ Done in 216ms
+[server-build] Copying native module binaries...
+[server-build] Copied node-pty
+[server-build] Done! Output: dist/server.cjs
+
+> @workspace/desktop@1.0.0 electron:vite-build C:\Games\Code-Collab-AI\artifacts\desktop
+> cross-env ELECTRON_BUILD=1 vite build --config vite.config.ts
+
+vite v7.3.2 building client environment for production...
+src/components/ui/tooltip.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+src/components/ui/label.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+✓ 2274 modules transformed.
+dist/public/index.html                       1.11 kB │ gzip:  0.49 kB
+dist/public/assets/index-na_kzZm_.css       93.05 kB │ gzip: 15.66 kB
+dist/public/assets/notices-S8PH8L61.js       0.79 kB │ gzip:  0.39 kB
+dist/public/assets/not-found-CmzyfVoF.js     0.85 kB │ gzip:  0.44 kB
+dist/public/assets/api-BDcQOiyh.js           2.74 kB │ gzip:  1.20 kB
+dist/public/assets/settings-Dvx7WUXA.js      9.74 kB │ gzip:  3.13 kB
+dist/public/assets/monaco-DiqkpRPU.js       11.42 kB │ gzip:  4.35 kB
+dist/public/assets/index-ujbGHi4w.js        11.75 kB │ gzip:  4.87 kB
+dist/public/assets/home-YVTAeG3z.js         14.47 kB │ gzip:  3.56 kB
+dist/public/assets/room-CwVQifn0.js         31.84 kB │ gzip:  8.75 kB
+dist/public/assets/radix-ui-Cf3Ollcb.js     44.96 kB │ gzip: 14.61 kB
+dist/public/assets/runtime-BpJZkQ-D.js      61.65 kB │ gzip: 18.27 kB
+dist/public/assets/react-core-CLe9vk0-.js  185.74 kB │ gzip: 58.57 kB
+dist/public/assets/vendor-Dnmt9NCo.js      282.29 kB │ gzip: 92.15 kB
+✓ built in 3.54s
+
+> @workspace/desktop@1.0.0 electron:compile C:\Games\Code-Collab-AI\artifacts\desktop
+> tsc --project tsconfig.electron.json && node scripts/rename-to-cjs.mjs
+
+Renamed 2 .js -> .cjs
+  • electron-builder  version=25.1.8 os=10.0.26200
+  • loaded configuration  file=C:\Games\Code-Collab-AI\artifacts\desktop\electron-builder.yml
+  • writing effective config  file=dist\electron\builder-effective-config.yaml
+  • skipped dependencies rebuild  reason=npmRebuild is set to false
+  • packaging       platform=win32 arch=x64 electron=33.4.11 appOutDir=dist\electron\win-unpacked
+  • downloading     url=https://github.com/electron/electron/releases/download/v33.4.11/electron-v33.4.11-win32-x64.zip size=115 MB parts=8
+  • downloaded      url=https://github.com/electron/electron/releases/download/v33.4.11/electron-v33.4.11-win32-x64.zip duration=19.193s
+  • updating asar integrity executable resource  executablePath=dist\electron\win-unpacked\CodeSync.exe
+  • signing with signtool.exe  path=dist\electron\win-unpacked\resources\server\node_modules\node-pty\third_party\conpty\1.23.251008001\win10-x64\OpenConsole.exe
+  • deprecated field  fields=["signingHashAlgorithms"] reason=please move to win.signtoolOptions.<field_name>
+  • no signing info identified, signing is skipped  signHook=false cscInfo=null
+  • signing with signtool.exe  path=dist\electron\win-unpacked\resources\server\node_modules\node-pty\third_party\conpty\1.23.251008001\win10-arm64\OpenConsole.exe
+  • deprecated field  fields=["signingHashAlgorithms"] reason=please move to win.signtoolOptions.<field_name>
+  • no signing info identified, signing is skipped  signHook=false cscInfo=null
+  • signing with signtool.exe  path=dist\electron\win-unpacked\resources\server\node_modules\node-pty\prebuilds\win32-x64\winpty-agent.exe
+  • deprecated field  fields=["signingHashAlgorithms"] reason=please move to win.signtoolOptions.<field_name>
+  • no signing info identified, signing is skipped  signHook=false cscInfo=null
+  • signing with signtool.exe  path=dist\electron\win-unpacked\resources\server\node_modules\node-pty\prebuilds\win32-x64\conpty\OpenConsole.exe
+  • deprecated field  fields=["signingHashAlgorithms"] reason=please move to win.signtoolOptions.<field_name>
+  • no signing info identified, signing is skipped  signHook=false cscInfo=null
+  • signing with signtool.exe  path=dist\electron\win-unpacked\resources\server\node_modules\node-pty\prebuilds\win32-arm64\winpty-agent.exe
+  • deprecated field  fields=["signingHashAlgorithms"] reason=please move to win.signtoolOptions.<field_name>
+  • no signing info identified, signing is skipped  signHook=false cscInfo=null
+  • signing with signtool.exe  path=dist\electron\win-unpacked\resources\server\node_modules\node-pty\prebuilds\win32-arm64\conpty\OpenConsole.exe
+  • deprecated field  fields=["signingHashAlgorithms"] reason=please move to win.signtoolOptions.<field_name>
+  • no signing info identified, signing is skipped  signHook=false cscInfo=null
+  • signing with signtool.exe  path=dist\electron\win-unpacked\resources\server\node_modules\node-pty\build\Release\conpty\OpenConsole.exe
+  • deprecated field  fields=["signingHashAlgorithms"] reason=please move to win.signtoolOptions.<field_name>
+  • no signing info identified, signing is skipped  signHook=false cscInfo=null
+  • default Electron icon is used  reason=application icon is not set
+  • downloading     url=https://github.com/electron-userland/electron-builder-binaries/releases/download/winCodeSign-2.6.0/winCodeSign-2.6.0.7z size=5.6 MB parts=1
+  • downloaded      url=https://github.com/electron-userland/electron-builder-binaries/releases/download/winCodeSign-2.6.0/winCodeSign-2.6.0.7z duration=9.448s
+  ⨯ cannot execute  cause=exit status 2
+                    out=
+    7-Zip (a) 21.07 (x64) : Copyright (c) 1999-2021 Igor Pavlov : 2021-12-26
+
+    Scanning the drive for archives:
+    1 file, 5635384 bytes (5504 KiB)
+
+    Extracting archive: C:\Users\��ࣥ�\AppData\Local\electron-builder\Cache\winCodeSign\466696815.7z
+    --
+    Path = C:\Users\��ࣥ�\AppData\Local\electron-builder\Cache\winCodeSign\466696815.7z
+    Type = 7z
+    Physical Size = 5635384
+    Headers Size = 1492
+    Method = LZMA2:24m LZMA:20 BCJ2
+    Solid = +
+    Blocks = 2
+
+
+    Sub items Errors: 2
+
+    Archives with Errors: 1
+
+    Sub items Errors: 2
+
+                    errorOut=ERROR: Cannot create symbolic link : ������ �� �������� �ॡ㥬묨 �ࠢ���. : C:\Users\��ࣥ�\AppData\Local\electron-builder\Cache\winCodeSign\466696815\darwin\10.12\lib\libcrypto.dylib
+    ERROR: Cannot create symbolic link : ������ �� �������� �ॡ㥬묨 �ࠢ���. : C:\Users\��ࣥ�\AppData\Local\electron-builder\Cache\winCodeSign\466696815\darwin\10.12\lib\libssl.dylib
+
+                    command='C:\Games\Code-Collab-AI\node_modules\.pnpm\7zip-bin@5.2.0\node_modules\7zip-bin\win\x64\7za.exe' x -snld -bd 'C:\Users\Сергей\AppData\Local\electron-builder\Cache\winCodeSign\466696815.7z' '-oC:\Users\Сергей\AppData\Local\electron-builder\Cache\winCodeSign\466696815'
+                    workingDir=C:\Users\Сергей\AppData\Local\electron-builder\Cache\winCodeSign
+  • Above command failed, retrying 3 more times
+  • downloading     url=https://github.com/electron-userland/electron-builder-binaries/releases/download/winCodeSign-2.6.0/winCodeSign-2.6.0.7z size=5.6 MB parts=1
+  • downloaded      url=https://github.com/electron-userland/electron-builder-binaries/releases/download/winCodeSign-2.6.0/winCodeSign-2.6.0.7z duration=2.935s
+  ⨯ cannot execute  cause=exit status 2
+                    out=
+    7-Zip (a) 21.07 (x64) : Copyright (c) 1999-2021 Igor Pavlov : 2021-12-26
+
+    Scanning the drive for archives:
+    1 file, 5635384 bytes (5504 KiB)
+
+    Extracting archive: C:\Users\��ࣥ�\AppData\Local\electron-builder\Cache\winCodeSign\154109671.7z
+    --
+    Path = C:\Users\��ࣥ�\AppData\Local\electron-builder\Cache\winCodeSign\154109671.7z
+    Type = 7z
+    Physical Size = 5635384
+    Headers Size = 1492
+    Method = LZMA2:24m LZMA:20 BCJ2
+    Solid = +
+    Blocks = 2
+
+
+    Sub items Errors: 2
+
+    Archives with Errors: 1
+
+    Sub items Errors: 2
+
+                    errorOut=ERROR: Cannot create symbolic link : ������ �� �������� �ॡ㥬묨 �ࠢ���. : C:\Users\��ࣥ�\AppData\Local\electron-builder\Cache\winCodeSign\154109671\darwin\10.12\lib\libcrypto.dylib
+    ERROR: Cannot create symbolic link : ������ �� �������� �ॡ㥬묨 �ࠢ���. : C:\Users\��ࣥ�\AppData\Local\electron-builder\Cache\winCodeSign\154109671\darwin\10.12\lib\libssl.dylib
+
+                    command='C:\Games\Code-Collab-AI\node_modules\.pnpm\7zip-bin@5.2.0\node_modules\7zip-bin\win\x64\7za.exe' x -snld -bd 'C:\Users\Сергей\AppData\Local\electron-builder\Cache\winCodeSign\154109671.7z' '-oC:\Users\Сергей\AppData\Local\electron-builder\Cache\winCodeSign\154109671'
+                    workingDir=C:\Users\Сергей\AppData\Local\electron-builder\Cache\winCodeSign
+  • Above command failed, retrying 3 more times
+  • downloading     url=https://github.com/electron-userland/electron-builder-binaries/releases/download/winCodeSign-2.6.0/winCodeSign-2.6.0.7z size=5.6 MB parts=1
+  • downloaded      url=https://github.com/electron-userland/electron-builder-binaries/releases/download/winCodeSign-2.6.0/winCodeSign-2.6.0.7z duration=5.463s
+  ⨯ cannot execute  cause=exit status 2
+                    out=
+    7-Zip (a) 21.07 (x64) : Copyright (c) 1999-2021 Igor Pavlov : 2021-12-26
+
+    Scanning the drive for archives:
+    1 file, 5635384 bytes (5504 KiB)
+
+    Extracting archive: C:\Users\��ࣥ�\AppData\Local\electron-builder\Cache\winCodeSign\954140247.7z
+    --
+    Path = C:\Users\��ࣥ�\AppData\Local\electron-builder\Cache\winCodeSign\954140247.7z
+    Type = 7z
+    Physical Size = 5635384
+    Headers Size = 1492
+    Method = LZMA2:24m LZMA:20 BCJ2
+    Solid = +
+    Blocks = 2
+
+
+    Sub items Errors: 2
+
+    Archives with Errors: 1
+
+    Sub items Errors: 2
+
+                    errorOut=ERROR: Cannot create symbolic link : ������ �� �������� �ॡ㥬묨 �ࠢ���. : C:\Users\��ࣥ�\AppData\Local\electron-builder\Cache\winCodeSign\954140247\darwin\10.12\lib\libcrypto.dylib
+    ERROR: Cannot create symbolic link : ������ �� �������� �ॡ㥬묨 �ࠢ���. : C:\Users\��ࣥ�\AppData\Local\electron-builder\Cache\winCodeSign\954140247\darwin\10.12\lib\libssl.dylib
+
+                    command='C:\Games\Code-Collab-AI\node_modules\.pnpm\7zip-bin@5.2.0\node_modules\7zip-bin\win\x64\7za.exe' x -snld -bd 'C:\Users\Сергей\AppData\Local\electron-builder\Cache\winCodeSign\954140247.7z' '-oC:\Users\Сергей\AppData\Local\electron-builder\Cache\winCodeSign\954140247'
+                    workingDir=C:\Users\Сергей\AppData\Local\electron-builder\Cache\winCodeSign
+  • Above command failed, retrying 3 more times
+  • downloading     url=https://github.com/electron-userland/electron-builder-binaries/releases/download/winCodeSign-2.6.0/winCodeSign-2.6.0.7z size=5.6 MB parts=1
+  • downloaded      url=https://github.com/electron-userland/electron-builder-binaries/releases/download/winCodeSign-2.6.0/winCodeSign-2.6.0.7z duration=2.082s
+  ⨯ cannot execute  cause=exit status 2
+                    out=
+    7-Zip (a) 21.07 (x64) : Copyright (c) 1999-2021 Igor Pavlov : 2021-12-26
+
+    Scanning the drive for archives:
+    1 file, 5635384 bytes (5504 KiB)
+
+    Extracting archive: C:\Users\��ࣥ�\AppData\Local\electron-builder\Cache\winCodeSign\640880427.7z
+    --
+    Path = C:\Users\��ࣥ�\AppData\Local\electron-builder\Cache\winCodeSign\640880427.7z
+    Type = 7z
+    Physical Size = 5635384
+    Headers Size = 1492
+    Method = LZMA2:24m LZMA:20 BCJ2
+    Solid = +
+    Blocks = 2
+
+
+    Sub items Errors: 2
+
+    Archives with Errors: 1
+
+    Sub items Errors: 2
+
+                    errorOut=ERROR: Cannot create symbolic link : ������ �� �������� �ॡ㥬묨 �ࠢ���. : C:\Users\��ࣥ�\AppData\Local\electron-builder\Cache\winCodeSign\640880427\darwin\10.12\lib\libcrypto.dylib
+    ERROR: Cannot create symbolic link : ������ �� �������� �ॡ㥬묨 �ࠢ���. : C:\Users\��ࣥ�\AppData\Local\electron-builder\Cache\winCodeSign\640880427\darwin\10.12\lib\libssl.dylib
+
+                    command='C:\Games\Code-Collab-AI\node_modules\.pnpm\7zip-bin@5.2.0\node_modules\7zip-bin\win\x64\7za.exe' x -snld -bd 'C:\Users\Сергей\AppData\Local\electron-builder\Cache\winCodeSign\640880427.7z' '-oC:\Users\Сергей\AppData\Local\electron-builder\Cache\winCodeSign\640880427'
+                    workingDir=C:\Users\Сергей\AppData\Local\electron-builder\Cache\winCodeSign
+  • Above command failed, retrying 3 more times
+C:\Games\Code-Collab-AI\artifacts\desktop:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @workspace/desktop@1.0.0 build:full: `pnpm run server:build && pnpm run electron:vite-build && pnpm run electron:compile && electron-builder build --config electron-builder.yml`
+Exit status 1

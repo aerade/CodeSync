@@ -57,11 +57,7 @@ dmg:
 
 # Windows
 win:
-  # Code signing is handled AFTER the build by SSL.com eSigner (cloud HSM).
-  # electron-builder runs with CSC_IDENTITY_AUTO_DISCOVERY=false in CI so it
-  # does not attempt to sign here. See .github/workflows/release.yml and
-  # SETUP.md for the full EV signing setup.
-  signingHashAlgorithms: [sha256]
+  sign: false
   target:
     - target: nsis
       arch: [x64]
