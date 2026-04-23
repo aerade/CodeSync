@@ -41,6 +41,14 @@ export default function Home({ onOpenSettings, hasApiKeys = true }: HomeProps) {
   }
 
   useEffect(() => {
+    function handleNoticesReset() {
+      setBannerDismissed(false);
+    }
+    window.addEventListener("noticesReset", handleNoticesReset);
+    return () => window.removeEventListener("noticesReset", handleNoticesReset);
+  }, []);
+
+  useEffect(() => {
     const token = getToken();
     if (token) {
       api.getMe().then((u) => {

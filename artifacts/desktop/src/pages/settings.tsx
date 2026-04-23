@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
-import { Eye, EyeOff, Key, Save, Info } from "lucide-react";
+import { Eye, EyeOff, Key, Save, Info, BellOff } from "lucide-react";
 
 interface SettingsDialogProps {
   open: boolean;
@@ -140,6 +140,34 @@ export default function SettingsDialog({ open, onOpenChange }: SettingsDialogPro
                 console.anthropic.com
               </a>
             </p>
+          </div>
+
+          <Separator className="bg-[var(--border)]" />
+
+          {/* Notices */}
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">Notices</Label>
+            <div className="flex items-center justify-between rounded-lg bg-[var(--elevated)] px-3 py-2.5">
+              <div className="flex items-center gap-2">
+                <BellOff className="h-4 w-4 text-[var(--muted)]" />
+                <span className="text-sm text-[var(--foreground)]">No AI API keys banner</span>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="text-xs border-[var(--border)] text-[var(--muted)] hover:text-[var(--foreground)]"
+                onClick={() => {
+                  if (typeof localStorage !== "undefined") {
+                    localStorage.removeItem("noApiKeysBannerDismissed");
+                  }
+                  window.dispatchEvent(new CustomEvent("noticesReset"));
+                  toast.success("Banner will reappear on the home screen.");
+                }}
+              >
+                Reset
+              </Button>
+            </div>
           </div>
 
           <Separator className="bg-[var(--border)]" />
