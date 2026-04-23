@@ -79,7 +79,9 @@ export default function SettingsDialog({ open, onOpenChange }: SettingsDialogPro
     setDismissed((prev) => ({ ...prev, [key]: false }));
     window.dispatchEvent(new CustomEvent("noticesReset"));
     const notice = NOTICES.find((n) => n.key === key);
-    toast.success(notice?.resetMessage ?? DEFAULT_RESET_MESSAGE);
+    toast.success(notice?.resetMessage ?? DEFAULT_RESET_MESSAGE, {
+      description: notice?.description,
+    });
   };
 
   const handleResetAll = () => {
