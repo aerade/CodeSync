@@ -15,7 +15,7 @@ interface SettingsDialogProps {
 
 const DEFAULT_RESET_MESSAGE = "Banner will reappear on the home screen.";
 
-const NOTICES: { key: string; label: string; description?: string; resetMessage?: string }[] = [
+const NOTICES: { key: string; label: string; description: string; resetMessage?: string }[] = [
   {
     key: NOTICE_KEYS.noApiKeysBanner,
     label: "No AI API keys banner",
@@ -227,9 +227,7 @@ export default function SettingsDialog({ open, onOpenChange }: SettingsDialogPro
                             </span>
                           )}
                         </div>
-                        {description && (
-                          <p className="text-xs text-[var(--muted)] mt-0.5 leading-snug">{description}</p>
-                        )}
+                        <p className="text-xs text-[var(--muted)] mt-0.5 leading-snug">{description}</p>
                       </div>
                     </div>
                     <Button
