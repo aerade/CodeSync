@@ -13,8 +13,14 @@ interface SettingsDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-const NOTICES: { key: string; label: string }[] = [
-  { key: NOTICE_KEYS.noApiKeysBanner, label: "No AI API keys banner" },
+const DEFAULT_RESET_MESSAGE = "Banner will reappear on the home screen.";
+
+const NOTICES: { key: string; label: string; resetMessage?: string }[] = [
+  {
+    key: NOTICE_KEYS.noApiKeysBanner,
+    label: "No AI API keys banner",
+    resetMessage: "The API keys notice will reappear on the home screen until keys are added.",
+  },
 ];
 
 function readDismissed(key: string): boolean {
@@ -65,13 +71,14 @@ export default function SettingsDialog({ open, onOpenChange }: SettingsDialogPro
     }
   };
 
-  const handleResetOne = (key: string, successMsg: string) => {
+  const handleResetOne = (key: string) => {
     if (typeof localStorage !== "undefined") {
       localStorage.removeItem(key);
     }
     setDismissed((prev) => ({ ...prev, [key]: false }));
     window.dispatchEvent(new CustomEvent("noticesReset"));
-    toast.success(successMsg);
+    const notice = NOTICES.find((n) => n.key === key);
+    toast.success(notice?.resetMessage ?? DEFAULT_RESET_MESSAGE);
   };
 
   const handleResetAll = () => {
@@ -223,7 +230,7 @@ export default function SettingsDialog({ open, onOpenChange }: SettingsDialogPro
                       size="sm"
                       disabled={!isDismissed}
                       className="text-xs border-[var(--border)] text-[var(--muted)] hover:text-[var(--foreground)] disabled:opacity-40 disabled:cursor-not-allowed"
-                      onClick={() => handleResetOne(key, "Banner will reappear on the home screen.")}
+                      onClick={() => handleResetOne(key)}
                     >
                       Reset
                     </Button>
