@@ -1,0 +1,118 @@
+PS C:\Games\Code-Collab-AI> New-Item -ItemType Directory -Force "$env:LOCALAPPDATA\electron-builder\Cache\winCodeSign"
+
+
+    Каталог: C:\Users\Сергей\AppData\Local\electron-builder\Cache
+
+
+Mode                 LastWriteTime         Length Name
+----                 -------------         ------ ----
+d-----        23.04.2026     20:49                winCodeSign
+
+
+PS C:\Games\Code-Collab-AI> Move-Item "$env:USERPROFILE\Downloads\winCodeSign-2.6.0.7z" "$env:LOCALAPPDATA\electron-builder\Cache\winCodeSign\"
+PS C:\Games\Code-Collab-AI> cd "$env:LOCALAPPDATA\electron-builder\Cache\winCodeSign"
+PS C:\Users\Сергей\AppData\Local\electron-builder\Cache\winCodeSign> & "C:\Games\Code-Collab-AI\node_modules\.pnpm\7zip-bin@5.2.0\node_modules\7zip-bin\win\x64\7za.exe" x winCodeSign-2.6.0.7z -owinCodeSign-2.6.0
+
+7-Zip (a) 21.07 (x64) : Copyright (c) 1999-2021 Igor Pavlov : 2021-12-26
+
+Scanning the drive for archives:
+1 file, 5635384 bytes (5504 KiB)
+
+Extracting archive: winCodeSign-2.6.0.7z
+--
+Path = winCodeSign-2.6.0.7z
+Type = 7z
+Physical Size = 5635384
+Headers Size = 1492
+Method = LZMA2:24m LZMA:20 BCJ2
+Solid = +
+Blocks = 2
+
+
+No files to process
+Everything is Ok
+
+Files: 0
+Size:       0
+Compressed: 5635384
+PS C:\Users\Сергей\AppData\Local\electron-builder\Cache\winCodeSign> cd C:\Games\Code-Collab-AI
+PS C:\Games\Code-Collab-AI> pnpm --filter @workspace/desktop run electron:build:win
+
+> @workspace/desktop@1.0.0 electron:build:win C:\Games\Code-Collab-AI\artifacts\desktop
+> pnpm run server:build && pnpm run electron:vite-build && pnpm run electron:compile && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder build --win --config electron-builder.yml
+
+
+> @workspace/desktop@1.0.0 server:build C:\Games\Code-Collab-AI\artifacts\desktop
+> cd server && node build.mjs
+
+[server-build] Bundling server...
+
+  dist\server.cjs  1.6mb ⚠️
+
+⚡ Done in 182ms
+[server-build] Copying native module binaries...
+[server-build] Copied node-pty
+[server-build] Done! Output: dist/server.cjs
+
+> @workspace/desktop@1.0.0 electron:vite-build C:\Games\Code-Collab-AI\artifacts\desktop
+> cross-env ELECTRON_BUILD=1 vite build --config vite.config.ts
+
+vite v7.3.2 building client environment for production...
+src/components/ui/tooltip.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+src/components/ui/label.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+✓ 2274 modules transformed.
+dist/public/index.html                       1.11 kB │ gzip:  0.49 kB
+dist/public/assets/index-na_kzZm_.css       93.05 kB │ gzip: 15.66 kB
+dist/public/assets/notices-S8PH8L61.js       0.79 kB │ gzip:  0.39 kB
+dist/public/assets/not-found-CmzyfVoF.js     0.85 kB │ gzip:  0.44 kB
+dist/public/assets/api-BDcQOiyh.js           2.74 kB │ gzip:  1.20 kB
+dist/public/assets/settings-Dvx7WUXA.js      9.74 kB │ gzip:  3.13 kB
+dist/public/assets/monaco-DiqkpRPU.js       11.42 kB │ gzip:  4.35 kB
+dist/public/assets/index-ujbGHi4w.js        11.75 kB │ gzip:  4.87 kB
+dist/public/assets/home-YVTAeG3z.js         14.47 kB │ gzip:  3.56 kB
+dist/public/assets/room-CwVQifn0.js         31.84 kB │ gzip:  8.75 kB
+dist/public/assets/radix-ui-Cf3Ollcb.js     44.96 kB │ gzip: 14.61 kB
+dist/public/assets/runtime-BpJZkQ-D.js      61.65 kB │ gzip: 18.27 kB
+dist/public/assets/react-core-CLe9vk0-.js  185.74 kB │ gzip: 58.57 kB
+dist/public/assets/vendor-Dnmt9NCo.js      282.29 kB │ gzip: 92.15 kB
+✓ built in 3.37s
+
+> @workspace/desktop@1.0.0 electron:compile C:\Games\Code-Collab-AI\artifacts\desktop
+> tsc --project tsconfig.electron.json && node scripts/rename-to-cjs.mjs
+
+Renamed 2 .js -> .cjs
+  • electron-builder  version=25.1.8 os=10.0.26200
+  • loaded configuration  file=C:\Games\Code-Collab-AI\artifacts\desktop\electron-builder.yml
+  • writing effective config  file=dist\electron\builder-effective-config.yaml
+  • skipped dependencies rebuild  reason=npmRebuild is set to false
+  • packaging       platform=win32 arch=x64 electron=33.4.11 appOutDir=dist\electron\win-unpacked
+  • updating asar integrity executable resource  executablePath=dist\electron\win-unpacked\CodeSync.exe
+  • signing with signtool.exe  path=dist\electron\win-unpacked\resources\server\node_modules\node-pty\third_party\conpty\1.23.251008001\win10-x64\OpenConsole.exe
+  • no signing info identified, signing is skipped  signHook=false cscInfo=null
+  • signing with signtool.exe  path=dist\electron\win-unpacked\resources\server\node_modules\node-pty\third_party\conpty\1.23.251008001\win10-arm64\OpenConsole.exe
+  • no signing info identified, signing is skipped  signHook=false cscInfo=null
+  • signing with signtool.exe  path=dist\electron\win-unpacked\resources\server\node_modules\node-pty\prebuilds\win32-x64\winpty-agent.exe
+  • no signing info identified, signing is skipped  signHook=false cscInfo=null
+  • signing with signtool.exe  path=dist\electron\win-unpacked\resources\server\node_modules\node-pty\prebuilds\win32-x64\conpty\OpenConsole.exe
+  • no signing info identified, signing is skipped  signHook=false cscInfo=null
+  • signing with signtool.exe  path=dist\electron\win-unpacked\resources\server\node_modules\node-pty\prebuilds\win32-arm64\winpty-agent.exe
+  • no signing info identified, signing is skipped  signHook=false cscInfo=null
+  • signing with signtool.exe  path=dist\electron\win-unpacked\resources\server\node_modules\node-pty\prebuilds\win32-arm64\conpty\OpenConsole.exe
+  • no signing info identified, signing is skipped  signHook=false cscInfo=null
+  • signing with signtool.exe  path=dist\electron\win-unpacked\resources\server\node_modules\node-pty\build\Release\conpty\OpenConsole.exe
+  • no signing info identified, signing is skipped  signHook=false cscInfo=null
+  • default Electron icon is used  reason=application icon is not set
+  • downloading     url=https://github.com/electron-userland/electron-builder-binaries/releases/download/winCodeSign-2.6.0/winCodeSign-2.6.0.7z size=5.6 MB parts=1
+  • retrying        attempt=1
+  • retrying        attempt=2
+  • retrying        attempt=3
+  ⨯ local error: tls: bad record MAC
+github.com/develar/app-builder/pkg/download.(*Part).download
+        /Users/runner/work/app-builder/app-builder/pkg/download/Part.go:85
+github.com/develar/app-builder/pkg/download.(*Downloader).DownloadResolved.func1.1
+        /Users/runner/work/app-builder/app-builder/pkg/download/downloader.go:155
+github.com/develar/app-builder/pkg/util.MapAsyncConcurrency.func2
+        /Users/runner/work/app-builder/app-builder/pkg/util/async.go:68
+runtime.goexit
+        /Users/runner/hostedtoolcache/go/1.21.13/arm64/src/runtime/asm_amd64.s:1650
+  • Above command failed, retrying 3 more times
