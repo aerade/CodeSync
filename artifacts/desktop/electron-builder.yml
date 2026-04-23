@@ -27,6 +27,19 @@ npmRebuild: false
 # macOS
 mac:
   category: public.app-category.developer-tools
+  # Code signing — identity resolved from the keychain on the CI runner.
+  # Set APPLE_SIGNING_IDENTITY in CI to match your Developer ID certificate
+  # Common Name, e.g. "Developer ID Application: Your Name (TEAMID)".
+  identity: ${APPLE_SIGNING_IDENTITY}
+  # Hardened runtime is required for notarization.
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+  # Notarization via notarytool (requires Xcode 13+).
+  # Credentials are read from the environment variables listed below.
+  notarize:
+    teamId: ${APPLE_TEAM_ID}
   target:
     - target: dmg
       arch: [x64, arm64]
@@ -44,6 +57,11 @@ dmg:
 
 # Windows
 win:
+  # Code signing — point to a PKCS#12 (.p12/.pfx) certificate.
+  # WIN_CSC_LINK should be a base64-encoded .pfx or a file:// / https:// URL.
+  # WIN_CSC_KEY_PASSWORD is the password protecting the certificate file.
+  certificateSubjectName: ${WIN_CERT_SUBJECT_NAME}
+  signingHashAlgorithms: [sha256]
   target:
     - target: nsis
       arch: [x64]

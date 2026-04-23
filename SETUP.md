@@ -102,87 +102,90 @@ pnpm --filter @workspace/desktop run electron:build:win
 
 ### CI/CD — GitHub Actions
 
-Создайте файл `.github/workflows/release.yml`  
-(замените `your-org/codesync` в `publish` секции `electron-builder.yml` на свои значения):
-
-```yaml
-name: Release
-
-on:
-  push:
-    tags:
-      - "v*"
-
-# Required so softprops/action-gh-release can upload assets
-permissions:
-  contents: write
-
-jobs:
-  build-linux:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 9
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: pnpm
-      - run: pnpm install
-      - name: Build AppImage
-        run: pnpm --filter @workspace/desktop run build:full
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Upload AppImage
-        uses: softprops/action-gh-release@v2
-        with:
-          files: artifacts/desktop/dist/electron/CodeSync-*.AppImage
-
-  build-win:
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 9
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: pnpm
-      - run: pnpm install
-      - name: Build Windows installer
-        run: pnpm --filter @workspace/desktop run electron:build:win
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Upload installer
-        uses: softprops/action-gh-release@v2
-        with:
-          files: artifacts/desktop/dist/electron/*.exe
-
-  build-mac:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 9
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: pnpm
-      - run: pnpm install
-      - name: Build macOS dmg
-        run: pnpm --filter @workspace/desktop run electron:build:mac
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Upload dmg
-        uses: softprops/action-gh-release@v2
-        with:
-          files: artifacts/desktop/dist/electron/*.dmg
-```
+Файл `.github/workflows/release.yml` уже создан в репозитории.  
+Он автоматически собирает все три платформы при пуше тега и подписывает установщики.
 
 Для публикации: создайте тег `v1.0.0` и запушьте — GitHub Actions соберёт все три платформы автоматически.
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+---
+
+## Code Signing (подпись установщиков)
+
+Подпись устраняет предупреждения безопасности: «Windows protected your PC» (SmartScreen) и блокировку Gatekeeper на macOS.
+
+### macOS — Developer ID + Notarization
+
+**Что нужно:**
+- Аккаунт в [Apple Developer Program](https://developer.apple.com/programs/) (~$99/год)
+- Сертификат типа **Developer ID Application** (не Distribution)
+- Apple ID и пароль приложения (App-Specific Password) для notarytool
+
+**Шаги:**
+1. В Xcode / Keychain Access создайте сертификат **Developer ID Application**.
+2. Экспортируйте его как `.p12` и закодируйте в base64:
+   ```bash
+   base64 -i certificate.p12 | pbcopy
+   ```
+3. Добавьте в GitHub → Settings → Secrets → Actions следующие секреты:
+
+| Secret | Описание |
+|--------|----------|
+| `APPLE_CERTIFICATE_BASE64` | Base64-кодированный `.p12` файл |
+| `APPLE_CERTIFICATE_PASSWORD` | Пароль от `.p12` файла |
+| `APPLE_SIGNING_IDENTITY` | Common Name сертификата, напр. `Developer ID Application: Your Name (TEAMID)` |
+| `APPLE_TEAM_ID` | 10-значный Team ID из developer.apple.com |
+| `APPLE_ID` | Ваш Apple ID (email) |
+| `APPLE_APP_SPECIFIC_PASSWORD` | App-Specific Password с appleid.apple.com |
+
+Нотаризация (notarization) запускается автоматически через `electron-builder` после сборки DMG.
+
+---
+
+### Windows — OV или EV Code Signing Certificate
+
+**Что нужно:**
+- Сертификат подписи кода (OV — от ~$200/год, EV — от ~$400/год)
+  - Рекомендуемые CA: DigiCert, Sectigo, GlobalSign
+  - EV-сертификат убирает SmartScreen полностью с первой установки
+  - OV-сертификат убирает SmartScreen после накопления репутации (~1000 установок)
+- Файл сертификата в формате `.pfx` / `.p12`
+
+**Шаги:**
+1. Получите сертификат у CA, экспортируйте как `.pfx`.
+2. Закодируйте в base64:
+   ```bash
+   base64 -i certificate.pfx | pbcopy   # macOS/Linux
+   [Convert]::ToBase64String([IO.File]::ReadAllBytes("certificate.pfx")) | clip  # PowerShell
+   ```
+3. Добавьте в GitHub → Settings → Secrets → Actions:
+
+| Secret | Описание |
+|--------|----------|
+| `WIN_CSC_LINK` | Base64-кодированный `.pfx` файл |
+| `WIN_CSC_KEY_PASSWORD` | Пароль от `.pfx` файла |
+| `WIN_CERT_SUBJECT_NAME` | Subject Name сертификата, напр. `Your Company Name` |
+
+> **EV-сертификаты:** некоторые CA выдают EV-сертификаты на USB-токене (HSM). В этом случае подпись в облачном CI невозможна — используйте облачные HSM-сервисы (DigiCert KeyLocker, SSL.com eSigner) или подписывайте локально перед публикацией.
+
+---
+
+### Проверка подписи
+
+**macOS:**
+```bash
+codesign --verify --verbose=4 CodeSync.dmg
+spctl --assess --verbose=4 --type install CodeSync.dmg
+```
+
+**Windows** (PowerShell):
+```powershell
+Get-AuthenticodeSignature .\CodeSync-Setup.exe | Select-Object Status, SignerCertificate
+```
 
 ```bash
 git tag v1.0.0
