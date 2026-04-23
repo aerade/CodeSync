@@ -1,0 +1,83 @@
+PS C:\Games\Code-Collab-AI> pnpm install
+Scope: all 14 workspace projects
+artifacts/codesync                       |  WARN  deprecated xterm-addon-fit@0.8.0
+artifacts/codesync                       |  WARN  deprecated xterm-addon-web-links@0.9.0
+artifacts/codesync                       |  WARN  deprecated xterm@5.3.0
+ WARN  13 deprecated subdependencies found: @npmcli/move-file@2.0.1, are-we-there-yet@3.0.1, boolean@3.2.0, gauge@4.0.4, glob@10.5.0, glob@7.2.3, glob@8.1.0, inflight@1.0.6, lodash.isequal@4.5.0, node-domexception@1.0.0, npmlog@6.0.2, rimraf@3.0.2, tar@6.2.1
+Packages: +904
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Progress: resolved 938, reused 914, downloaded 1, added 904, done
+. preinstall$ node -e "const fs=require('fs'); ['package-lock.json','yarn.lock'].forEach(f=>{try{fs.rmSync(f,{force:t…
+└─ Done in 217ms
+ WARN  Issues with peer dependencies found
+artifacts/codesync
+└─┬ @clerk/react 6.4.2
+  ├── ✕ unmet peer react@"^18.0.0 || ~19.0.3 || ~19.1.4 || ~19.2.3 || ~19.3.0-0": found 19.1.0
+  ├── ✕ unmet peer react-dom@"^18.0.0 || ~19.0.3 || ~19.1.4 || ~19.2.3 || ~19.3.0-0": found 19.1.0
+  └─┬ @clerk/shared 4.8.2
+    ├── ✕ unmet peer react@"^18.0.0 || ~19.0.3 || ~19.1.4 || ~19.2.3 || ~19.3.0-0": found 19.1.0
+    └── ✕ unmet peer react-dom@"^18.0.0 || ~19.0.3 || ~19.1.4 || ~19.2.3 || ~19.3.0-0": found 19.1.0
+
+artifacts/desktop
+└─┬ electron-builder 25.1.8
+  ├─┬ dmg-builder 25.1.8
+  │ └─┬ app-builder-lib 25.1.8
+  │   └── ✕ missing peer electron-builder-squirrel-windows@25.1.8
+  └─┬ app-builder-lib 25.1.8
+    └── ✕ missing peer electron-builder-squirrel-windows@25.1.8
+Peer dependencies that should be installed:
+  electron-builder-squirrel-windows@25.1.8
+
+optionalDependencies:
++ @rollup/rollup-win32-x64-msvc 4.60.2
++ lightningcss-win32-x64-msvc 1.32.0
+
+devDependencies:
++ prettier 3.8.3
++ typescript 5.9.3 (6.0.3 is available)
+
+╭ Warning ───────────────────────────────────────────────────────────────────────────────────╮
+│                                                                                            │
+│   Ignored build scripts: @clerk/shared@4.8.2, electron@33.4.11.                            │
+│   Run "pnpm approve-builds" to pick which dependencies should be allowed to run scripts.   │
+│                                                                                            │
+╰────────────────────────────────────────────────────────────────────────────────────────────╯
+Done in 21.9s using pnpm v10.33.0
+PS C:\Games\Code-Collab-AI> pnpm --filter @workspace/desktop run build:full
+
+> @workspace/desktop@1.0.0 build:full C:\Games\Code-Collab-AI\artifacts\desktop
+> pnpm run server:build && pnpm run electron:vite-build && pnpm run electron:compile && electron-builder build --config electron-builder.yml
+
+
+> @workspace/desktop@1.0.0 server:build C:\Games\Code-Collab-AI\artifacts\desktop
+> cd server && node build.mjs
+
+[server-build] Bundling server...
+
+  dist\server.cjs  1.6mb ⚠️
+
+⚡ Done in 470ms
+[server-build] Copying native module binaries...
+[server-build] Copied node-pty
+[server-build] Done! Output: dist/server.cjs
+
+> @workspace/desktop@1.0.0 electron:vite-build C:\Games\Code-Collab-AI\artifacts\desktop
+> cross-env ELECTRON_BUILD=1 vite build --config vite.config.ts
+
+failed to load config from C:\Games\Code-Collab-AI\artifacts\desktop\vite.config.ts
+error during build:
+Error: Cannot find native binding. npm has a bug related to optional dependencies (https://github.com/npm/cli/issues/4828). Please try `npm i` again after removing both package-lock.json and node_modules directory.
+    at Object.<anonymous> (C:\Games\Code-Collab-AI\node_modules\.pnpm\@tailwindcss+oxide@4.2.4\node_modules\@tailwindcss\oxide\index.js:559:11)
+    at Module._compile (node:internal/modules/cjs/loader:1812:14)
+    at Object..js (node:internal/modules/cjs/loader:1943:10)
+    at Module.load (node:internal/modules/cjs/loader:1533:32)
+    at Module._load (node:internal/modules/cjs/loader:1335:12)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at loadCJSModuleWithModuleLoad (node:internal/modules/esm/translators:328:3)
+    at ModuleWrap.<anonymous> (node:internal/modules/esm/translators:233:7)
+    at ModuleJob.run (node:internal/modules/esm/module_job:430:25)
+    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:661:26)
+ ELIFECYCLE  Command failed with exit code 1.
+C:\Games\Code-Collab-AI\artifacts\desktop:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @workspace/desktop@1.0.0 build:full: `pnpm run server:build && pnpm run electron:vite-build && pnpm run electron:compile && electron-builder build --config electron-builder.yml`
+Exit status 1
