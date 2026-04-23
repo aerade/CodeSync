@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { useState, useEffect, lazy, Suspense } from "react";
 import { ReleaseNotesDialog } from "@/components/release-notes-dialog";
 import { toSummary } from "@/lib/release-notes";
+import { LoadingScreen } from "@/components/LoadingScreen";
 
 const NotFound = lazy(() => import("@/pages/not-found"));
 const Home = lazy(() => import("@/pages/home"));
@@ -118,7 +119,7 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider delayDuration={300}>
-        <Suspense fallback={null}>
+        <Suspense fallback={<LoadingScreen />}>
           <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
             <Router onOpenSettings={() => setSettingsOpen(true)} hasApiKeys={hasApiKeys} />
           </WouterRouter>
