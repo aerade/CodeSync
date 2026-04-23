@@ -29,9 +29,17 @@ export function useNotice(key: NoticeKey): [boolean, () => void, () => void] {
     function handleReset() {
       setDismissed(false);
     }
+    function handleStorage(event: StorageEvent) {
+      if (event.key !== key) return;
+      setDismissed(event.newValue === "true");
+    }
     window.addEventListener("noticesReset", handleReset);
-    return () => window.removeEventListener("noticesReset", handleReset);
-  }, []);
+    window.addEventListener("storage", handleStorage);
+    return () => {
+      window.removeEventListener("noticesReset", handleReset);
+      window.removeEventListener("storage", handleStorage);
+    };
+  }, [key]);
 
   const dismiss = useCallback(() => {
     if (typeof localStorage !== "undefined") {
