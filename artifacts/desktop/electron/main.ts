@@ -135,11 +135,25 @@ async function startServer(reusePort?: number): Promise<void> {
   if (settings.anthropicApiKey) env.ANTHROPIC_API_KEY = settings.anthropicApiKey;
 
   const serverDir = path.dirname(serverPath);
+  const logPath = path.join(app.getPath("userData"), "server.log");
+  const logStream = fs.createWriteStream(logPath, { flags: "a" });
+
   serverProcess = fork(serverPath, [], {
     env,
-    stdio: isDev ? "inherit" : "ignore",
+    stdio: ["ignore", "pipe", "pipe", "ipc"],
     detached: false,
     cwd: serverDir,
+  });
+
+  (serverProcess.stdout as NodeJS.ReadableStream | null)?.on("data", (d: Buffer) => {
+    const line = d.toString();
+    console.log("[server]", line.trim());
+    logStream.write(`[OUT] ${line}`);
+  });
+  (serverProcess.stderr as NodeJS.ReadableStream | null)?.on("data", (d: Buffer) => {
+    const line = d.toString();
+    console.error("[server-err]", line.trim());
+    logStream.write(`[ERR] ${line}`);
   });
 
   serverProcess.on("error", (err) => {
@@ -197,10 +211,12 @@ function createWindow(): void {
 
   if (isDev) {
     mainWindow.loadURL(DEV_URL);
-    mainWindow.webContents.openDevTools({ mode: "detach" });
   } else {
     mainWindow.loadFile(path.join(__dirname, "../public/index.html"));
   }
+
+  // Always open DevTools so errors are visible (remove once stable)
+  mainWindow.webContents.openDevTools({ mode: "detach" });
 
   mainWindow.once("ready-to-show", () => {
     mainWindow?.show();
