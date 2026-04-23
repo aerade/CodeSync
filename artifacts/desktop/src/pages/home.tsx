@@ -5,7 +5,7 @@ import { Plus, Search, LogIn, Globe, Lock, Users, ArrowRight, Code2, Zap, GitBra
 import { api, type Room, type User, setToken, setCurrentUser, getToken, getCurrentUser } from "@/lib/api";
 import { formatTime } from "@/lib/utils";
 import { toast } from "sonner";
-import { NOTICE_KEYS } from "@/lib/notices";
+import { NOTICE_KEYS, useNotice } from "@/lib/notices";
 
 interface HomeProps {
   onOpenSettings?: () => void;
@@ -29,25 +29,8 @@ export default function Home({ onOpenSettings, hasApiKeys = true }: HomeProps) {
   const [authLoading, setAuthLoading] = useState(false);
   const [createForm, setCreateForm] = useState({ title: "", description: "", isPrivate: false, maxUsers: 5 });
   const [creating, setCreating] = useState(false);
-  const [bannerDismissed, setBannerDismissed] = useState(
-    () => typeof localStorage !== "undefined" && localStorage.getItem(NOTICE_KEYS.noApiKeysBanner) === "true"
-  );
+  const [bannerDismissed, dismissBanner] = useNotice(NOTICE_KEYS.noApiKeysBanner);
   const searchRef = useRef<HTMLInputElement>(null);
-
-  function dismissBanner() {
-    if (typeof localStorage !== "undefined") {
-      localStorage.setItem(NOTICE_KEYS.noApiKeysBanner, "true");
-    }
-    setBannerDismissed(true);
-  }
-
-  useEffect(() => {
-    function handleNoticesReset() {
-      setBannerDismissed(false);
-    }
-    window.addEventListener("noticesReset", handleNoticesReset);
-    return () => window.removeEventListener("noticesReset", handleNoticesReset);
-  }, []);
 
   useEffect(() => {
     const token = getToken();
