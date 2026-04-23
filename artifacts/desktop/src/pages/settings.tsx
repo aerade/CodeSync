@@ -15,10 +15,11 @@ interface SettingsDialogProps {
 
 const DEFAULT_RESET_MESSAGE = "Banner will reappear on the home screen.";
 
-const NOTICES: { key: string; label: string; resetMessage?: string }[] = [
+const NOTICES: { key: string; label: string; description?: string; resetMessage?: string }[] = [
   {
     key: NOTICE_KEYS.noApiKeysBanner,
     label: "No AI API keys banner",
+    description: "Shown on the home screen when no OpenAI or Anthropic key has been configured. Dismissing it hides the banner until you reset it here.",
     resetMessage: "The API keys notice will reappear on the home screen until keys are added.",
   },
 ];
@@ -204,32 +205,39 @@ export default function SettingsDialog({ open, onOpenChange }: SettingsDialogPro
               </Button>
             </div>
             <div className="space-y-1">
-              {NOTICES.map(({ key, label }) => {
+              {NOTICES.map(({ key, label, description }) => {
                 const isDismissed = !!dismissed[key];
                 return (
                   <div
                     key={key}
-                    className={`flex items-center justify-between rounded-lg px-3 py-2.5 bg-[var(--elevated)] ${isDismissed ? "opacity-60" : ""}`}
+                    className={`flex items-start justify-between rounded-lg px-3 py-2.5 bg-[var(--elevated)] ${isDismissed ? "opacity-60" : ""}`}
                   >
-                    <div className="flex items-center gap-2">
-                      <BellOff className="h-4 w-4 text-[var(--muted)]" />
-                      <span className="text-sm text-[var(--foreground)]">{label}</span>
-                      {isDismissed ? (
-                        <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium bg-yellow-500/15 text-yellow-400 border border-yellow-500/25">
-                          Dismissed
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium bg-green-500/15 text-green-400 border border-green-500/25">
-                          Visible
-                        </span>
-                      )}
+                    <div className="flex items-start gap-2 min-w-0">
+                      <BellOff className="h-4 w-4 text-[var(--muted)] mt-0.5 flex-shrink-0" />
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm text-[var(--foreground)]">{label}</span>
+                          {isDismissed ? (
+                            <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium bg-yellow-500/15 text-yellow-400 border border-yellow-500/25">
+                              Dismissed
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium bg-green-500/15 text-green-400 border border-green-500/25">
+                              Visible
+                            </span>
+                          )}
+                        </div>
+                        {description && (
+                          <p className="text-xs text-[var(--muted)] mt-0.5 leading-snug">{description}</p>
+                        )}
+                      </div>
                     </div>
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
                       disabled={!isDismissed}
-                      className="text-xs border-[var(--border)] text-[var(--muted)] hover:text-[var(--foreground)] disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="text-xs border-[var(--border)] text-[var(--muted)] hover:text-[var(--foreground)] disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0 self-start"
                       onClick={() => handleResetOne(key)}
                     >
                       Reset
