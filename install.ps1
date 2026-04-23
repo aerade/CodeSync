@@ -235,18 +235,64 @@ function Choose-Dir {
 }
 
 # ---------------------------------------------------------------------------
-# Get installer (local build or download)
+# Check if a file is a real Windows PE executable (MZ header)
+# ---------------------------------------------------------------------------
+function Test-PeFile {
+    param([string]$Path)
+    if (-not (Test-Path $Path)) { return $false }
+    $bytes = [System.IO.File]::ReadAllBytes($Path)
+    if ($bytes.Length -lt 2) { return $false }
+    # Windows PE files start with MZ (0x4D 0x5A)
+    return ($bytes[0] -eq 0x4D -and $bytes[1] -eq 0x5A)
+}
+
+# ---------------------------------------------------------------------------
+# Get installer (local build -> manual path -> download)
 # ---------------------------------------------------------------------------
 function Get-Installer {
-    $scriptDir  = Split-Path -Parent $MyInvocation.ScriptName
-    if ([string]::IsNullOrEmpty($scriptDir)) { $scriptDir = $PSScriptRoot }
-    $localBuild = Join-Path $scriptDir "artifacts\desktop\dist\electron\$EXE_ASSET"
-
-    if (Test-Path $localBuild) {
-        Write-Info "Lokalnaya sborka: $localBuild"
-        return $localBuild
+    # 1. Check for local build next to the script
+    $scriptDir = $PSScriptRoot
+    if ([string]::IsNullOrEmpty($scriptDir)) {
+        $scriptDir = Split-Path -Parent $MyInvocation.ScriptName
+    }
+    foreach ($rel in @(
+        "artifacts\desktop\dist\electron\$EXE_ASSET",
+        $EXE_ASSET,
+        "..\$EXE_ASSET"
+    )) {
+        $p = Join-Path $scriptDir $rel
+        if ((Test-Path $p) -and (Test-PeFile $p)) {
+            Write-Ok "Naiden lokalnyj fayl: $p"
+            return $p
+        }
     }
 
+    # 2. If repo URL is still a placeholder, ask the user for the file
+    if ($GITHUB_REPO -eq "your-org/codesync") {
+        Clr ""
+        Write-Warn "GitHub-ssylka eshche ne nastroena."
+        Clr ""
+        Clr "  Polozhite fajl  $EXE_ASSET  ryadom s install.ps1" White
+        Clr "  ili ukazhite put k uzhe skachannomu ustanovshchiku:" White
+        Clr ""
+        Clr "  ? " Cyan -NoNewline
+        Write-Host "Put k $EXE_ASSET (Enter = otmena): " -NoNewline
+        $manual = Read-Host
+
+        if ([string]::IsNullOrWhiteSpace($manual)) {
+            Write-Fail "Fayl ne ukazan. Skachayte ustanovshchik i povtorite."
+        }
+        $manual = $manual.Trim('"').Trim("'")
+        if (-not (Test-Path $manual)) {
+            Write-Fail "Fajl ne najden: $manual"
+        }
+        if (-not (Test-PeFile $manual)) {
+            Write-Fail "Ukazannyj fayl ne yavlyaetsya EXE-ustanovshchikom."
+        }
+        return $manual
+    }
+
+    # 3. Real download
     Write-Step "Zagruzka $EXE_ASSET"
     $url  = "$RELEASES_URL/$EXE_ASSET"
     $dest = Join-Path ([System.IO.Path]::GetTempPath()) $EXE_ASSET
@@ -256,8 +302,18 @@ function Get-Installer {
         Get-FileProgress -Url $url -Dest $dest
     }
     catch {
-        Write-Fail "Ne udalos zaguzit fayl. Proverte internet."
+        Write-Fail "Ne udalos zaguzit fayl: $_"
     }
+
+    # Validate the downloaded file
+    if (-not (Test-PeFile $dest)) {
+        $size = (Get-Item $dest).Length
+        Write-Fail ("Skachannyj fayl ne yavlyaetsya EXE ($size bajt). " +
+                    "Vozmozhno, reliz eshche ne opublikovan na GitHub. " +
+                    "Skachayte ustanovshchik vruchnuyu s: $RELEASES_URL")
+    }
+
+    Write-Ok "Fajl polucen ($([int]((Get-Item $dest).Length / 1MB)) MB)"
     return $dest
 }
 
