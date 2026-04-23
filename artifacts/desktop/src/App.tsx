@@ -2,7 +2,7 @@ import { Switch, Route, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster, toast } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { useState, useEffect, useCallback, lazy, Suspense } from "react";
+import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react";
 import { ReleaseNotesDialog } from "@/components/release-notes-dialog";
 import { toSummary } from "@/lib/release-notes";
 import { LoadingScreen } from "@/components/LoadingScreen";
@@ -42,6 +42,8 @@ function ContentReady({ onReady }: { onReady: () => (() => void) | void }) {
   return null;
 }
 
+const MIN_LOADER_MS = 400;
+
 function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [hasApiKeys, setHasApiKeys] = useState(true);
@@ -51,10 +53,20 @@ function App() {
   const [releaseNotesOpen, setReleaseNotesOpen] = useState(false);
   const [pendingUpdate, setPendingUpdate] = useState<{ version: string; releaseNotes: string | null } | null>(null);
 
+  const loadStartTime = useRef(Date.now());
+
   const handleContentReady = useCallback(() => {
-    setLoaderFading(true);
-    const timer = setTimeout(() => setShowLoader(false), 200);
-    return () => clearTimeout(timer);
+    const elapsed = Date.now() - loadStartTime.current;
+    const delay = Math.max(0, MIN_LOADER_MS - elapsed);
+    let hideTimer: ReturnType<typeof setTimeout>;
+    const fadeTimer = setTimeout(() => {
+      setLoaderFading(true);
+      hideTimer = setTimeout(() => setShowLoader(false), 200);
+    }, delay);
+    return () => {
+      clearTimeout(fadeTimer);
+      clearTimeout(hideTimer);
+    };
   }, []);
 
   useEffect(() => {
