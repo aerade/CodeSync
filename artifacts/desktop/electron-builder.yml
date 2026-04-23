@@ -58,9 +58,7 @@ dmg:
 # Windows
 win:
   target:
-    - target: nsis
-      arch: [x64]
-    - target: portable
+    - target: zip
       arch: [x64]
 
 nsis:
