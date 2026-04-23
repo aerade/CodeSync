@@ -9,6 +9,9 @@ declare global {
       getAppVersion: () => Promise<string>;
       onOpenSettings: (cb: () => void) => () => void;
       onServerRestarted: (cb: (data: { apiUrl: string }) => void) => () => void;
+      onUpdateAvailable: (cb: (data: { version: string; releaseNotes: string | null }) => void) => () => void;
+      onUpdateDownloaded: (cb: (data: { version: string }) => void) => () => void;
+      installUpdate: () => void;
       platform: string;
       version: string;
       isElectron: boolean;

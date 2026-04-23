@@ -2,7 +2,10 @@
   "name": "@workspace/desktop",
   "version": "1.0.0",
   "description": "CodeSync Desktop — collaborative IDE",
-  "author": { "name": "CodeSync", "email": "hello@codesync.dev" },
+  "author": {
+    "name": "CodeSync",
+    "email": "hello@codesync.dev"
+  },
   "homepage": "https://github.com/your-org/codesync",
   "private": true,
   "type": "module",
@@ -28,6 +31,7 @@
     "@xterm/addon-fit": "^0.11.0",
     "@xterm/addon-web-links": "^0.12.0",
     "@xterm/xterm": "^6.0.0",
+    "electron-updater": "^6.8.3",
     "monaco-editor": "^0.55.1",
     "y-websocket": "^3.0.0",
     "yjs": "^13.6.30"

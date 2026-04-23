@@ -1,6 +1,6 @@
 import { Switch, Route, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Toaster } from "sonner";
+import { Toaster, toast } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useState, useEffect } from "react";
 import NotFound from "@/pages/not-found";
@@ -49,6 +49,34 @@ function App() {
       setHasApiKeys(!!(s.openaiApiKey || s.anthropicApiKey));
     }).catch(() => {});
   }, [settingsOpen]);
+
+  useEffect(() => {
+    const api = window.electronAPI;
+    if (!api?.onUpdateAvailable) return;
+
+    const cleanupAvailable = api.onUpdateAvailable(({ version }) => {
+      toast.info(`Update available — v${version}`, {
+        description: "Downloading in the background…",
+        duration: 8000,
+      });
+    });
+
+    const cleanupDownloaded = api.onUpdateDownloaded?.(() => {
+      toast.success("Update ready to install", {
+        description: "Restart CodeSync to apply the update.",
+        duration: Infinity,
+        action: {
+          label: "Restart now",
+          onClick: () => api.installUpdate?.(),
+        },
+      });
+    });
+
+    return () => {
+      cleanupAvailable?.();
+      cleanupDownloaded?.();
+    };
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>

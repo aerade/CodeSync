@@ -1,4 +1,5 @@
 import { app, BrowserWindow, Menu, shell, ipcMain, safeStorage, dialog } from "electron";
+import { autoUpdater } from "electron-updater";
 import * as path from "path";
 import * as fs from "fs";
 import * as net from "net";
@@ -312,12 +313,48 @@ ipcMain.handle("save-settings", async (_event, settings: { openaiApiKey?: string
 
 ipcMain.handle("get-app-version", () => app.getVersion());
 
+// ─── Auto-Updater ─────────────────────────────────────────────────────────────
+
+function setupAutoUpdater(): void {
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+
+  autoUpdater.on("update-available", (info) => {
+    mainWindow?.webContents.send("update-available", {
+      version: info.version,
+      releaseNotes: info.releaseNotes ?? null,
+    });
+  });
+
+  autoUpdater.on("update-downloaded", (info) => {
+    mainWindow?.webContents.send("update-downloaded", {
+      version: info.version,
+    });
+  });
+
+  autoUpdater.on("error", (err) => {
+    console.warn("[auto-updater] error:", err?.message ?? err);
+  });
+
+  autoUpdater.checkForUpdatesAndNotify().catch((err) => {
+    console.warn("[auto-updater] check failed:", err?.message ?? err);
+  });
+}
+
+ipcMain.on("install-update", () => {
+  autoUpdater.quitAndInstall();
+});
+
 // ─── App Lifecycle ────────────────────────────────────────────────────────────
 
 app.whenReady().then(async () => {
   await startServer();
   createWindow();
   buildMenu();
+
+  if (!isDev) {
+    setupAutoUpdater();
+  }
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
