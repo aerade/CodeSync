@@ -59,21 +59,33 @@ function App() {
     const api = window.electronAPI;
     if (!api?.onUpdateAvailable) return;
 
+    const PROGRESS_TOAST_ID = "update-download-progress";
+
     const cleanupAvailable = api.onUpdateAvailable((data) => {
       const { version, releaseNotes } = data;
       setPendingUpdate(data);
-      const summary = toSummary(releaseNotes);
-      toast.info(`Update available — v${version}`, {
-        description: summary || "Downloading in the background…",
-        duration: 12000,
+      toast.loading(`Downloading update v${version}…`, {
+        id: PROGRESS_TOAST_ID,
+        description: "Starting download…",
+        duration: Infinity,
         action: releaseNotes
           ? { label: "What's new", onClick: () => setReleaseNotesOpen(true) }
           : undefined,
       });
     });
 
-    const cleanupDownloaded = api.onUpdateDownloaded?.(() => {
-      toast.success("Update ready to install", {
+    const cleanupProgress = api.onUpdateProgress?.((data) => {
+      const mbps = (data.bytesPerSecond / 1_048_576).toFixed(1);
+      toast.loading(`Downloading update — ${data.percent}%`, {
+        id: PROGRESS_TOAST_ID,
+        description: `${mbps} MB/s`,
+        duration: Infinity,
+      });
+    });
+
+    const cleanupDownloaded = api.onUpdateDownloaded?.((data) => {
+      toast.dismiss(PROGRESS_TOAST_ID);
+      toast.success(`Update v${data.version} ready to install`, {
         description: "Restart CodeSync to apply the update.",
         duration: Infinity,
         action: {
@@ -85,6 +97,7 @@ function App() {
 
     return () => {
       cleanupAvailable?.();
+      cleanupProgress?.();
       cleanupDownloaded?.();
     };
   }, []);

@@ -326,6 +326,15 @@ function setupAutoUpdater(): void {
     });
   });
 
+  autoUpdater.on("download-progress", (progress) => {
+    mainWindow?.webContents.send("update-download-progress", {
+      percent: Math.round(progress.percent),
+      bytesPerSecond: progress.bytesPerSecond,
+      transferred: progress.transferred,
+      total: progress.total,
+    });
+  });
+
   autoUpdater.on("update-downloaded", (info) => {
     mainWindow?.webContents.send("update-downloaded", {
       version: info.version,

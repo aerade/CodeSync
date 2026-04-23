@@ -30,6 +30,12 @@ contextBridge.exposeInMainWorld("electronAPI", {
     return () => ipcRenderer.removeListener("server-restarted", handler);
   },
 
+  onUpdateProgress: (cb: (data: { percent: number; bytesPerSecond: number; transferred: number; total: number }) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, data: { percent: number; bytesPerSecond: number; transferred: number; total: number }) => cb(data);
+    ipcRenderer.on("update-download-progress", handler);
+    return () => ipcRenderer.removeListener("update-download-progress", handler);
+  },
+
   onUpdateAvailable: (cb: (data: { version: string; releaseNotes: string | null }) => void) => {
     const handler = (_event: Electron.IpcRendererEvent, data: { version: string; releaseNotes: string | null }) => cb(data);
     ipcRenderer.on("update-available", handler);
