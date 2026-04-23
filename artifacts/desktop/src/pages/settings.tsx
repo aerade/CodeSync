@@ -146,27 +146,46 @@ export default function SettingsDialog({ open, onOpenChange }: SettingsDialogPro
 
           {/* Notices */}
           <div className="space-y-2">
-            <Label className="text-sm font-medium">Notices</Label>
-            <div className="flex items-center justify-between rounded-lg bg-[var(--elevated)] px-3 py-2.5">
-              <div className="flex items-center gap-2">
-                <BellOff className="h-4 w-4 text-[var(--muted)]" />
-                <span className="text-sm text-[var(--foreground)]">No AI API keys banner</span>
-              </div>
+            <div className="flex items-center justify-between">
+              <Label className="text-sm font-medium">Notices</Label>
               <Button
                 type="button"
-                variant="outline"
+                variant="ghost"
                 size="sm"
-                className="text-xs border-[var(--border)] text-[var(--muted)] hover:text-[var(--foreground)]"
+                className="text-xs text-[var(--muted)] hover:text-[var(--foreground)] h-auto py-0.5 px-2"
                 onClick={() => {
                   if (typeof localStorage !== "undefined") {
                     localStorage.removeItem("noApiKeysBannerDismissed");
                   }
                   window.dispatchEvent(new CustomEvent("noticesReset"));
-                  toast.success("Banner will reappear on the home screen.");
+                  toast.success("All notices have been reset.");
                 }}
               >
-                Reset
+                Reset all
               </Button>
+            </div>
+            <div className="space-y-1">
+              <div className="flex items-center justify-between rounded-lg bg-[var(--elevated)] px-3 py-2.5">
+                <div className="flex items-center gap-2">
+                  <BellOff className="h-4 w-4 text-[var(--muted)]" />
+                  <span className="text-sm text-[var(--foreground)]">No AI API keys banner</span>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="text-xs border-[var(--border)] text-[var(--muted)] hover:text-[var(--foreground)]"
+                  onClick={() => {
+                    if (typeof localStorage !== "undefined") {
+                      localStorage.removeItem("noApiKeysBannerDismissed");
+                    }
+                    window.dispatchEvent(new CustomEvent("noticesReset"));
+                    toast.success("Banner will reappear on the home screen.");
+                  }}
+                >
+                  Reset
+                </Button>
+              </div>
             </div>
           </div>
 
