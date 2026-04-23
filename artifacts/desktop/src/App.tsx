@@ -24,7 +24,9 @@ function Router({ onOpenSettings, hasApiKeys }: { onOpenSettings: () => void; ha
       <Route path="/">
         {() => <Home onOpenSettings={onOpenSettings} hasApiKeys={hasApiKeys} />}
       </Route>
-      <Route path="/room/:roomId" component={Room} />
+      <Route path="/room/:roomId">
+        {() => <Room onOpenSettings={onOpenSettings} hasApiKeys={hasApiKeys} />}
+      </Route>
       <Route component={NotFound} />
     </Switch>
   );

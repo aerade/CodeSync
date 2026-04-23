@@ -12,7 +12,7 @@ import { SessionSidebar } from "@/components/SessionSidebar";
 import { toast } from "sonner";
 import {
   ChevronLeft, Copy, Users, SquareTerminal,
-  Eye, X, PanelLeft, PanelRight, Loader2
+  Eye, X, PanelLeft, PanelRight, Loader2, Settings
 } from "lucide-react";
 
 const LANG_LABELS: Record<string, string> = {
@@ -64,7 +64,7 @@ function getWsUrl(roomId: string, fileId: string, collabToken: string): string {
   }
 }
 
-export default function Room() {
+export default function Room({ onOpenSettings, hasApiKeys = true }: { onOpenSettings?: () => void; hasApiKeys?: boolean }) {
   const params = useParams<{ roomId: string }>();
   const roomId = params.roomId ?? "";
   const [, navigate] = useLocation();
@@ -361,6 +361,22 @@ export default function Room() {
           <button onClick={copyInviteCode} className="p-1.5 rounded hover:opacity-70 transition-opacity" style={{ color: "var(--muted-foreground)" }} title="Copy invite code">
             <Copy size={12} />
           </button>
+          {onOpenSettings && (
+            <>
+              <div className="w-px h-4 mx-1" style={{ background: "var(--border)" }} />
+              <button
+                onClick={onOpenSettings}
+                title="Settings"
+                className="flex items-center justify-center w-7 h-7 rounded-lg transition-all hover:opacity-80 relative"
+                style={{ background: "var(--elevated)", border: "1px solid var(--border)", color: "var(--muted-foreground)" }}
+              >
+                <Settings size={13} />
+                {!hasApiKeys && (
+                  <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full" style={{ background: "var(--primary)" }} />
+                )}
+              </button>
+            </>
+          )}
         </div>
       </div>
 
