@@ -42,22 +42,29 @@ jobs:
           node-version: 20
           cache: pnpm
       - run: pnpm install
-      - name: Decode Windows certificate
-        # Writes the base64-encoded .pfx stored in WIN_CSC_LINK to a temp file
-        # so electron-builder can find it via the WIN_CSC_LINK env var.
-        shell: pwsh
-        run: |
-          $pfxBytes = [Convert]::FromBase64String("${{ secrets.WIN_CSC_LINK }}")
-          $pfxPath  = Join-Path $env:RUNNER_TEMP "codesync-win.pfx"
-          [IO.File]::WriteAllBytes($pfxPath, $pfxBytes)
-          echo "WIN_CSC_LINK=$pfxPath" >> $env:GITHUB_ENV
-      - name: Build Windows installer
-        # WIN_CSC_LINK is already in the runner environment (set by previous step via GITHUB_ENV)
+      - name: Build Windows installer (unsigned)
+        # Signing is handled separately by SSL.com eSigner below.
+        # CSC_IDENTITY_AUTO_DISCOVERY=false prevents electron-builder from
+        # attempting to sign with any locally-available certificate.
         run: pnpm --filter @workspace/desktop run electron:build:win
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
-          WIN_CERT_SUBJECT_NAME: ${{ secrets.WIN_CERT_SUBJECT_NAME }}
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+      - name: Sign Windows executables with SSL.com eSigner (EV cloud HSM)
+        # Uses SSL.com's CodeSignTool to sign all .exe files via their cloud HSM.
+        # EV certificates stored in SSL.com KeyLocker provide instant
+        # SmartScreen reputation — no download count warm-up required.
+        # dir_path signs every PE executable found in the given directory.
+        uses: sslcom/esigner-codesign@v1.0.0
+        with:
+          command: sign
+          username: ${{ secrets.SSL_COM_USERNAME }}
+          password: ${{ secrets.SSL_COM_PASSWORD }}
+          credential_id: ${{ secrets.SSL_COM_CREDENTIAL_ID }}
+          totp_secret: ${{ secrets.SSL_COM_TOTP_SECRET }}
+          dir_path: artifacts/desktop/dist/electron
+          malware_block: false
+          environment_name: PROD
       - name: Upload installer
         uses: softprops/action-gh-release@v2
         with:

@@ -57,10 +57,10 @@ dmg:
 
 # Windows
 win:
-  # Code signing — point to a PKCS#12 (.p12/.pfx) certificate.
-  # WIN_CSC_LINK should be a base64-encoded .pfx or a file:// / https:// URL.
-  # WIN_CSC_KEY_PASSWORD is the password protecting the certificate file.
-  certificateSubjectName: ${WIN_CERT_SUBJECT_NAME}
+  # Code signing is handled AFTER the build by SSL.com eSigner (cloud HSM).
+  # electron-builder runs with CSC_IDENTITY_AUTO_DISCOVERY=false in CI so it
+  # does not attempt to sign here. See .github/workflows/release.yml and
+  # SETUP.md for the full EV signing setup.
   signingHashAlgorithms: [sha256]
   target:
     - target: nsis

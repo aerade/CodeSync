@@ -146,31 +146,48 @@ git push origin v1.0.0
 
 ---
 
-### Windows — OV или EV Code Signing Certificate
+### Windows — EV Code Signing via SSL.com eSigner (Cloud HSM)
 
-**Что нужно:**
-- Сертификат подписи кода (OV — от ~$200/год, EV — от ~$400/год)
-  - Рекомендуемые CA: DigiCert, Sectigo, GlobalSign
-  - EV-сертификат убирает SmartScreen полностью с первой установки
-  - OV-сертификат убирает SmartScreen после накопления репутации (~1000 установок)
-- Файл сертификата в формате `.pfx` / `.p12`
+EV (Extended Validation) сертификаты хранятся на аппаратных токенах (HSM) и не могут быть экспортированы в `.pfx`. CI-пайплайн использует **SSL.com eSigner** — облачный HSM-сервис, позволяющий подписывать в GitHub Actions без физического токена.
 
-**Шаги:**
-1. Получите сертификат у CA, экспортируйте как `.pfx`.
-2. Закодируйте в base64:
-   ```bash
-   base64 -i certificate.pfx | pbcopy   # macOS/Linux
-   [Convert]::ToBase64String([IO.File]::ReadAllBytes("certificate.pfx")) | clip  # PowerShell
-   ```
-3. Добавьте в GitHub → Settings → Secrets → Actions:
+**Почему EV, а не OV:**
+- EV-сертификат убирает предупреждение Windows SmartScreen («Windows protected your PC») **с первой установки**
+- OV-сертификат требует накопления репутации (~1000+ установок) перед исчезновением SmartScreen
+
+**Провайдер: SSL.com eSigner**
+
+**Шаги для получения сертификата:**
+1. Зарегистрируйтесь на [ssl.com](https://www.ssl.com) и купите сертификат **EV Code Signing**.
+2. Пройдите верификацию организации (занимает 1–5 рабочих дней).
+3. В личном кабинете SSL.com включите **eSigner** для вашего сертификата (раздел *Code Signing Certificates → Enroll for eSigner*).
+4. Получите `Credential ID` сертификата из панели SSL.com.
+5. Включите TOTP (2FA) в настройках аккаунта и сохраните секрет TOTP.
+
+**Добавьте в GitHub → Settings → Secrets → Actions:**
 
 | Secret | Описание |
 |--------|----------|
-| `WIN_CSC_LINK` | Base64-кодированный `.pfx` файл |
-| `WIN_CSC_KEY_PASSWORD` | Пароль от `.pfx` файла |
-| `WIN_CERT_SUBJECT_NAME` | Subject Name сертификата, напр. `Your Company Name` |
+| `SSL_COM_USERNAME` | Email-адрес аккаунта SSL.com |
+| `SSL_COM_PASSWORD` | Пароль аккаунта SSL.com |
+| `SSL_COM_CREDENTIAL_ID` | ID сертификата из панели SSL.com (*Credential ID*) |
+| `SSL_COM_TOTP_SECRET` | Секрет TOTP (base32) из настроек 2FA аккаунта SSL.com |
 
-> **EV-сертификаты:** некоторые CA выдают EV-сертификаты на USB-токене (HSM). В этом случае подпись в облачном CI невозможна — используйте облачные HSM-сервисы (DigiCert KeyLocker, SSL.com eSigner) или подписывайте локально перед публикацией.
+> **Примечание:** старые секреты `WIN_CSC_LINK`, `WIN_CSC_KEY_PASSWORD`, `WIN_CERT_SUBJECT_NAME` больше не используются и могут быть удалены из репозитория.
+
+**Как работает подпись в CI:**
+1. `electron-builder` собирает установщик **без подписи** (`CSC_IDENTITY_AUTO_DISCOVERY=false`).
+2. Шаг `sslcom/esigner-codesign@develop` передаёт `.exe` в облачный HSM SSL.com.
+3. SSL.com подписывает файл EV-сертификатом и возвращает подписанный `.exe`.
+4. Подписанный файл загружается в GitHub Releases.
+
+**Проверка EV-подписи (PowerShell):**
+```powershell
+$sig = Get-AuthenticodeSignature .\CodeSync-Setup.exe
+$sig.Status                              # должно быть Valid
+$sig.SignerCertificate.Subject           # должен содержать название организации
+$sig.SignerCertificate.Extensions |
+  Where-Object { $_.Oid.Value -eq "2.5.29.32" }  # EV OID должен присутствовать
+```
 
 ---
 
