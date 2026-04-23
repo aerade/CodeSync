@@ -2,11 +2,12 @@ import { Switch, Route, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster, toast } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { useState, useEffect } from "react";
-import NotFound from "@/pages/not-found";
-import Home from "@/pages/home";
-import Room from "@/pages/room";
-import SettingsDialog from "@/pages/settings";
+import { useState, useEffect, lazy, Suspense } from "react";
+
+const NotFound = lazy(() => import("@/pages/not-found"));
+const Home = lazy(() => import("@/pages/home"));
+const Room = lazy(() => import("@/pages/room"));
+const SettingsDialog = lazy(() => import("@/pages/settings"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -81,10 +82,12 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider delayDuration={300}>
-        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          <Router onOpenSettings={() => setSettingsOpen(true)} hasApiKeys={hasApiKeys} />
-        </WouterRouter>
-        <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
+        <Suspense fallback={null}>
+          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+            <Router onOpenSettings={() => setSettingsOpen(true)} hasApiKeys={hasApiKeys} />
+          </WouterRouter>
+          <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
+        </Suspense>
         <Toaster
           position="bottom-right"
           toastOptions={{

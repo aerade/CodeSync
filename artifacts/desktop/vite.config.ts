@@ -39,6 +39,38 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes("monaco-editor") || id.includes("@monaco-editor")) {
+            return "monaco";
+          }
+          if (id.includes("@xterm/")) {
+            return "xterm";
+          }
+          if (id.includes("@radix-ui/")) {
+            return "radix-ui";
+          }
+          if (
+            id.includes("/node_modules/react/") ||
+            id.includes("/node_modules/react-dom/") ||
+            id.includes("/node_modules/scheduler/")
+          ) {
+            return "react-core";
+          }
+          if (
+            id.includes("/node_modules/@tanstack/") ||
+            id.includes("/node_modules/wouter/") ||
+            id.includes("/node_modules/sonner/")
+          ) {
+            return "runtime";
+          }
+          if (id.includes("node_modules")) {
+            return "vendor";
+          }
+        },
+      },
+    },
   },
   server: {
     port,
