@@ -345,6 +345,18 @@ ipcMain.on("install-update", () => {
   autoUpdater.quitAndInstall();
 });
 
+// Dev-only: allows the renderer to trigger a mock update-available event
+// so the release-notes UI can be validated without a real update server.
+if (isDev) {
+  ipcMain.handle("mock-update-available", () => {
+    mainWindow?.webContents.send("update-available", {
+      version: "9.9.9",
+      releaseNotes:
+        "## What's new\n\n- **Improved performance** when loading large rooms\n- Fixed a crash on reconnect\n- Dark mode polish across all dialogs\n\nSee the [full changelog](https://github.com) for details.",
+    });
+  });
+}
+
 // ─── App Lifecycle ────────────────────────────────────────────────────────────
 
 app.whenReady().then(async () => {

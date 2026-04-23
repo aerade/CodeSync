@@ -44,6 +44,12 @@ contextBridge.exposeInMainWorld("electronAPI", {
 
   installUpdate: () => ipcRenderer.send("install-update"),
 
+  // Triggers a mock update-available IPC event from the main process so the
+  // release-notes UI can be tested end-to-end in the Electron dev environment.
+  // The main process only registers the handler when isDev (!app.isPackaged),
+  // so this is effectively a no-op in production builds.
+  mockUpdateAvailable: () => ipcRenderer.invoke("mock-update-available"),
+
   platform: process.platform,
   version: process.versions.electron,
   isElectron: true,

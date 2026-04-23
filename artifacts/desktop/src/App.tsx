@@ -3,6 +3,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster, toast } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useState, useEffect, lazy, Suspense } from "react";
+import { ReleaseNotesDialog } from "@/components/release-notes-dialog";
+import { toSummary } from "@/lib/release-notes";
 
 const NotFound = lazy(() => import("@/pages/not-found"));
 const Home = lazy(() => import("@/pages/home"));
@@ -35,14 +37,14 @@ function Router({ onOpenSettings, hasApiKeys }: { onOpenSettings: () => void; ha
 function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [hasApiKeys, setHasApiKeys] = useState(true);
+  const [releaseNotesOpen, setReleaseNotesOpen] = useState(false);
+  const [pendingUpdate, setPendingUpdate] = useState<{ version: string; releaseNotes: string | null } | null>(null);
 
   useEffect(() => {
     const api = window.electronAPI;
-    if (!api) return;
-    if (api.onOpenSettings) {
-      const cleanup = api.onOpenSettings(() => setSettingsOpen(true));
-      return cleanup;
-    }
+    if (!api?.onOpenSettings) return;
+    const cleanup = api.onOpenSettings(() => setSettingsOpen(true));
+    return cleanup;
   }, []);
 
   useEffect(() => {
@@ -57,10 +59,16 @@ function App() {
     const api = window.electronAPI;
     if (!api?.onUpdateAvailable) return;
 
-    const cleanupAvailable = api.onUpdateAvailable(({ version }) => {
+    const cleanupAvailable = api.onUpdateAvailable((data) => {
+      const { version, releaseNotes } = data;
+      setPendingUpdate(data);
+      const summary = toSummary(releaseNotes);
       toast.info(`Update available — v${version}`, {
-        description: "Downloading in the background…",
-        duration: 8000,
+        description: summary || "Downloading in the background…",
+        duration: 12000,
+        action: releaseNotes
+          ? { label: "What's new", onClick: () => setReleaseNotesOpen(true) }
+          : undefined,
       });
     });
 
@@ -81,6 +89,19 @@ function App() {
     };
   }, []);
 
+  // Dev-only: Alt+U fires a mock update-available IPC event via the main
+  // process, exercising the full onUpdateAvailable → toast → dialog path.
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.altKey && e.key === "u") {
+        window.electronAPI?.mockUpdateAvailable?.();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider delayDuration={300}>
@@ -89,6 +110,14 @@ function App() {
             <Router onOpenSettings={() => setSettingsOpen(true)} hasApiKeys={hasApiKeys} />
           </WouterRouter>
           <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
+          {pendingUpdate && (
+            <ReleaseNotesDialog
+              open={releaseNotesOpen}
+              onOpenChange={setReleaseNotesOpen}
+              version={pendingUpdate.version}
+              releaseNotes={pendingUpdate.releaseNotes}
+            />
+          )}
         </Suspense>
         <Toaster
           position="bottom-right"

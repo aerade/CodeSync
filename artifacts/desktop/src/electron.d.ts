@@ -12,6 +12,7 @@ declare global {
       onUpdateAvailable: (cb: (data: { version: string; releaseNotes: string | null }) => void) => () => void;
       onUpdateDownloaded: (cb: (data: { version: string }) => void) => () => void;
       installUpdate: () => void;
+      mockUpdateAvailable: () => Promise<void>;
       platform: string;
       version: string;
       isElectron: boolean;
