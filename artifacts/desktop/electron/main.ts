@@ -1,5 +1,4 @@
 import { app, BrowserWindow, Menu, shell, ipcMain, safeStorage, dialog } from "electron";
-import { autoUpdater } from "electron-updater";
 import * as path from "path";
 import * as fs from "fs";
 import * as net from "net";
@@ -315,43 +314,50 @@ ipcMain.handle("get-app-version", () => app.getVersion());
 
 // ─── Auto-Updater ─────────────────────────────────────────────────────────────
 
-function setupAutoUpdater(): void {
-  autoUpdater.autoDownload = true;
-  autoUpdater.autoInstallOnAppQuit = true;
+async function setupAutoUpdater(): Promise<void> {
+  try {
+    const { autoUpdater } = await import("electron-updater");
+    autoUpdater.autoDownload = true;
+    autoUpdater.autoInstallOnAppQuit = true;
 
-  autoUpdater.on("update-available", (info) => {
-    mainWindow?.webContents.send("update-available", {
-      version: info.version,
-      releaseNotes: info.releaseNotes ?? null,
+    autoUpdater.on("update-available", (info) => {
+      mainWindow?.webContents.send("update-available", {
+        version: info.version,
+        releaseNotes: info.releaseNotes ?? null,
+      });
     });
-  });
 
-  autoUpdater.on("download-progress", (progress) => {
-    mainWindow?.webContents.send("update-download-progress", {
-      percent: Math.round(progress.percent),
-      bytesPerSecond: progress.bytesPerSecond,
-      transferred: progress.transferred,
-      total: progress.total,
+    autoUpdater.on("download-progress", (progress) => {
+      mainWindow?.webContents.send("update-download-progress", {
+        percent: Math.round(progress.percent),
+        bytesPerSecond: progress.bytesPerSecond,
+        transferred: progress.transferred,
+        total: progress.total,
+      });
     });
-  });
 
-  autoUpdater.on("update-downloaded", (info) => {
-    mainWindow?.webContents.send("update-downloaded", {
-      version: info.version,
+    autoUpdater.on("update-downloaded", (info) => {
+      mainWindow?.webContents.send("update-downloaded", {
+        version: info.version,
+      });
     });
-  });
 
-  autoUpdater.on("error", (err) => {
-    console.warn("[auto-updater] error:", err?.message ?? err);
-  });
+    autoUpdater.on("error", (err) => {
+      console.warn("[auto-updater] error:", err?.message ?? err);
+    });
 
-  autoUpdater.checkForUpdatesAndNotify().catch((err) => {
-    console.warn("[auto-updater] check failed:", err?.message ?? err);
-  });
+    ipcMain.on("install-update", () => {
+      autoUpdater.quitAndInstall();
+    });
+
+    await autoUpdater.checkForUpdatesAndNotify();
+  } catch (err: any) {
+    console.warn("[auto-updater] not available:", err?.message ?? err);
+  }
 }
 
 ipcMain.on("install-update", () => {
-  autoUpdater.quitAndInstall();
+  console.warn("[auto-updater] updater not initialized");
 });
 
 // Dev-only: allows the renderer to trigger a mock update-available event
