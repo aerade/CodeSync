@@ -1,4 +1,8 @@
-export function LoadingScreen() {
+interface LoadingScreenProps {
+  exiting?: boolean;
+}
+
+export function LoadingScreen({ exiting = false }: LoadingScreenProps) {
   return (
     <div
       style={{
@@ -10,6 +14,10 @@ export function LoadingScreen() {
         justifyContent: "center",
         background: "var(--background)",
         gap: "1.25rem",
+        opacity: exiting ? 0 : 1,
+        transition: exiting ? "opacity 200ms ease-out" : "none",
+        pointerEvents: exiting ? "none" : "auto",
+        zIndex: 9999,
       }}
     >
       <svg

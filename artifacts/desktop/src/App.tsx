@@ -2,7 +2,7 @@ import { Switch, Route, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster, toast } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { useState, useEffect, lazy, Suspense } from "react";
+import { useState, useEffect, useCallback, lazy, Suspense } from "react";
 import { ReleaseNotesDialog } from "@/components/release-notes-dialog";
 import { toSummary } from "@/lib/release-notes";
 import { LoadingScreen } from "@/components/LoadingScreen";
@@ -35,11 +35,27 @@ function Router({ onOpenSettings, hasApiKeys }: { onOpenSettings: () => void; ha
   );
 }
 
+function ContentReady({ onReady }: { onReady: () => (() => void) | void }) {
+  useEffect(() => {
+    return onReady();
+  }, [onReady]);
+  return null;
+}
+
 function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [hasApiKeys, setHasApiKeys] = useState(true);
+  const [showLoader, setShowLoader] = useState(true);
+  const [loaderFading, setLoaderFading] = useState(false);
+
   const [releaseNotesOpen, setReleaseNotesOpen] = useState(false);
   const [pendingUpdate, setPendingUpdate] = useState<{ version: string; releaseNotes: string | null } | null>(null);
+
+  const handleContentReady = useCallback(() => {
+    setLoaderFading(true);
+    const timer = setTimeout(() => setShowLoader(false), 200);
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     const api = window.electronAPI;
@@ -119,7 +135,8 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider delayDuration={300}>
-        <Suspense fallback={<LoadingScreen />}>
+        <Suspense fallback={showLoader ? null : <LoadingScreen />}>
+          <ContentReady onReady={handleContentReady} />
           <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
             <Router onOpenSettings={() => setSettingsOpen(true)} hasApiKeys={hasApiKeys} />
           </WouterRouter>
@@ -133,6 +150,7 @@ function App() {
             />
           )}
         </Suspense>
+        {showLoader && <LoadingScreen exiting={loaderFading} />}
         <Toaster
           position="bottom-right"
           toastOptions={{
