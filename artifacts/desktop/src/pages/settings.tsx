@@ -13,6 +13,10 @@ interface SettingsDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
+const NOTICES: { key: string; label: string }[] = [
+  { key: NOTICE_KEYS.noApiKeysBanner, label: "No AI API keys banner" },
+];
+
 function readDismissed(key: string): boolean {
   return typeof localStorage !== "undefined" && localStorage.getItem(key) === "true";
 }
@@ -24,11 +28,15 @@ export default function SettingsDialog({ open, onOpenChange }: SettingsDialogPro
   const [showAnthropic, setShowAnthropic] = useState(false);
   const [saving, setSaving] = useState(false);
   const [version, setVersion] = useState("1.0.0");
-  const [noApiKeysBannerDismissed, setNoApiKeysBannerDismissed] = useState(false);
+  const [dismissed, setDismissed] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (!open) return;
-    setNoApiKeysBannerDismissed(readDismissed(NOTICE_KEYS.noApiKeysBanner));
+    const snapshot: Record<string, boolean> = {};
+    for (const { key } of NOTICES) {
+      snapshot[key] = readDismissed(key);
+    }
+    setDismissed(snapshot);
     const api = window.electronAPI;
     if (!api) return;
     api.getSettings().then((s) => {
@@ -56,6 +64,28 @@ export default function SettingsDialog({ open, onOpenChange }: SettingsDialogPro
       setSaving(false);
     }
   };
+
+  const handleResetOne = (key: string, successMsg: string) => {
+    if (typeof localStorage !== "undefined") {
+      localStorage.removeItem(key);
+    }
+    setDismissed((prev) => ({ ...prev, [key]: false }));
+    window.dispatchEvent(new CustomEvent("noticesReset"));
+    toast.success(successMsg);
+  };
+
+  const handleResetAll = () => {
+    resetAllNotices();
+    const cleared: Record<string, boolean> = {};
+    for (const { key } of NOTICES) {
+      cleared[key] = false;
+    }
+    setDismissed(cleared);
+    window.dispatchEvent(new CustomEvent("noticesReset"));
+    toast.success("All notices have been reset.");
+  };
+
+  const anyDismissed = NOTICES.some(({ key }) => dismissed[key]);
 
   const isElectron = typeof window !== "undefined" && window.electronAPI?.isElectron;
 
@@ -159,51 +189,47 @@ export default function SettingsDialog({ open, onOpenChange }: SettingsDialogPro
                 type="button"
                 variant="ghost"
                 size="sm"
-                disabled={!noApiKeysBannerDismissed}
+                disabled={!anyDismissed}
                 className="text-xs text-[var(--muted)] hover:text-[var(--foreground)] h-auto py-0.5 px-2 disabled:opacity-40 disabled:cursor-not-allowed"
-                onClick={() => {
-                  resetAllNotices();
-                  setNoApiKeysBannerDismissed(false);
-                  window.dispatchEvent(new CustomEvent("noticesReset"));
-                  toast.success("All notices have been reset.");
-                }}
+                onClick={handleResetAll}
               >
                 Reset all
               </Button>
             </div>
             <div className="space-y-1">
-              <div className={`flex items-center justify-between rounded-lg px-3 py-2.5 bg-[var(--elevated)] ${noApiKeysBannerDismissed ? "opacity-60" : ""}`}>
-                <div className="flex items-center gap-2">
-                  <BellOff className="h-4 w-4 text-[var(--muted)]" />
-                  <span className="text-sm text-[var(--foreground)]">No AI API keys banner</span>
-                  {noApiKeysBannerDismissed ? (
-                    <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium bg-yellow-500/15 text-yellow-400 border border-yellow-500/25">
-                      Dismissed
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium bg-green-500/15 text-green-400 border border-green-500/25">
-                      Visible
-                    </span>
-                  )}
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={!noApiKeysBannerDismissed}
-                  className="text-xs border-[var(--border)] text-[var(--muted)] hover:text-[var(--foreground)] disabled:opacity-40 disabled:cursor-not-allowed"
-                  onClick={() => {
-                    if (typeof localStorage !== "undefined") {
-                      localStorage.removeItem(NOTICE_KEYS.noApiKeysBanner);
-                    }
-                    setNoApiKeysBannerDismissed(false);
-                    window.dispatchEvent(new CustomEvent("noticesReset"));
-                    toast.success("Banner will reappear on the home screen.");
-                  }}
-                >
-                  Reset
-                </Button>
-              </div>
+              {NOTICES.map(({ key, label }) => {
+                const isDismissed = !!dismissed[key];
+                return (
+                  <div
+                    key={key}
+                    className={`flex items-center justify-between rounded-lg px-3 py-2.5 bg-[var(--elevated)] ${isDismissed ? "opacity-60" : ""}`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <BellOff className="h-4 w-4 text-[var(--muted)]" />
+                      <span className="text-sm text-[var(--foreground)]">{label}</span>
+                      {isDismissed ? (
+                        <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium bg-yellow-500/15 text-yellow-400 border border-yellow-500/25">
+                          Dismissed
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium bg-green-500/15 text-green-400 border border-green-500/25">
+                          Visible
+                        </span>
+                      )}
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={!isDismissed}
+                      className="text-xs border-[var(--border)] text-[var(--muted)] hover:text-[var(--foreground)] disabled:opacity-40 disabled:cursor-not-allowed"
+                      onClick={() => handleResetOne(key, "Banner will reappear on the home screen.")}
+                    >
+                      Reset
+                    </Button>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
