@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Search, LogIn, Globe, Lock, Users, ArrowRight, Code2, Zap, GitBranch, Terminal, Settings, AlertCircle } from "lucide-react";
+import { Plus, Search, LogIn, Globe, Lock, Users, ArrowRight, Code2, Zap, GitBranch, Terminal, Settings, AlertCircle, X } from "lucide-react";
 import { api, type Room, type User, setToken, setCurrentUser, getToken, getCurrentUser } from "@/lib/api";
 import { formatTime } from "@/lib/utils";
 import { toast } from "sonner";
@@ -26,7 +26,17 @@ export default function Home({ onOpenSettings, hasApiKeys = true }: HomeProps) {
   const [authLoading, setAuthLoading] = useState(false);
   const [createForm, setCreateForm] = useState({ title: "", description: "", isPrivate: false, maxUsers: 5 });
   const [creating, setCreating] = useState(false);
+  const [bannerDismissed, setBannerDismissed] = useState(
+    () => typeof localStorage !== "undefined" && localStorage.getItem("noApiKeysBannerDismissed") === "true"
+  );
   const searchRef = useRef<HTMLInputElement>(null);
+
+  function dismissBanner() {
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem("noApiKeysBannerDismissed", "true");
+    }
+    setBannerDismissed(true);
+  }
 
   useEffect(() => {
     const token = getToken();
@@ -256,17 +266,28 @@ export default function Home({ onOpenSettings, hasApiKeys = true }: HomeProps) {
       </div>
 
       {/* No API keys notice */}
-      {!hasApiKeys && onOpenSettings && (
+      {!hasApiKeys && onOpenSettings && !bannerDismissed && (
         <div
-          className="flex items-center gap-2 px-4 py-2 text-xs cursor-pointer hover:opacity-80 transition-opacity"
+          className="flex items-center gap-2 px-4 py-2 text-xs"
           style={{ background: "color-mix(in srgb, var(--primary) 10%, transparent)", borderBottom: "1px solid color-mix(in srgb, var(--primary) 20%, transparent)" }}
-          onClick={onOpenSettings}
         >
           <AlertCircle size={12} style={{ color: "var(--primary)", flexShrink: 0 }} />
-          <span style={{ color: "var(--foreground)" }}>
+          <span
+            className="flex-1 cursor-pointer hover:opacity-80 transition-opacity"
+            style={{ color: "var(--foreground)" }}
+            onClick={onOpenSettings}
+          >
             No AI API keys configured — AI code review and chat won't work.{" "}
             <span style={{ color: "var(--primary)", fontWeight: 500 }}>Add keys in Settings.</span>
           </span>
+          <button
+            onClick={dismissBanner}
+            title="Dismiss"
+            className="flex items-center justify-center w-4 h-4 rounded transition-opacity hover:opacity-60 flex-shrink-0"
+            style={{ color: "var(--muted-foreground)" }}
+          >
+            <X size={12} />
+          </button>
         </div>
       )}
 
