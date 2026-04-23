@@ -14,7 +14,8 @@
       "electron",
       "@clerk/shared",
       "esbuild",
-      "@tailwindcss/oxide"
+      "@tailwindcss/oxide",
+      "node-pty"
     ]
   },
   "devDependencies": {

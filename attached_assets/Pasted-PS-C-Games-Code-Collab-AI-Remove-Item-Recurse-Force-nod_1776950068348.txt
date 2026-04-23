@@ -1,0 +1,97 @@
+PS C:\Games\Code-Collab-AI> Remove-Item -Recurse -Force node_modules
+PS C:\Games\Code-Collab-AI> pnpm install
+Scope: all 14 workspace projects
+artifacts/codesync                       |  WARN  deprecated xterm-addon-fit@0.8.0
+artifacts/codesync                       |  WARN  deprecated xterm-addon-web-links@0.9.0
+artifacts/codesync                       |  WARN  deprecated xterm@5.3.0
+ WARN  13 deprecated subdependencies found: @npmcli/move-file@2.0.1, are-we-there-yet@3.0.1, boolean@3.2.0, gauge@4.0.4, glob@10.5.0, glob@7.2.3, glob@8.1.0, inflight@1.0.6, lodash.isequal@4.5.0, node-domexception@1.0.0, npmlog@6.0.2, rimraf@3.0.2, tar@6.2.1
+Packages: +905
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Progress: resolved 945, reused 915, downloaded 1, added 905, done
+node_modules/.pnpm/@clerk+shared@4.8.2_react-d_99ab2c2a0259e2a1866686a61ed84d42/node_modules/@clerk/shared: Running postnode_modules/.pnpm/@clerk+shared@4.8.2_react-d_99ab2c2a0259e2a1866686a61ed84d42/node_modules/@clerk/shared: Running postnode_modules/.pnpm/electron@33.4.11/node_modules/electron: Running postinstall script, done in 21.2s
+. preinstall$ node -e "const fs=require('fs'); ['package-lock.json','yarn.lock'].forEach(f=>{try{fs.rmSync(f,{force:t…
+└─ Done in 494ms
+ WARN  Issues with peer dependencies found
+artifacts/codesync
+└─┬ @clerk/react 6.4.2
+  ├── ✕ unmet peer react@"^18.0.0 || ~19.0.3 || ~19.1.4 || ~19.2.3 || ~19.3.0-0": found 19.1.0
+  ├── ✕ unmet peer react-dom@"^18.0.0 || ~19.0.3 || ~19.1.4 || ~19.2.3 || ~19.3.0-0": found 19.1.0
+  └─┬ @clerk/shared 4.8.2
+    ├── ✕ unmet peer react@"^18.0.0 || ~19.0.3 || ~19.1.4 || ~19.2.3 || ~19.3.0-0": found 19.1.0
+    └── ✕ unmet peer react-dom@"^18.0.0 || ~19.0.3 || ~19.1.4 || ~19.2.3 || ~19.3.0-0": found 19.1.0
+
+artifacts/desktop
+└─┬ electron-builder 25.1.8
+  ├─┬ dmg-builder 25.1.8
+  │ └─┬ app-builder-lib 25.1.8
+  │   └── ✕ missing peer electron-builder-squirrel-windows@25.1.8
+  └─┬ app-builder-lib 25.1.8
+    └── ✕ missing peer electron-builder-squirrel-windows@25.1.8
+Peer dependencies that should be installed:
+  electron-builder-squirrel-windows@25.1.8
+
+optionalDependencies:
++ @rollup/rollup-win32-x64-msvc 4.60.2
++ @tailwindcss/oxide-win32-x64-msvc 4.2.4
++ lightningcss-win32-x64-msvc 1.32.0
+
+devDependencies:
++ prettier 3.8.3
++ typescript 5.9.3 (6.0.3 is available)
+
+╭ Warning ───────────────────────────────────────────────────────────────────────────────────╮
+│                                                                                            │
+│   Ignored build scripts: node-pty@1.1.0.                                                   │
+│   Run "pnpm approve-builds" to pick which dependencies should be allowed to run scripts.   │
+│                                                                                            │
+╰────────────────────────────────────────────────────────────────────────────────────────────╯
+Done in 1m 15.5s using pnpm v10.33.0
+PS C:\Games\Code-Collab-AI> pnpm --filter @workspace/desktop run build:full
+
+> @workspace/desktop@1.0.0 build:full C:\Games\Code-Collab-AI\artifacts\desktop
+> pnpm run server:build && pnpm run electron:vite-build && pnpm run electron:compile && electron-builder build --config electron-builder.yml
+
+
+> @workspace/desktop@1.0.0 server:build C:\Games\Code-Collab-AI\artifacts\desktop
+> cd server && node build.mjs
+
+[server-build] Bundling server...
+
+  dist\server.cjs  1.6mb ⚠️
+
+⚡ Done in 573ms
+[server-build] Copying native module binaries...
+[server-build] Copied node-pty
+[server-build] Done! Output: dist/server.cjs
+
+> @workspace/desktop@1.0.0 electron:vite-build C:\Games\Code-Collab-AI\artifacts\desktop
+> cross-env ELECTRON_BUILD=1 vite build --config vite.config.ts
+
+vite v7.3.2 building client environment for production...
+src/components/ui/tooltip.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+src/components/ui/label.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+✓ 2274 modules transformed.
+dist/public/index.html                       1.11 kB │ gzip:  0.49 kB
+dist/public/assets/index-na_kzZm_.css       93.05 kB │ gzip: 15.66 kB
+dist/public/assets/notices-S8PH8L61.js       0.79 kB │ gzip:  0.39 kB
+dist/public/assets/not-found-CmzyfVoF.js     0.85 kB │ gzip:  0.44 kB
+dist/public/assets/api-BDcQOiyh.js           2.74 kB │ gzip:  1.20 kB
+dist/public/assets/settings-Dvx7WUXA.js      9.74 kB │ gzip:  3.13 kB
+dist/public/assets/monaco-DiqkpRPU.js       11.42 kB │ gzip:  4.35 kB
+dist/public/assets/index-ujbGHi4w.js        11.75 kB │ gzip:  4.87 kB
+dist/public/assets/home-YVTAeG3z.js         14.47 kB │ gzip:  3.56 kB
+dist/public/assets/room-CwVQifn0.js         31.84 kB │ gzip:  8.75 kB
+dist/public/assets/radix-ui-Cf3Ollcb.js     44.96 kB │ gzip: 14.61 kB
+dist/public/assets/runtime-BpJZkQ-D.js      61.65 kB │ gzip: 18.27 kB
+dist/public/assets/react-core-CLe9vk0-.js  185.74 kB │ gzip: 58.57 kB
+dist/public/assets/vendor-Dnmt9NCo.js      282.29 kB │ gzip: 92.15 kB
+✓ built in 6.78s
+
+> @workspace/desktop@1.0.0 electron:compile C:\Games\Code-Collab-AI\artifacts\desktop
+> tsc --project tsconfig.electron.json && for f in dist/electron-main/*.js; do mv "$f" "${f%.js}.cjs"; done
+
+Непредвиденное появление: f.
+ ELIFECYCLE  Command failed with exit code 1.
+C:\Games\Code-Collab-AI\artifacts\desktop:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @workspace/desktop@1.0.0 build:full: `pnpm run server:build && pnpm run electron:vite-build && pnpm run electron:compile && electron-builder build --config electron-builder.yml`
+Exit status 1

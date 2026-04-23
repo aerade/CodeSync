@@ -15,7 +15,7 @@
     "electron:vite-build": "cross-env ELECTRON_BUILD=1 vite build --config vite.config.ts",
     "serve": "vite preview --config vite.config.ts --host 0.0.0.0",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "electron:compile": "tsc --project tsconfig.electron.json && for f in dist/electron-main/*.js; do mv \"$f\" \"${f%.js}.cjs\"; done",
+    "electron:compile": "tsc --project tsconfig.electron.json && node scripts/rename-to-cjs.mjs",
     "electron:dev": "pnpm run server:build && concurrently \"pnpm run dev\" \"wait-on http://localhost:21098/desktop/ && electron .\"",
     "server:build": "cd server && node build.mjs",
     "electron:build": "pnpm run server:build && pnpm run electron:vite-build && pnpm run electron:compile && electron-builder build --config electron-builder.yml",
