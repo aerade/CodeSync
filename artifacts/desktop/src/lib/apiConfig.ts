@@ -93,3 +93,37 @@ export async function apiFetch(pathname: string, init: RequestInit = {}): Promis
   const credentials: RequestCredentials = isElectron() ? "omit" : "include";
   return fetch(url, { ...init, headers, credentials });
 }
+
+/**
+ * Short-lived токен для коллаборативных WebSocket-соединений
+ * (`/ws/rooms/:roomId/files/:fileId?token=...`). Выпускается api-server
+ * методом `POST /api/collab/token` и протухает через 30 минут.
+ *
+ * Кэшируем в памяти с запасом 60 секунд от времени жизни (1740 c).
+ * Возвращает `null`, если api-server отказал в выдаче (401) — вызывающий
+ * должен показать пользователю осмысленное сообщение, а не открывать WS.
+ */
+type CollabTokenInfo = { token: string; userId: string; username: string; expiresAt: number };
+let cachedCollabToken: CollabTokenInfo | null = null;
+const COLLAB_TOKEN_TTL_MS = 30 * 60 * 1000;
+const COLLAB_TOKEN_REFRESH_MARGIN_MS = 60 * 1000;
+
+export function invalidateCollabToken() {
+  cachedCollabToken = null;
+}
+
+export async function getCollabToken(): Promise<CollabTokenInfo | null> {
+  const now = Date.now();
+  if (cachedCollabToken && cachedCollabToken.expiresAt - COLLAB_TOKEN_REFRESH_MARGIN_MS > now) {
+    return cachedCollabToken;
+  }
+  const res = await apiFetch("/api/collab/token", { method: "POST" });
+  if (!res.ok) {
+    cachedCollabToken = null;
+    return null;
+  }
+  const data = await res.json() as { token: string; userId: string; username: string };
+  const info: CollabTokenInfo = { ...data, expiresAt: now + COLLAB_TOKEN_TTL_MS };
+  cachedCollabToken = info;
+  return info;
+}

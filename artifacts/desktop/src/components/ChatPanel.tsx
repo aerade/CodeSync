@@ -1,17 +1,18 @@
 /**
  * Чат комнаты — поднимает отдельный WebSocket к коллаборационному серверу
- * (`/ws/rooms/:roomId/files/:fileId?chat=1`) и обрабатывает протокол:
+ * (`/ws/rooms/:roomId/files/:fileId?token=...&chat=1`) и обрабатывает протокол:
  *   { type: "chat", message, ... }
  *
  * Хранит локальный буфер сообщений и переотправляет их через ws.send.
- * Для упрощения подключается к первому открытому файлу комнаты, либо
- * открывает «системный» канал по фиктивному fileId="_chat_".
+ * Подключается либо к открытому файлу комнаты (тогда чат привязан к файлу),
+ * либо к специальному room-presence каналу с fileId="__room__"
+ * (этот идентификатор поддерживается api-server для room-level чата).
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Send, MessageSquare, X, Users } from "lucide-react";
 import { useWorkspace } from "@/store/workspace";
 import { desktop } from "@/lib/desktopBridge";
-import { getWsBase } from "@/lib/apiConfig";
+import { getWsBase, getCollabToken } from "@/lib/apiConfig";
 import { log } from "@/lib/logger";
 
 type ChatMessage = {
@@ -28,7 +29,7 @@ export function ChatPanel() {
   const { tabs, activeTabId, currentProject, toggleRightPanel } = useWorkspace();
   const activeTab = tabs.find((t) => t.id === activeTabId);
   const roomId = currentProject?.cloudRoomId ?? activeTab?.cloudRoomId;
-  const fileId = activeTab?.cloudFileId ?? "_chat_";
+  const fileId = activeTab?.cloudFileId ?? "__room__";
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [participants, setParticipants] = useState<Participant[]>([]);
@@ -44,8 +45,16 @@ export function ChatPanel() {
   const connect = useCallback(async () => {
     if (!roomId) return;
     try {
+      // api-server отклонит соединение без короткоживущего токена.
+      const collab = await getCollabToken();
+      if (!collab) {
+        log.warn("chat", `Не удалось получить collab-токен для комнаты ${roomId}`);
+        setConnected(false);
+        return;
+      }
+      if (collab.username) usernameRef.current = collab.username;
       const wsBase = await getWsBase();
-      const url = `${wsBase}/ws/rooms/${roomId}/files/${fileId}?chat=1`;
+      const url = `${wsBase}/ws/rooms/${roomId}/files/${fileId}?token=${encodeURIComponent(collab.token)}&chat=1`;
       const ws = new WebSocket(url);
       wsRef.current = ws;
       ws.addEventListener("open", () => {

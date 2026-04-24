@@ -292,6 +292,20 @@ function RoomsSection() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title: `Комната ${username}`, isPrivate: false }),
       });
+      if (res.status === 401) {
+        // api-server явно запрещает гостям создавать комнаты (Clerk-only).
+        // На рабочем столе нет встроенного Clerk-логина, поэтому
+        // предлагаем открыть веб-версию для создания комнаты.
+        setError(
+          "Создание комнаты требует входа в аккаунт CodeSync (через веб-версию). " +
+          "На рабочем столе вы можете присоединиться к существующей комнате по invite-коду.",
+        );
+        const webUrl = "https://codesync.replit.app/";
+        if (window.confirm("Открыть веб-версию CodeSync, чтобы создать комнату?")) {
+          window.open(webUrl, "_blank", "noopener");
+        }
+        return;
+      }
       if (!res.ok) {
         const text = await res.text();
         throw new Error(`${res.status}: ${text || "API недоступен"}`);
@@ -356,7 +370,10 @@ function RoomsSection() {
         {!inRoom && (
           <>
             <div className="text-[12.5px] text-zinc-400 leading-relaxed">
-              Создайте новую или войдите по invite-коду (8 символов) либо ID комнаты.
+              Войдите по invite-коду (8 символов) либо ID комнаты.<br />
+              <span className="text-zinc-500">
+                Создание новой комнаты требует аккаунта в веб-версии CodeSync.
+              </span>
             </div>
             <div className="space-y-1.5">
               <div className="relative">

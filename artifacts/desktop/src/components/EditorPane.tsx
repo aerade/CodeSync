@@ -7,7 +7,7 @@ import * as Y from "yjs";
 import { WebsocketProvider } from "y-websocket";
 import { MonacoBinding } from "y-monaco";
 import { desktop } from "@/lib/desktopBridge";
-import { getWsBase } from "@/lib/apiConfig";
+import { getWsBase, getCollabToken } from "@/lib/apiConfig";
 import { log } from "@/lib/logger";
 import type * as monacoEditor from "monaco-editor";
 
@@ -69,15 +69,26 @@ export function EditorPane() {
     // деплой api-server и desktop: значение задаётся в SettingsPanel.
     const wsBase = await getWsBase();
 
-    // Имя пользователя для awareness
-    const username = (await desktop().db.getSetting("guestUsername").catch((err) => {
-      log.debug("editor", "settings.guestUsername", err);
-      return null;
-    })) ?? "Гость";
+    // Сервер требует short-lived токен (POST /api/collab/token) — без него
+    // соединение закрывается с кодом 1008 ("Collab token required").
+    const collab = await getCollabToken();
+    if (!collab) {
+      log.warn("editor", "Не удалось получить collab-токен — WS не открыт");
+      return;
+    }
+
+    // Имя пользователя для awareness — приоритет токена (актуально, если
+    // в апи-сервере его освежили из Clerk), иначе локальная настройка.
+    const username = collab.username
+      ?? (await desktop().db.getSetting("guestUsername").catch((err) => {
+        log.debug("editor", "settings.guestUsername", err);
+        return null;
+      }))
+      ?? "Гость";
 
     const provider = new WebsocketProvider(wsBase, `ws/rooms/${roomId}/files/${fileId}`, doc, {
       connect: true,
-      params: {},
+      params: { token: collab.token },
     });
 
     provider.awareness.setLocalStateField("user", {

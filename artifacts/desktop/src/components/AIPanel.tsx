@@ -81,7 +81,8 @@ export function AIPanel() {
       }
     } catch (err) {
       log.error("ai", "Запрос к /ai/chat провалился", err);
-      const baseHint = getApiBase() || "/api";
+      // getApiBase асинхронен — fallback на "/api", если рассыпался await.
+      const baseHint = await getApiBase().catch(() => "/api");
       setMessages((prev) =>
         prev.map((m) => (m.id === aiMsg.id ? {
           ...m,
