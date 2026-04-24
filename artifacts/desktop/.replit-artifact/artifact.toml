@@ -18,7 +18,7 @@ localPort = 21098
 run = "pnpm --filter @workspace/desktop run dev:web"
 
 [services.production]
-build = [ "pnpm", "--filter", "@workspace/desktop", "run", "build" ]
+build = [ "pnpm", "--filter", "@workspace/desktop", "run", "build:web" ]
 publicDir = "artifacts/desktop/dist/public"
 serve = "static"
 

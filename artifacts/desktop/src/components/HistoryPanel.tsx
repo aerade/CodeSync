@@ -116,7 +116,7 @@ export function HistoryPanel() {
       const docHidden = typeof document !== "undefined" && document.visibilityState !== "visible";
       if (elapsed > 1500 || docHidden) {
         try {
-          desktop().notify("Версия восстановлена", `${activeTab.fileName} (${new Date(entry.ts).toLocaleString("ru-RU")})`);
+          desktop().notify("Версия восстановлена", `${activeTab.fileName} (${new Date(entry.createdAt).toLocaleString("ru-RU")})`);
         } catch (notifyErr) {
           log.debug("history", "notify", notifyErr);
         }
