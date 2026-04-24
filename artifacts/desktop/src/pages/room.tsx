@@ -11,7 +11,7 @@ import { TerminalPanel } from "@/components/TerminalPanel";
 import { SessionSidebar } from "@/components/SessionSidebar";
 import { toast } from "sonner";
 import {
-  ChevronLeft, Copy, Users, SquareTerminal,
+  ChevronLeft, Copy, Users, SquareTerminal, Code2,
   Eye, X, PanelLeft, PanelRight, Loader2, Settings
 } from "lucide-react";
 
@@ -323,12 +323,29 @@ export default function Room({ onOpenSettings, hasApiKeys = true }: { onOpenSett
   return (
     <div className="h-full flex flex-col" style={{ background: "var(--background)" }}>
       {/* Title bar */}
-      <div className="flex items-center px-3 border-b shrink-0" style={{ height: "40px", borderColor: "var(--border)", background: "var(--surface)" }}>
-        <button onClick={() => navigate("/")} className="flex items-center gap-1 mr-3 hover:opacity-70 transition-opacity" style={{ color: "var(--muted-foreground)" }}>
+      <div
+        className="flex items-center px-3 border-b shrink-0"
+        style={{ height: "40px", borderColor: "var(--border)", background: "var(--surface)" }}
+      >
+        <button
+          onClick={() => navigate("/")}
+          className="flex items-center gap-1 mr-3 hover:opacity-70 transition-opacity"
+          style={{ color: "var(--muted-foreground)" }}
+        >
           <ChevronLeft size={14} />
         </button>
-        <span className="font-medium text-sm mr-2 truncate max-w-[200px]" style={{ color: "var(--foreground)" }}>{room?.title}</span>
-        {saving && <span className="text-xs" style={{ color: "var(--muted-foreground)" }}>Сохранение…</span>}
+        <div
+          className="w-2 h-2 rounded-full mr-2 shrink-0"
+          style={{ background: "var(--primary)", boxShadow: "0 0 5px var(--primary-glow)" }}
+        />
+        <span className="font-semibold text-sm mr-2 truncate max-w-[200px] tracking-tight" style={{ color: "var(--foreground)" }}>
+          {room?.title}
+        </span>
+        {saving && (
+          <span className="text-xs animate-fade-in" style={{ color: "var(--muted-foreground)" }}>
+            Сохранение…
+          </span>
+        )}
         <div className="flex items-center gap-1 ml-auto">
           <button
             onClick={() => setShowFileTree((v) => !v)}
@@ -454,10 +471,23 @@ export default function Room({ onOpenSettings, hasApiKeys = true }: { onOpenSett
                   options={{ automaticLayout: true }}
                 />
               ) : (
-                <div className="h-full flex items-center justify-center" style={{ color: "var(--muted-foreground)" }}>
-                  <div className="text-center">
-                    <p className="text-sm mb-1">Файл не открыт</p>
-                    <p className="text-xs">Выберите файл из проводника</p>
+                <div
+                  className="h-full flex items-center justify-center dot-grid-bg"
+                  style={{ background: "var(--background)" }}
+                >
+                  <div className="text-center animate-fade-in">
+                    <div
+                      className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-3"
+                      style={{ background: "var(--elevated)", border: "1px solid var(--border)" }}
+                    >
+                      <Code2 size={22} style={{ color: "var(--muted-foreground)" }} />
+                    </div>
+                    <p className="text-sm font-medium mb-1 tracking-tight" style={{ color: "var(--foreground)" }}>
+                      Файл не открыт
+                    </p>
+                    <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>
+                      Выберите файл из проводника
+                    </p>
                   </div>
                 </div>
               )}
@@ -466,23 +496,32 @@ export default function Room({ onOpenSettings, hasApiKeys = true }: { onOpenSett
             {/* Bottom panel */}
             {(showTerminal || showPreview) && (
               <div className="border-t shrink-0 flex flex-col" style={{ flex: "0 0 240px", borderColor: "var(--border)", background: "var(--surface)" }}>
-                <div className="flex items-center gap-2 px-3 border-b shrink-0" style={{ height: "30px", borderColor: "var(--border)" }}>
+                <div
+                  className="flex items-center gap-1 px-3 border-b shrink-0"
+                  style={{ height: "32px", borderColor: "var(--border)" }}
+                >
+                  {[
+                    { key: "terminal", label: "Терминал", setFn: () => { setBottomTab("terminal"); setShowTerminal(true); setShowPreview(false); } },
+                    { key: "preview", label: "Предпросмотр", setFn: () => { setBottomTab("preview"); setShowPreview(true); setShowTerminal(false); } },
+                  ].map(({ key, label, setFn }) => (
+                    <button
+                      key={key}
+                      onClick={setFn}
+                      className="relative h-full px-3 text-xs font-medium transition-colors"
+                      style={{
+                        color: bottomTab === key ? "var(--foreground)" : "var(--muted-foreground)",
+                        borderBottom: bottomTab === key ? "2px solid var(--primary)" : "2px solid transparent",
+                      }}
+                    >
+                      {label}
+                    </button>
+                  ))}
                   <button
-                    onClick={() => { setBottomTab("terminal"); setShowTerminal(true); setShowPreview(false); }}
-                    className="text-xs px-2 py-0.5 rounded"
-                    style={{ background: bottomTab === "terminal" ? "var(--elevated)" : "transparent", color: bottomTab === "terminal" ? "var(--foreground)" : "var(--muted-foreground)" }}
+                    onClick={() => { setShowTerminal(false); setShowPreview(false); }}
+                    className="ml-auto hover:opacity-70 transition-opacity p-1 rounded"
+                    style={{ color: "var(--muted-foreground)" }}
                   >
-                    Терминал
-                  </button>
-                  <button
-                    onClick={() => { setBottomTab("preview"); setShowPreview(true); setShowTerminal(false); }}
-                    className="text-xs px-2 py-0.5 rounded"
-                    style={{ background: bottomTab === "preview" ? "var(--elevated)" : "transparent", color: bottomTab === "preview" ? "var(--foreground)" : "var(--muted-foreground)" }}
-                  >
-                    Предпросмотр
-                  </button>
-                  <button onClick={() => { setShowTerminal(false); setShowPreview(false); }} className="ml-auto hover:opacity-70" style={{ color: "var(--muted-foreground)" }}>
-                    <X size={12} />
+                    <X size={11} />
                   </button>
                 </div>
                 <div className="flex-1 overflow-hidden">

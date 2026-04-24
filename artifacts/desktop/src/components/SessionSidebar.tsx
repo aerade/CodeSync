@@ -25,27 +25,26 @@ export function SessionSidebar({ roomId, members, currentUser, room, onSettingsO
 
   return (
     <div
-      className="flex flex-col items-center py-2 gap-1 border-r shrink-0"
+      className="flex flex-col items-center py-2.5 gap-0.5 border-r shrink-0"
       style={{ width: "48px", borderColor: "var(--border)", background: "var(--surface)" }}
     >
-      {/* Logo */}
+      {/* Logo mark */}
       <div
-        className="w-7 h-7 rounded-lg flex items-center justify-center mb-1"
-        style={{ background: "var(--primary)" }}
+        className="w-7 h-7 rounded-lg flex items-center justify-center mb-2"
+        style={{
+          background: "linear-gradient(135deg, #7C6FF7, #9B8FFB)",
+          boxShadow: "0 2px 8px rgba(124,111,247,0.3)",
+        }}
       >
         <Code2 size={14} color="#fff" />
       </div>
 
-      <div className="w-full h-px my-1" style={{ background: "var(--border)" }} />
+      <div className="w-5 h-px mb-1" style={{ background: "var(--border)" }} />
 
       {/* Nav buttons */}
-      <SidebarBtn
-        icon={Home}
-        label="Главная"
-        onClick={() => navigate("/")}
-      />
+      <SidebarBtn icon={Home} label="Главная" onClick={() => navigate("/")} />
 
-      {/* Members button */}
+      {/* Members panel */}
       <div className="relative">
         <SidebarBtn
           icon={Users}
@@ -57,38 +56,59 @@ export function SessionSidebar({ roomId, members, currentUser, room, onSettingsO
         <AnimatePresence>
           {showMembers && (
             <motion.div
-              initial={{ opacity: 0, x: -8, scale: 0.96 }}
+              initial={{ opacity: 0, x: -6, scale: 0.97 }}
               animate={{ opacity: 1, x: 0, scale: 1 }}
-              exit={{ opacity: 0, x: -8, scale: 0.96 }}
-              className="fixed left-14 top-20 z-50 rounded-xl py-2 min-w-[180px] shadow-xl"
-              style={{ background: "var(--elevated)", border: "1px solid var(--border)" }}
+              exit={{ opacity: 0, x: -6, scale: 0.97 }}
+              transition={{ duration: 0.14 }}
+              className="fixed left-14 top-[72px] z-50 rounded-xl py-2 min-w-[190px]"
+              style={{
+                background: "var(--elevated)",
+                border: "1px solid var(--border)",
+                boxShadow: "var(--shadow-lg)",
+              }}
             >
-              <p className="text-xs font-semibold px-3 pb-2" style={{ color: "var(--muted-foreground)" }}>
+              <p
+                className="text-xs font-semibold px-3 pb-2 uppercase tracking-wider"
+                style={{ color: "var(--muted-foreground)" }}
+              >
                 Участники
               </p>
               {members.map((m) => (
-                <div key={m.id} className="flex items-center gap-2 px-3 py-1.5 hover:opacity-80">
+                <div key={m.id} className="flex items-center gap-2.5 px-3 py-1.5 hover:opacity-80 transition-opacity">
                   <div
-                    className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+                    className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold shrink-0"
                     style={{ background: m.color || generateUserColor(m.userId), color: "#fff" }}
                   >
                     {m.username[0]?.toUpperCase()}
                   </div>
-                  <div>
-                    <p className="text-xs font-medium" style={{ color: "var(--foreground)" }}>{m.username}</p>
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium truncate" style={{ color: "var(--foreground)" }}>{m.username}</p>
                     {m.isGuest && (
-                      <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>Гость</p>
+                      <p className="text-xs leading-none mt-0.5" style={{ color: "var(--muted-foreground)" }}>Гость</p>
                     )}
                   </div>
                   {m.userId === currentUser?.id && (
-                    <span className="ml-auto text-xs px-1.5 py-0.5 rounded-full" style={{ background: "rgba(124,111,247,0.15)", color: "var(--primary)" }}>Вы</span>
+                    <span
+                      className="ml-auto text-xs px-1.5 py-0.5 rounded-full shrink-0"
+                      style={{ background: "var(--primary-muted)", color: "var(--primary)" }}
+                    >
+                      Вы
+                    </span>
                   )}
                 </div>
               ))}
               {room && (
-                <div className="mt-2 mx-3 pt-2 border-t" style={{ borderColor: "var(--border)" }}>
-                  <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>Код приглашения:</p>
-                  <p className="text-xs font-mono mt-0.5" style={{ color: "var(--foreground)" }}>{room.inviteCode}</p>
+                <div
+                  className="mt-2 mx-3 pt-2 border-t"
+                  style={{ borderColor: "var(--border)" }}
+                >
+                  <p className="text-xs mb-0.5" style={{ color: "var(--muted-foreground)" }}>Код приглашения:</p>
+                  <p
+                    className="text-xs font-mono px-2 py-1 rounded-md"
+                    style={{ color: "var(--foreground)", background: "var(--elevated-2)", letterSpacing: "0.08em" }}
+                  >
+                    {room.inviteCode}
+                  </p>
                 </div>
               )}
             </motion.div>
@@ -104,11 +124,11 @@ export function SessionSidebar({ roomId, members, currentUser, room, onSettingsO
         <SidebarBtn icon={Settings} label="Настройки" onClick={onSettingsOpen} />
       )}
 
-      {/* User avatar */}
+      {/* User avatar with logout */}
       {currentUser && (
-        <div className="relative group">
+        <div className="relative group mt-1">
           <div
-            className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold cursor-pointer"
+            className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold cursor-pointer"
             style={{ background: "var(--primary)", color: "#fff" }}
             title={currentUser.username}
           >
@@ -117,7 +137,10 @@ export function SessionSidebar({ roomId, members, currentUser, room, onSettingsO
           <button
             onClick={handleLogout}
             className="absolute -right-1 -bottom-1 w-4 h-4 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-            style={{ background: "var(--elevated)", border: "1px solid var(--border)" }}
+            style={{
+              background: "var(--elevated-2)",
+              border: "1px solid var(--border)",
+            }}
             title="Выйти"
           >
             <LogOut size={8} style={{ color: "var(--muted-foreground)" }} />
@@ -144,18 +167,32 @@ function SidebarBtn({
   return (
     <button
       onClick={onClick}
-      title={label}
-      className="relative w-8 h-8 rounded-lg flex items-center justify-center transition-all hover:opacity-80"
+      className="sidebar-tooltip relative w-8 h-8 rounded-lg flex items-center justify-center transition-all"
+      data-tooltip={label}
       style={{
-        background: active ? "rgba(124,111,247,0.15)" : "transparent",
+        background: active ? "var(--primary-muted)" : "transparent",
         color: active ? "var(--primary)" : "var(--muted-foreground)",
+        borderLeft: active ? "2px solid var(--primary)" : "2px solid transparent",
+        transition: "background 0.15s ease, color 0.15s ease",
+      }}
+      onMouseEnter={(e) => {
+        if (!active) {
+          (e.currentTarget as HTMLElement).style.background = "var(--elevated)";
+          (e.currentTarget as HTMLElement).style.color = "var(--foreground)";
+        }
+      }}
+      onMouseLeave={(e) => {
+        if (!active) {
+          (e.currentTarget as HTMLElement).style.background = "transparent";
+          (e.currentTarget as HTMLElement).style.color = "var(--muted-foreground)";
+        }
       }}
     >
       <Icon size={15} />
       {badge !== undefined && (
         <span
-          className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center text-xs font-bold"
-          style={{ background: "var(--primary)", color: "#fff", fontSize: "9px" }}
+          className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center font-bold"
+          style={{ background: "var(--primary)", color: "#fff", fontSize: "8px", boxShadow: "0 0 4px var(--primary-glow)" }}
         >
           {badge}
         </span>
