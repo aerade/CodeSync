@@ -18,6 +18,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.invoke("save-settings", settings),
 
   getAppVersion: (): Promise<string> => ipcRenderer.invoke("get-app-version"),
+  getServerStatus: (): Promise<{ ready: boolean; port: number }> =>
+    ipcRenderer.invoke("get-server-status"),
 
   onOpenSettings: (cb: () => void) => {
     ipcRenderer.on("open-settings", cb);

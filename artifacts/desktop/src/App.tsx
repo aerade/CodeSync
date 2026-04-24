@@ -77,15 +77,32 @@ function App() {
     tryHideLoader(serverReady);
   }, [serverReady, tryHideLoader]);
 
-  // Listen for server-ready / server-error from the Electron main process
+  // Server readiness: query current status on mount (handles the case where
+  // server-ready fires before this effect subscribes) AND subscribe to future
+  // events (handles the normal case where server starts after React mounts).
   useEffect(() => {
     const api = window.electronAPI;
     if (!api?.onServerReady) return;
+
+    let cancelled = false;
+
+    // 1. Query current status immediately (race-proof)
+    api.getServerStatus?.().then((status) => {
+      if (cancelled) return;
+      if (status.ready) {
+        setServerReady(true);
+        tryHideLoader(true);
+      }
+    }).catch(() => {});
+
+    // 2. Also subscribe to future events (for when server starts after mount)
     const cleanupReady = api.onServerReady(() => {
+      if (cancelled) return;
       setServerReady(true);
       tryHideLoader(true);
     });
     const cleanupError = api.onServerError?.((data) => {
+      if (cancelled) return;
       setServerReady(true);
       tryHideLoader(true);
       toast.error("Сервер не запустился", {
@@ -93,9 +110,19 @@ function App() {
         duration: Infinity,
       });
     });
+
+    // 3. Safety net: if server-ready is missed and no error, unblock after 45s
+    const safetyTimer = setTimeout(() => {
+      if (cancelled) return;
+      setServerReady(true);
+      tryHideLoader(true);
+    }, 45_000);
+
     return () => {
+      cancelled = true;
       cleanupReady?.();
       cleanupError?.();
+      clearTimeout(safetyTimer);
     };
   }, [tryHideLoader]);
 

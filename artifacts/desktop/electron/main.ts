@@ -330,6 +330,11 @@ ipcMain.handle("save-settings", async (_event, settings: { openaiApiKey?: string
 
 ipcMain.handle("get-app-version", () => app.getVersion());
 
+ipcMain.handle("get-server-status", () => ({
+  ready: serverReady,
+  port: serverPort,
+}));
+
 // ─── Auto-Updater ─────────────────────────────────────────────────────────────
 
 async function setupAutoUpdater(): Promise<void> {

@@ -7,6 +7,7 @@ declare global {
       getSettings: () => Promise<{ openaiApiKey: string; anthropicApiKey: string; firstRun: boolean }>;
       saveSettings: (settings: { openaiApiKey?: string; anthropicApiKey?: string }) => Promise<{ ok: boolean }>;
       getAppVersion: () => Promise<string>;
+      getServerStatus: () => Promise<{ ready: boolean; port: number }>;
       binaryToBase64: (bytes: number[]) => string;
       base64ToBinary: (b64: string) => number[];
       onOpenSettings: (cb: () => void) => () => void;
