@@ -13,14 +13,14 @@ interface SettingsDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-const DEFAULT_RESET_MESSAGE = "Banner will reappear on the home screen.";
+const DEFAULT_RESET_MESSAGE = "Баннер снова появится на главном экране.";
 
 const NOTICES: { key: string; label: string; description: string; resetMessage?: string }[] = [
   {
     key: NOTICE_KEYS.noApiKeysBanner,
-    label: "No AI API keys banner",
-    description: "Shown on the home screen when no OpenAI or Anthropic key has been configured. Dismissing it hides the banner until you reset it here.",
-    resetMessage: "The API keys notice will reappear on the home screen until keys are added.",
+    label: "Баннер: нет ключей ИИ",
+    description: "Отображается на главном экране, если не настроен ни один ключ OpenAI или Anthropic. После скрытия не показывается, пока не будет сброшен здесь.",
+    resetMessage: "Уведомление об API-ключах снова появится на главном экране.",
   },
 ];
 
@@ -56,17 +56,17 @@ export default function SettingsDialog({ open, onOpenChange }: SettingsDialogPro
   const handleSave = async () => {
     const api = window.electronAPI;
     if (!api) {
-      toast.error("Settings only available in the desktop app");
+      toast.error("Настройки доступны только в десктопном приложении");
       return;
     }
     setSaving(true);
     try {
       await api.saveSettings({ openaiApiKey: openaiKey, anthropicApiKey: anthropicKey });
-      toast.success("Settings saved. Server restarted with new keys.");
+      toast.success("Настройки сохранены. Сервер перезапущен.");
       onOpenChange(false);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
-      toast.error(`Failed to save: ${message}`);
+      toast.error(`Ошибка сохранения: ${message}`);
     } finally {
       setSaving(false);
     }
@@ -92,7 +92,7 @@ export default function SettingsDialog({ open, onOpenChange }: SettingsDialogPro
     }
     setDismissed(cleared);
     window.dispatchEvent(new CustomEvent("noticesReset"));
-    toast.success("All notices have been reset.");
+    toast.success("Все уведомления сброшены.");
   };
 
   const anyDismissed = NOTICES.some(({ key }) => dismissed[key]);
@@ -105,10 +105,10 @@ export default function SettingsDialog({ open, onOpenChange }: SettingsDialogPro
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-lg font-semibold">
             <Key className="h-5 w-5 text-[var(--accent)]" />
-            Settings
+            Настройки
           </DialogTitle>
           <DialogDescription className="text-[var(--muted)]">
-            Configure AI providers to enable code review and chat features.
+            Настройте провайдеров ИИ для проверки кода и чата.
           </DialogDescription>
         </DialogHeader>
 
@@ -116,7 +116,7 @@ export default function SettingsDialog({ open, onOpenChange }: SettingsDialogPro
           {/* OpenAI */}
           <div className="space-y-2">
             <Label className="text-sm font-medium">
-              OpenAI API Key
+              Ключ OpenAI
               <span className="ml-2 text-xs text-[var(--muted)]">(GPT-4o mini)</span>
             </Label>
             <div className="relative">
@@ -139,7 +139,7 @@ export default function SettingsDialog({ open, onOpenChange }: SettingsDialogPro
               </Button>
             </div>
             <p className="text-xs text-[var(--muted)]">
-              Get your key at{" "}
+              Получить ключ на{" "}
               <a
                 href="https://platform.openai.com/api-keys"
                 target="_blank"
@@ -154,8 +154,8 @@ export default function SettingsDialog({ open, onOpenChange }: SettingsDialogPro
           {/* Anthropic */}
           <div className="space-y-2">
             <Label className="text-sm font-medium">
-              Anthropic API Key
-              <span className="ml-2 text-xs text-[var(--muted)]">(Claude — preferred)</span>
+              Ключ Anthropic
+              <span className="ml-2 text-xs text-[var(--muted)]">(Claude — рекомендуется)</span>
             </Label>
             <div className="relative">
               <Input
@@ -177,7 +177,7 @@ export default function SettingsDialog({ open, onOpenChange }: SettingsDialogPro
               </Button>
             </div>
             <p className="text-xs text-[var(--muted)]">
-              Get your key at{" "}
+              Получить ключ на{" "}
               <a
                 href="https://console.anthropic.com/settings/keys"
                 target="_blank"
@@ -194,7 +194,7 @@ export default function SettingsDialog({ open, onOpenChange }: SettingsDialogPro
           {/* Notices */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label className="text-sm font-medium">Notices</Label>
+              <Label className="text-sm font-medium">Уведомления</Label>
               <Button
                 type="button"
                 variant="ghost"
@@ -203,7 +203,7 @@ export default function SettingsDialog({ open, onOpenChange }: SettingsDialogPro
                 className="text-xs text-[var(--muted)] hover:text-[var(--foreground)] h-auto py-0.5 px-2 disabled:opacity-40 disabled:cursor-not-allowed"
                 onClick={handleResetAll}
               >
-                Reset all
+                Сбросить всё
               </Button>
             </div>
             <div className="space-y-1">
@@ -221,11 +221,11 @@ export default function SettingsDialog({ open, onOpenChange }: SettingsDialogPro
                           <span className="text-sm text-[var(--foreground)]">{label}</span>
                           {isDismissed ? (
                             <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium bg-yellow-500/15 text-yellow-400 border border-yellow-500/25">
-                              Dismissed
+                              Скрыто
                             </span>
                           ) : (
                             <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium bg-green-500/15 text-green-400 border border-green-500/25">
-                              Visible
+                              Видимо
                             </span>
                           )}
                         </div>
@@ -240,7 +240,7 @@ export default function SettingsDialog({ open, onOpenChange }: SettingsDialogPro
                       className="text-xs border-[var(--border)] text-[var(--muted)] hover:text-[var(--foreground)] disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0 self-start"
                       onClick={() => handleResetOne(key)}
                     >
-                      Reset
+                      Сбросить
                     </Button>
                   </div>
                 );
@@ -254,15 +254,15 @@ export default function SettingsDialog({ open, onOpenChange }: SettingsDialogPro
           <div className="flex items-start gap-2 rounded-lg bg-[var(--elevated)] p-3 text-xs text-[var(--muted)]">
             <Info className="h-4 w-4 mt-0.5 text-[var(--accent)] flex-shrink-0" />
             <div>
-              Keys are stored encrypted on your device using the OS keychain.
-              They are never sent to CodeSync servers — only directly to OpenAI/Anthropic.
-              If both keys are set, Anthropic is preferred.
+              Ключи хранятся в зашифрованном виде на вашем устройстве.
+              Они никогда не отправляются на серверы CodeSync — только напрямую в OpenAI/Anthropic.
+              При наличии обоих ключей приоритет отдаётся Anthropic.
             </div>
           </div>
 
           {!isElectron && (
             <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-3 text-xs text-yellow-300">
-              Settings are only available in the desktop application.
+              Настройки доступны только в десктопном приложении.
             </div>
           )}
         </div>
@@ -272,7 +272,7 @@ export default function SettingsDialog({ open, onOpenChange }: SettingsDialogPro
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => onOpenChange(false)}
               className="border-[var(--border)] text-[var(--muted)] hover:text-[var(--foreground)]">
-              Cancel
+              Отмена
             </Button>
             <Button
               onClick={handleSave}
@@ -281,11 +281,11 @@ export default function SettingsDialog({ open, onOpenChange }: SettingsDialogPro
             >
               {saving ? (
                 <span className="flex items-center gap-2">
-                  <span className="animate-spin">⏳</span> Saving...
+                  <span className="animate-spin">⏳</span> Сохранение...
                 </span>
               ) : (
                 <span className="flex items-center gap-2">
-                  <Save className="h-4 w-4" /> Save Settings
+                  <Save className="h-4 w-4" /> Сохранить
                 </span>
               )}
             </Button>

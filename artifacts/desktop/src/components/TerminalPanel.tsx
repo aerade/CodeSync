@@ -17,10 +17,9 @@ interface Output {
 
 export function TerminalPanel({ roomId, language, code }: Props) {
   const [history, setHistory] = useState<Output[]>([
-    { id: "welcome", type: "info", text: "Terminal ready. Run code to see output.", ts: new Date() },
+    { id: "welcome", type: "info", text: "Терминал готов. Запустите код для просмотра вывода.", ts: new Date() },
   ]);
   const [running, setRunning] = useState(false);
-  const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -52,12 +51,12 @@ export function TerminalPanel({ roomId, language, code }: Props) {
         {
           id: `exit-${id}`,
           type: result.exitCode === 0 ? "info" : "stderr",
-          text: `Exit code: ${result.exitCode} | ${result.runtime.toFixed(2)}ms`,
+          text: `Код выхода: ${result.exitCode} | ${result.runtime.toFixed(2)}мс`,
           ts: new Date(),
         },
       ]);
     } catch (err: any) {
-      setHistory((prev) => [...prev, { id: `fail-${id}`, type: "stderr", text: `Error: ${err.message}`, ts: new Date() }]);
+      setHistory((prev) => [...prev, { id: `fail-${id}`, type: "stderr", text: `Ошибка: ${err.message}`, ts: new Date() }]);
     } finally {
       setRunning(false);
     }
@@ -81,14 +80,14 @@ export function TerminalPanel({ roomId, language, code }: Props) {
           style={{ background: "var(--primary)", color: "#fff" }}
         >
           {running ? <Loader2 size={11} className="animate-spin" /> : <Play size={11} />}
-          Run
+          Запустить
         </button>
         <span className="text-xs" style={{ color: "var(--muted-foreground)" }}>{language}</span>
         <button
-          onClick={() => setHistory([{ id: "clear", type: "info", text: "Terminal cleared.", ts: new Date() }])}
+          onClick={() => setHistory([{ id: "clear", type: "info", text: "Терминал очищен.", ts: new Date() }])}
           className="ml-auto p-1 rounded hover:opacity-70"
           style={{ color: "var(--muted-foreground)" }}
-          title="Clear"
+          title="Очистить"
         >
           <X size={11} />
         </button>
@@ -99,7 +98,7 @@ export function TerminalPanel({ roomId, language, code }: Props) {
         {history.map((item) => (
           <div key={item.id} className="flex items-start gap-2">
             <span className="text-xs shrink-0 mt-0.5" style={{ color: "#3A3A46", fontFamily: "inherit" }}>
-              {item.ts.toLocaleTimeString("en", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false })}
+              {item.ts.toLocaleTimeString("ru", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false })}
             </span>
             <pre
               className="text-xs flex-1 whitespace-pre-wrap break-all leading-relaxed"
@@ -112,7 +111,7 @@ export function TerminalPanel({ roomId, language, code }: Props) {
         {running && (
           <div className="flex items-center gap-2 mt-1">
             <Loader2 size={10} className="animate-spin" style={{ color: "var(--primary)" }} />
-            <span className="text-xs" style={{ color: "var(--muted-foreground)" }}>Running...</span>
+            <span className="text-xs" style={{ color: "var(--muted-foreground)" }}>Выполнение...</span>
           </div>
         )}
       </div>

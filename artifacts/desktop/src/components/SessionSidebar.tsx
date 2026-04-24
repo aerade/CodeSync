@@ -17,7 +17,6 @@ interface Props {
 export function SessionSidebar({ roomId, members, currentUser, room, onSettingsOpen }: Props) {
   const [, navigate] = useLocation();
   const [showMembers, setShowMembers] = useState(false);
-  const [hoveredId, setHoveredId] = useState<string | null>(null);
 
   function handleLogout() {
     clearAuth();
@@ -42,7 +41,7 @@ export function SessionSidebar({ roomId, members, currentUser, room, onSettingsO
       {/* Nav buttons */}
       <SidebarBtn
         icon={Home}
-        label="Home"
+        label="Главная"
         onClick={() => navigate("/")}
       />
 
@@ -50,7 +49,7 @@ export function SessionSidebar({ roomId, members, currentUser, room, onSettingsO
       <div className="relative">
         <SidebarBtn
           icon={Users}
-          label={`Members (${members.length})`}
+          label={`Участники (${members.length})`}
           onClick={() => setShowMembers((v) => !v)}
           active={showMembers}
           badge={members.length > 1 ? members.length : undefined}
@@ -65,7 +64,7 @@ export function SessionSidebar({ roomId, members, currentUser, room, onSettingsO
               style={{ background: "var(--elevated)", border: "1px solid var(--border)" }}
             >
               <p className="text-xs font-semibold px-3 pb-2" style={{ color: "var(--muted-foreground)" }}>
-                Members in room
+                Участники
               </p>
               {members.map((m) => (
                 <div key={m.id} className="flex items-center gap-2 px-3 py-1.5 hover:opacity-80">
@@ -78,17 +77,17 @@ export function SessionSidebar({ roomId, members, currentUser, room, onSettingsO
                   <div>
                     <p className="text-xs font-medium" style={{ color: "var(--foreground)" }}>{m.username}</p>
                     {m.isGuest && (
-                      <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>Guest</p>
+                      <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>Гость</p>
                     )}
                   </div>
                   {m.userId === currentUser?.id && (
-                    <span className="ml-auto text-xs px-1.5 py-0.5 rounded-full" style={{ background: "rgba(124,111,247,0.15)", color: "var(--primary)" }}>You</span>
+                    <span className="ml-auto text-xs px-1.5 py-0.5 rounded-full" style={{ background: "rgba(124,111,247,0.15)", color: "var(--primary)" }}>Вы</span>
                   )}
                 </div>
               ))}
               {room && (
                 <div className="mt-2 mx-3 pt-2 border-t" style={{ borderColor: "var(--border)" }}>
-                  <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>Invite code:</p>
+                  <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>Код приглашения:</p>
                   <p className="text-xs font-mono mt-0.5" style={{ color: "var(--foreground)" }}>{room.inviteCode}</p>
                 </div>
               )}
@@ -97,12 +96,12 @@ export function SessionSidebar({ roomId, members, currentUser, room, onSettingsO
         </AnimatePresence>
       </div>
 
-      <SidebarBtn icon={Activity} label="Activity" onClick={() => {}} />
+      <SidebarBtn icon={Activity} label="Активность" onClick={() => {}} />
 
       <div className="flex-1" />
 
       {onSettingsOpen && (
-        <SidebarBtn icon={Settings} label="Settings" onClick={onSettingsOpen} />
+        <SidebarBtn icon={Settings} label="Настройки" onClick={onSettingsOpen} />
       )}
 
       {/* User avatar */}
@@ -119,7 +118,7 @@ export function SessionSidebar({ roomId, members, currentUser, room, onSettingsO
             onClick={handleLogout}
             className="absolute -right-1 -bottom-1 w-4 h-4 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
             style={{ background: "var(--elevated)", border: "1px solid var(--border)" }}
-            title="Sign out"
+            title="Выйти"
           >
             <LogOut size={8} style={{ color: "var(--muted-foreground)" }} />
           </button>

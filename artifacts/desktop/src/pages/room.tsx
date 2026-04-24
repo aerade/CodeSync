@@ -29,7 +29,6 @@ function uint8ArrayToBase64(arr: Uint8Array): string {
   if (window.electronAPI?.binaryToBase64) {
     return window.electronAPI.binaryToBase64(Array.from(arr));
   }
-  // Browser fallback: loop instead of spread to avoid call-stack limits
   let binary = "";
   const len = arr.byteLength;
   for (let i = 0; i < len; i++) {
@@ -42,7 +41,7 @@ const LANG_LABELS: Record<string, string> = {
   javascript: "JS", typescript: "TS", python: "Python",
   go: "Go", rust: "Rust", java: "Java", cpp: "C++",
   html: "HTML", css: "CSS", json: "JSON", markdown: "MD",
-  shell: "SH", sql: "SQL", plaintext: "Text",
+  shell: "SH", sql: "SQL", plaintext: "Текст",
 };
 
 async function fetchCollabToken(): Promise<string | null> {
@@ -54,7 +53,6 @@ async function fetchCollabToken(): Promise<string | null> {
       "Authorization": `Bearer ${token}`,
       "x-guest-token": token,
     };
-    // Required by the embedded desktop server's INTERNAL_TOKEN guard
     const internalToken = typeof window !== "undefined" ? window.electronAPI?.getInternalTokenSync() : undefined;
     if (internalToken) headers["X-Internal-Token"] = internalToken;
     const res = await fetch(`${API_BASE}/collab/token`, {
@@ -70,17 +68,13 @@ async function fetchCollabToken(): Promise<string | null> {
 }
 
 function getWsUrl(roomId: string, fileId: string, collabToken: string): string {
-  // In packaged Electron, window.location is file://, so derive the WS host
-  // from the configured API_BASE URL instead of window.location.
   try {
     const apiUrl = new URL(API_BASE);
     const wsProtocol = apiUrl.protocol === "https:" ? "wss:" : "ws:";
-    // Strip /api suffix to get the base origin for WS connections
     const wsHost = apiUrl.host;
     const wsPathBase = apiUrl.pathname.replace(/\/api\/?$/, "");
     return `${wsProtocol}//${wsHost}${wsPathBase}/ws/rooms/${roomId}/files/${fileId}?token=${encodeURIComponent(collabToken)}`;
   } catch {
-    // Fallback: relative URL using window.location (works in browser/dev)
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const host = window.location.host;
     return `${protocol}//${host}/ws/rooms/${roomId}/files/${fileId}?token=${encodeURIComponent(collabToken)}`;
@@ -126,7 +120,6 @@ export default function Room({ onOpenSettings, hasApiKeys = true }: { onOpenSett
     try {
       setLoadingRoom(true);
 
-      // Fetch collab token alongside room data
       const [roomData, filesData, membersData, collabToken] = await Promise.all([
         api.getRoom(roomId),
         api.getRoomFiles(roomId),
@@ -145,7 +138,7 @@ export default function Room({ onOpenSettings, hasApiKeys = true }: { onOpenSett
         setFileContents((prev) => ({ ...prev, [firstFile.id]: firstFile.content }));
       }
     } catch {
-      toast.error("Failed to load room");
+      toast.error("Не удалось загрузить комнату");
       navigate("/");
     } finally {
       setLoadingRoom(false);
@@ -172,10 +165,7 @@ export default function Room({ onOpenSettings, hasApiKeys = true }: { onOpenSett
     }
 
     const collabToken = collabTokenRef.current;
-    if (!collabToken) {
-      // No collab token — still allow editing but without real-time sync
-      return;
-    }
+    if (!collabToken) return;
 
     const ydoc = new Y.Doc();
     ydocRef.current = ydoc;
@@ -187,7 +177,6 @@ export default function Room({ onOpenSettings, hasApiKeys = true }: { onOpenSett
       try {
         const msg = JSON.parse(evt.data);
 
-        // Server sends initial Yjs state on "init"
         if (msg.type === "init" && msg.update) {
           const update = Uint8Array.from(atob(msg.update), (c) => c.charCodeAt(0));
           Y.applyUpdate(ydoc, update);
@@ -201,7 +190,6 @@ export default function Room({ onOpenSettings, hasApiKeys = true }: { onOpenSett
           }
         }
 
-        // Incremental Yjs updates from other collaborators
         if (msg.type === "yjs-update" && msg.update) {
           const update = Uint8Array.from(atob(msg.update), (c) => c.charCodeAt(0));
           Y.applyUpdate(ydoc, update);
@@ -217,7 +205,7 @@ export default function Room({ onOpenSettings, hasApiKeys = true }: { onOpenSett
       } catch { /* ignore parse errors */ }
     };
 
-    ws.onerror = () => { /* silently handle — reconnect logic could be added */ };
+    ws.onerror = () => { /* silently handle */ };
     ws.onclose = () => { if (wsRef.current === ws) wsRef.current = null; };
   }
 
@@ -244,12 +232,10 @@ export default function Room({ onOpenSettings, hasApiKeys = true }: { onOpenSett
     if (!activeFileId || value === undefined) return;
     setFileContents((prev) => ({ ...prev, [activeFileId]: value }));
 
-    // Send Yjs update to collaborators
     const ydoc = ydocRef.current;
     const ws = wsRef.current;
     if (ydoc && ws && ws.readyState === WebSocket.OPEN) {
       const yText = ydoc.getText("content");
-      // Only update Yjs if content actually differs (prevents echo loops)
       const current = yText.toString();
       if (current !== value) {
         ydoc.transact(() => {
@@ -262,7 +248,6 @@ export default function Room({ onOpenSettings, hasApiKeys = true }: { onOpenSett
       }
     }
 
-    // Auto-save to DB after 1.5s idle
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(async () => {
       try {
@@ -293,7 +278,7 @@ export default function Room({ onOpenSettings, hasApiKeys = true }: { onOpenSett
         setActiveFileId(file.id);
         setFileContents((prev) => ({ ...prev, [file.id]: "" }));
       }
-    } catch { toast.error("Failed to create file"); }
+    } catch { toast.error("Не удалось создать файл"); }
   }
 
   async function handleFileDelete(fileId: string) {
@@ -304,7 +289,7 @@ export default function Room({ onOpenSettings, hasApiKeys = true }: { onOpenSett
         const next = files.find((f) => f.id !== fileId && !f.isFolder);
         setActiveFileId(next?.id ?? null);
       }
-    } catch { toast.error("Failed to delete file"); }
+    } catch { toast.error("Не удалось удалить файл"); }
   }
 
   function handleAIApply(code: string) {
@@ -318,7 +303,7 @@ export default function Room({ onOpenSettings, hasApiKeys = true }: { onOpenSett
   function copyInviteCode() {
     if (!room) return;
     navigator.clipboard.writeText(room.inviteCode);
-    toast.success("Invite code copied!");
+    toast.success("Код приглашения скопирован!");
   }
 
   const currentContent = activeFileId ? (fileContents[activeFileId] ?? "") : "";
@@ -329,7 +314,7 @@ export default function Room({ onOpenSettings, hasApiKeys = true }: { onOpenSett
       <div className="h-full flex items-center justify-center" style={{ background: "var(--background)" }}>
         <div className="flex items-center gap-2" style={{ color: "var(--muted-foreground)" }}>
           <Loader2 size={16} className="animate-spin" />
-          <span className="text-sm">Loading room...</span>
+          <span className="text-sm">Загрузка комнаты...</span>
         </div>
       </div>
     );
@@ -343,11 +328,11 @@ export default function Room({ onOpenSettings, hasApiKeys = true }: { onOpenSett
           <ChevronLeft size={14} />
         </button>
         <span className="font-medium text-sm mr-2 truncate max-w-[200px]" style={{ color: "var(--foreground)" }}>{room?.title}</span>
-        {saving && <span className="text-xs" style={{ color: "var(--muted-foreground)" }}>Saving…</span>}
+        {saving && <span className="text-xs" style={{ color: "var(--muted-foreground)" }}>Сохранение…</span>}
         <div className="flex items-center gap-1 ml-auto">
           <button
             onClick={() => setShowFileTree((v) => !v)}
-            title="Toggle file tree"
+            title="Панель файлов"
             className="p-1.5 rounded hover:opacity-70 transition-opacity"
             style={{ color: showFileTree ? "var(--primary)" : "var(--muted-foreground)" }}
           >
@@ -355,7 +340,7 @@ export default function Room({ onOpenSettings, hasApiKeys = true }: { onOpenSett
           </button>
           <button
             onClick={() => setShowAI((v) => !v)}
-            title="Toggle AI panel"
+            title="ИИ-панель"
             className="p-1.5 rounded hover:opacity-70 transition-opacity"
             style={{ color: showAI ? "var(--primary)" : "var(--muted-foreground)" }}
           >
@@ -366,7 +351,7 @@ export default function Room({ onOpenSettings, hasApiKeys = true }: { onOpenSett
             onClick={() => { setBottomTab("terminal"); setShowTerminal((v) => !v); setShowPreview(false); }}
             className="p-1.5 rounded hover:opacity-70 transition-opacity"
             style={{ color: (showTerminal && bottomTab === "terminal") ? "var(--primary)" : "var(--muted-foreground)" }}
-            title="Terminal"
+            title="Терминал"
           >
             <SquareTerminal size={14} />
           </button>
@@ -374,7 +359,7 @@ export default function Room({ onOpenSettings, hasApiKeys = true }: { onOpenSett
             onClick={() => { setBottomTab("preview"); setShowPreview((v) => !v); setShowTerminal(false); }}
             className="p-1.5 rounded hover:opacity-70 transition-opacity"
             style={{ color: (showPreview && bottomTab === "preview") ? "var(--primary)" : "var(--muted-foreground)" }}
-            title="Preview"
+            title="Предпросмотр"
           >
             <Eye size={14} />
           </button>
@@ -383,7 +368,7 @@ export default function Room({ onOpenSettings, hasApiKeys = true }: { onOpenSett
             <Users size={12} />
             <span className="text-xs">{members.length}</span>
           </div>
-          <button onClick={copyInviteCode} className="p-1.5 rounded hover:opacity-70 transition-opacity" style={{ color: "var(--muted-foreground)" }} title="Copy invite code">
+          <button onClick={copyInviteCode} className="p-1.5 rounded hover:opacity-70 transition-opacity" style={{ color: "var(--muted-foreground)" }} title="Копировать код приглашения">
             <Copy size={12} />
           </button>
           {onOpenSettings && (
@@ -391,7 +376,7 @@ export default function Room({ onOpenSettings, hasApiKeys = true }: { onOpenSett
               <div className="w-px h-4 mx-1" style={{ background: "var(--border)" }} />
               <button
                 onClick={onOpenSettings}
-                title={isMac ? "Settings (⌘,)" : "Settings (Ctrl+,)"}
+                title={isMac ? "Настройки (⌘,)" : "Настройки (Ctrl+,)"}
                 className="flex items-center justify-center w-7 h-7 rounded-lg transition-all hover:opacity-80 relative"
                 style={{ background: "var(--elevated)", border: "1px solid var(--border)", color: "var(--muted-foreground)" }}
               >
@@ -471,8 +456,8 @@ export default function Room({ onOpenSettings, hasApiKeys = true }: { onOpenSett
               ) : (
                 <div className="h-full flex items-center justify-center" style={{ color: "var(--muted-foreground)" }}>
                   <div className="text-center">
-                    <p className="text-sm mb-1">No file open</p>
-                    <p className="text-xs">Select a file from the tree</p>
+                    <p className="text-sm mb-1">Файл не открыт</p>
+                    <p className="text-xs">Выберите файл из проводника</p>
                   </div>
                 </div>
               )}
@@ -487,14 +472,14 @@ export default function Room({ onOpenSettings, hasApiKeys = true }: { onOpenSett
                     className="text-xs px-2 py-0.5 rounded"
                     style={{ background: bottomTab === "terminal" ? "var(--elevated)" : "transparent", color: bottomTab === "terminal" ? "var(--foreground)" : "var(--muted-foreground)" }}
                   >
-                    Terminal
+                    Терминал
                   </button>
                   <button
                     onClick={() => { setBottomTab("preview"); setShowPreview(true); setShowTerminal(false); }}
                     className="text-xs px-2 py-0.5 rounded"
                     style={{ background: bottomTab === "preview" ? "var(--elevated)" : "transparent", color: bottomTab === "preview" ? "var(--foreground)" : "var(--muted-foreground)" }}
                   >
-                    Preview
+                    Предпросмотр
                   </button>
                   <button onClick={() => { setShowTerminal(false); setShowPreview(false); }} className="ml-auto hover:opacity-70" style={{ color: "var(--muted-foreground)" }}>
                     <X size={12} />
@@ -510,7 +495,7 @@ export default function Room({ onOpenSettings, hasApiKeys = true }: { onOpenSett
                       srcDoc={currentContent}
                       className="w-full h-full"
                       sandbox="allow-scripts"
-                      title="preview"
+                      title="Предпросмотр"
                     />
                   )}
                 </div>
@@ -527,7 +512,7 @@ export default function Room({ onOpenSettings, hasApiKeys = true }: { onOpenSett
                 <span>{activeFile.path}</span>
               </>
             )}
-            <span className="ml-auto">{saving ? "Saving…" : "Saved"}</span>
+            <span className="ml-auto">{saving ? "Сохранение…" : "Сохранено"}</span>
           </div>
         </div>
 

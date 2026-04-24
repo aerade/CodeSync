@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, Bot, User, Copy, Check, Play, Sparkles, RotateCcw, ChevronDown } from "lucide-react";
+import { Send, Bot, User, Copy, Check, Play, Sparkles, RotateCcw } from "lucide-react";
 import { api } from "@/lib/api";
 
 interface Message {
@@ -19,12 +19,12 @@ interface Props {
 }
 
 const QUICK_PROMPTS = [
-  "Explain this code",
-  "Find bugs",
-  "Add types",
-  "Write tests",
-  "Optimize",
-  "Add comments",
+  "Объясни код",
+  "Найди ошибки",
+  "Добавь типы",
+  "Напиши тесты",
+  "Оптимизируй",
+  "Добавь комментарии",
 ];
 
 export function AIPanel({ roomId, fileId, language, code, onApply }: Props) {
@@ -57,7 +57,7 @@ export function AIPanel({ roomId, fileId, language, code, onApply }: Props) {
       id: Date.now().toString(),
       role: "user",
       content: msg,
-    timestamp: new Date(),
+      timestamp: new Date(),
     };
 
     const assistantId = (Date.now() + 1).toString();
@@ -92,7 +92,7 @@ export function AIPanel({ roomId, fileId, language, code, onApply }: Props) {
         setMessages((prev) =>
           prev.map((m) =>
             m.id === assistantId
-              ? { ...m, content: "Sorry, I encountered an error. Please try again." }
+              ? { ...m, content: "Произошла ошибка. Попробуйте снова." }
               : m
           )
         );
@@ -121,33 +121,28 @@ export function AIPanel({ roomId, fileId, language, code, onApply }: Props) {
     setTimeout(() => setCopiedId(null), 2000);
   }
 
-  function extractCode(content: string): string | null {
-    const match = content.match(/```[\w]*\n([\s\S]*?)```/);
-    return match ? match[1] : null;
-  }
-
   function renderContent(content: string) {
     const parts = content.split(/(```[\w]*\n[\s\S]*?```)/g);
     return parts.map((part, i) => {
       const codeMatch = part.match(/```([\w]*)\n([\s\S]*?)```/);
       if (codeMatch) {
-        const [, lang, code] = codeMatch;
+        const [, lang, codeSnippet] = codeMatch;
         return (
           <div key={i} className="my-2 rounded-lg overflow-hidden" style={{ background: "var(--background)", border: "1px solid var(--border)" }}>
             <div className="flex items-center justify-between px-3 py-1.5 border-b" style={{ borderColor: "var(--border)" }}>
-              <span className="text-xs font-mono" style={{ color: "var(--muted-foreground)" }}>{lang || "code"}</span>
+              <span className="text-xs font-mono" style={{ color: "var(--muted-foreground)" }}>{lang || "код"}</span>
               <div className="flex items-center gap-1">
                 {onApply && (
                   <button
-                    onClick={() => onApply(code)}
+                    onClick={() => onApply(codeSnippet)}
                     className="text-xs px-2 py-0.5 rounded flex items-center gap-1 hover:opacity-80"
                     style={{ background: "var(--primary)", color: "#fff" }}
                   >
-                    <Play size={9} /> Apply
+                    <Play size={9} /> Применить
                   </button>
                 )}
                 <button
-                  onClick={() => navigator.clipboard.writeText(code)}
+                  onClick={() => navigator.clipboard.writeText(codeSnippet)}
                   className="p-1 rounded hover:opacity-70"
                   style={{ color: "var(--muted-foreground)" }}
                 >
@@ -156,7 +151,7 @@ export function AIPanel({ roomId, fileId, language, code, onApply }: Props) {
               </div>
             </div>
             <pre className="p-3 text-xs overflow-x-auto font-mono leading-relaxed" style={{ color: "#A9B1D6" }}>
-              <code>{code}</code>
+              <code>{codeSnippet}</code>
             </pre>
           </div>
         );
@@ -175,6 +170,9 @@ export function AIPanel({ roomId, fileId, language, code, onApply }: Props) {
   const severityColor = (s: string) =>
     s === "error" ? "#EF4444" : s === "warning" ? "#F59E0B" : "#7C6FF7";
 
+  const severityLabel = (s: string) =>
+    s === "error" ? "ошибка" : s === "warning" ? "предупреждение" : "инфо";
+
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
@@ -183,22 +181,29 @@ export function AIPanel({ roomId, fileId, language, code, onApply }: Props) {
           <div className="w-5 h-5 rounded-md flex items-center justify-center" style={{ background: "var(--primary)" }}>
             <Sparkles size={10} color="#fff" />
           </div>
-          <span className="text-xs font-semibold" style={{ color: "var(--foreground)" }}>AI Assistant</span>
+          <span className="text-xs font-semibold" style={{ color: "var(--foreground)" }}>ИИ-помощник</span>
         </div>
         <div className="flex gap-0.5 p-0.5 rounded-md" style={{ background: "var(--elevated)" }}>
-          {(["chat", "review"] as const).map((m) => (
-            <button
-              key={m}
-              onClick={() => setMode(m)}
-              className="px-2 py-0.5 rounded text-xs transition-all capitalize"
-              style={{
-                background: mode === m ? "var(--primary)" : "transparent",
-                color: mode === m ? "#fff" : "var(--muted-foreground)",
-              }}
-            >
-              {m}
-            </button>
-          ))}
+          <button
+            onClick={() => setMode("chat")}
+            className="px-2 py-0.5 rounded text-xs transition-all"
+            style={{
+              background: mode === "chat" ? "var(--primary)" : "transparent",
+              color: mode === "chat" ? "#fff" : "var(--muted-foreground)",
+            }}
+          >
+            Чат
+          </button>
+          <button
+            onClick={() => setMode("review")}
+            className="px-2 py-0.5 rounded text-xs transition-all"
+            style={{
+              background: mode === "review" ? "var(--primary)" : "transparent",
+              color: mode === "review" ? "#fff" : "var(--muted-foreground)",
+            }}
+          >
+            Проверка
+          </button>
         </div>
       </div>
 
@@ -212,7 +217,7 @@ export function AIPanel({ roomId, fileId, language, code, onApply }: Props) {
                   <Bot size={18} style={{ color: "var(--primary)" }} />
                 </div>
                 <p className="text-xs text-center" style={{ color: "var(--muted-foreground)" }}>
-                  Ask me anything about your code
+                  Задайте вопрос о коде
                 </p>
                 <div className="grid grid-cols-2 gap-1.5 w-full">
                   {QUICK_PROMPTS.map((prompt) => (
@@ -289,7 +294,7 @@ export function AIPanel({ roomId, fileId, language, code, onApply }: Props) {
                 className="flex items-center gap-1 text-xs mb-2 hover:opacity-70"
                 style={{ color: "var(--muted-foreground)" }}
               >
-                <RotateCcw size={10} /> Clear chat
+                <RotateCcw size={10} /> Очистить чат
               </button>
             )}
             <div className="flex items-end gap-2 rounded-xl px-3 py-2" style={{ background: "var(--elevated)", border: "1px solid var(--border)" }}>
@@ -300,7 +305,7 @@ export function AIPanel({ roomId, fileId, language, code, onApply }: Props) {
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
                 }}
-                placeholder="Ask AI..."
+                placeholder="Спросить ИИ..."
                 rows={1}
                 className="flex-1 bg-transparent outline-none resize-none text-xs leading-relaxed"
                 style={{ color: "var(--foreground)", maxHeight: "80px" }}
@@ -329,31 +334,31 @@ export function AIPanel({ roomId, fileId, language, code, onApply }: Props) {
                 <div className="flex gap-1">
                   {[0, 1, 2].map((i) => <span key={i} className="typing-dot" style={{ animationDelay: `${i * 0.2}s` }} />)}
                 </div>
-                Reviewing...
+                Анализирую...
               </>
             ) : (
-              <><Sparkles size={12} /> Review Code</>
+              <><Sparkles size={12} /> Проверить код</>
             )}
           </button>
 
           {reviewResult && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
               <div className="rounded-lg p-3" style={{ background: "var(--elevated)", border: "1px solid var(--border)" }}>
-                <p className="text-xs font-medium mb-1" style={{ color: "var(--foreground)" }}>Summary</p>
+                <p className="text-xs font-medium mb-1" style={{ color: "var(--foreground)" }}>Итог</p>
                 <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>{reviewResult.summary}</p>
               </div>
 
               {reviewResult.issues.length > 0 && (
                 <div className="space-y-1.5">
-                  <p className="text-xs font-medium" style={{ color: "var(--foreground)" }}>Issues ({reviewResult.issues.length})</p>
+                  <p className="text-xs font-medium" style={{ color: "var(--foreground)" }}>Проблемы ({reviewResult.issues.length})</p>
                   {reviewResult.issues.map((issue, i) => (
                     <div key={i} className="rounded-lg p-2.5" style={{ background: "var(--elevated)", border: "1px solid var(--border)" }}>
                       <div className="flex items-center gap-1.5 mb-1">
-                        <span className="text-xs px-1.5 rounded capitalize font-medium"
+                        <span className="text-xs px-1.5 rounded font-medium"
                           style={{ background: `${severityColor(issue.severity)}20`, color: severityColor(issue.severity) }}>
-                          {issue.severity}
+                          {severityLabel(issue.severity)}
                         </span>
-                        {issue.line && <span className="text-xs" style={{ color: "var(--muted-foreground)" }}>line {issue.line}</span>}
+                        {issue.line && <span className="text-xs" style={{ color: "var(--muted-foreground)" }}>строка {issue.line}</span>}
                       </div>
                       <p className="text-xs" style={{ color: "var(--foreground)" }}>{issue.message}</p>
                       {issue.suggestion && (
@@ -366,7 +371,7 @@ export function AIPanel({ roomId, fileId, language, code, onApply }: Props) {
 
               {reviewResult.suggestions.length > 0 && (
                 <div className="space-y-1.5">
-                  <p className="text-xs font-medium" style={{ color: "var(--foreground)" }}>Suggestions</p>
+                  <p className="text-xs font-medium" style={{ color: "var(--foreground)" }}>Предложения</p>
                   {reviewResult.suggestions.map((s, i) => (
                     <div key={i} className="flex gap-2 text-xs" style={{ color: "var(--muted-foreground)" }}>
                       <span style={{ color: "var(--primary)" }}>→</span>

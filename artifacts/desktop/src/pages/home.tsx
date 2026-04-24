@@ -70,7 +70,7 @@ export default function Home({ onOpenSettings, hasApiKeys = true }: HomeProps) {
       const data = await api.listRooms(search || undefined);
       setRooms(data);
     } catch {
-      toast.error("Failed to load rooms");
+      toast.error("Не удалось загрузить комнаты");
     } finally {
       setLoading(false);
     }
@@ -86,7 +86,7 @@ export default function Home({ onOpenSettings, hasApiKeys = true }: HomeProps) {
       setUser(u);
       setShowAuth(false);
     } catch {
-      toast.error("Failed to create session");
+      toast.error("Не удалось создать сессию");
     } finally {
       setAuthLoading(false);
     }
@@ -99,7 +99,7 @@ export default function Home({ onOpenSettings, hasApiKeys = true }: HomeProps) {
       const room = await api.getRoomByInviteCode(inviteCode.trim());
       navigate(`/room/${room.id}`);
     } catch {
-      toast.error("Invalid invite code");
+      toast.error("Неверный код приглашения");
     }
   }
 
@@ -110,7 +110,7 @@ export default function Home({ onOpenSettings, hasApiKeys = true }: HomeProps) {
       const room = await api.createRoom(createForm);
       navigate(`/room/${room.id}`);
     } catch {
-      toast.error("Failed to create room");
+      toast.error("Не удалось создать комнату");
       setCreating(false);
     }
   }
@@ -134,24 +134,31 @@ export default function Home({ onOpenSettings, hasApiKeys = true }: HomeProps) {
               </div>
               <span className="text-xl font-semibold" style={{ color: "var(--foreground)" }}>CodeSync</span>
             </div>
-            <p style={{ color: "var(--muted-foreground)" }} className="text-sm">Collaborative IDE — Desktop Edition</p>
+            <p style={{ color: "var(--muted-foreground)" }} className="text-sm">Совместная IDE — Десктоп</p>
           </div>
 
           <div className="rounded-xl p-6 space-y-4" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
             <div className="flex gap-1 p-1 rounded-lg" style={{ background: "var(--elevated)" }}>
-              {(["guest", "join-code"] as const).map((m) => (
-                <button
-                  key={m}
-                  onClick={() => setAuthMode(m)}
-                  className="flex-1 py-1.5 rounded-md text-xs font-medium transition-all"
-                  style={{
-                    background: authMode === m ? "var(--primary)" : "transparent",
-                    color: authMode === m ? "#fff" : "var(--muted-foreground)",
-                  }}
-                >
-                  {m === "guest" ? "Guest Access" : "Join by Code"}
-                </button>
-              ))}
+              <button
+                onClick={() => setAuthMode("guest")}
+                className="flex-1 py-1.5 rounded-md text-xs font-medium transition-all"
+                style={{
+                  background: authMode === "guest" ? "var(--primary)" : "transparent",
+                  color: authMode === "guest" ? "#fff" : "var(--muted-foreground)",
+                }}
+              >
+                Гостевой доступ
+              </button>
+              <button
+                onClick={() => setAuthMode("join-code")}
+                className="flex-1 py-1.5 rounded-md text-xs font-medium transition-all"
+                style={{
+                  background: authMode === "join-code" ? "var(--primary)" : "transparent",
+                  color: authMode === "join-code" ? "#fff" : "var(--muted-foreground)",
+                }}
+              >
+                Войти по коду
+              </button>
             </div>
 
             {authMode === "guest" ? (
@@ -161,7 +168,7 @@ export default function Home({ onOpenSettings, hasApiKeys = true }: HomeProps) {
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleGuestLogin()}
-                  placeholder="Choose a username..."
+                  placeholder="Выберите имя пользователя..."
                   className="w-full px-3 py-2.5 rounded-lg text-sm outline-none transition-all"
                   style={{
                     background: "var(--elevated)",
@@ -175,7 +182,7 @@ export default function Home({ onOpenSettings, hasApiKeys = true }: HomeProps) {
                   className="w-full py-2.5 rounded-lg text-sm font-medium transition-all disabled:opacity-50"
                   style={{ background: "var(--primary)", color: "#fff" }}
                 >
-                  {authLoading ? "Connecting..." : "Continue as Guest"}
+                  {authLoading ? "Подключение..." : "Войти как гость"}
                 </button>
               </div>
             ) : (
@@ -185,7 +192,7 @@ export default function Home({ onOpenSettings, hasApiKeys = true }: HomeProps) {
                   value={inviteCode}
                   onChange={(e) => setInviteCode(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleJoinByCode()}
-                  placeholder="Enter invite code..."
+                  placeholder="Введите код приглашения..."
                   className="w-full px-3 py-2.5 rounded-lg text-sm outline-none"
                   style={{
                     background: "var(--elevated)",
@@ -199,7 +206,7 @@ export default function Home({ onOpenSettings, hasApiKeys = true }: HomeProps) {
                   className="w-full py-2.5 rounded-lg text-sm font-medium disabled:opacity-50"
                   style={{ background: "var(--primary)", color: "#fff" }}
                 >
-                  Join Room
+                  Войти в комнату
                 </button>
               </div>
             )}
@@ -207,9 +214,9 @@ export default function Home({ onOpenSettings, hasApiKeys = true }: HomeProps) {
 
           <div className="mt-6 grid grid-cols-3 gap-3">
             {[
-              { icon: Zap, label: "Real-time sync" },
-              { icon: GitBranch, label: "Multi-file" },
-              { icon: Terminal, label: "Live terminal" },
+              { icon: Zap, label: "Синхронизация" },
+              { icon: GitBranch, label: "Мультифайл" },
+              { icon: Terminal, label: "Терминал" },
             ].map(({ icon: Icon, label }) => (
               <div key={label} className="text-center py-3 rounded-lg" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
                 <Icon size={16} style={{ color: "var(--primary)" }} className="mx-auto mb-1" />
@@ -239,7 +246,7 @@ export default function Home({ onOpenSettings, hasApiKeys = true }: HomeProps) {
             style={{ background: "var(--elevated)", color: "var(--foreground)", border: "1px solid var(--border)" }}
           >
             <LogIn size={12} />
-            Join Room
+            Войти в комнату
           </button>
           <button
             onClick={() => setShowCreate(true)}
@@ -247,7 +254,7 @@ export default function Home({ onOpenSettings, hasApiKeys = true }: HomeProps) {
             style={{ background: "var(--primary)", color: "#fff" }}
           >
             <Plus size={12} />
-            New Room
+            Новая комната
           </button>
           <div className="flex items-center gap-1.5 ml-2 pl-2 border-l" style={{ borderColor: "var(--border)" }}>
             <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold"
@@ -259,7 +266,7 @@ export default function Home({ onOpenSettings, hasApiKeys = true }: HomeProps) {
           {onOpenSettings && (
             <button
               onClick={onOpenSettings}
-              title={isMac ? "Settings (⌘,)" : "Settings (Ctrl+,)"}
+              title={isMac ? "Настройки (⌘,)" : "Настройки (Ctrl+,)"}
               className="flex items-center justify-center w-7 h-7 rounded-lg transition-all hover:opacity-80 relative"
               style={{ background: "var(--elevated)", border: "1px solid var(--border)", color: "var(--muted-foreground)" }}
             >
@@ -284,12 +291,12 @@ export default function Home({ onOpenSettings, hasApiKeys = true }: HomeProps) {
             style={{ color: "var(--foreground)" }}
             onClick={onOpenSettings}
           >
-            No AI API keys configured — AI code review and chat won't work.{" "}
-            <span style={{ color: "var(--primary)", fontWeight: 500 }}>Add keys in Settings.</span>
+            API-ключи ИИ не настроены — проверка кода и чат недоступны.{" "}
+            <span style={{ color: "var(--primary)", fontWeight: 500 }}>Добавить в настройках.</span>
           </span>
           <button
             onClick={dismissBanner}
-            title="Dismiss"
+            title="Скрыть"
             className="flex items-center justify-center w-4 h-4 rounded transition-opacity hover:opacity-60 flex-shrink-0"
             style={{ color: "var(--muted-foreground)" }}
           >
@@ -306,7 +313,7 @@ export default function Home({ onOpenSettings, hasApiKeys = true }: HomeProps) {
             ref={searchRef}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search rooms..."
+            placeholder="Поиск комнат..."
             className="w-full pl-9 pr-4 py-2 rounded-lg text-sm outline-none transition-all"
             style={{
               background: "var(--elevated)",
@@ -329,7 +336,7 @@ export default function Home({ onOpenSettings, hasApiKeys = true }: HomeProps) {
           <div className="flex flex-col items-center justify-center h-full gap-3 py-20">
             <Code2 size={32} style={{ color: "var(--muted-foreground)" }} />
             <p style={{ color: "var(--muted-foreground)" }} className="text-sm">
-              {search ? "No rooms match your search" : "No rooms yet — create one to get started"}
+              {search ? "Нет комнат, соответствующих запросу" : "Нет комнат — создайте первую"}
             </p>
             <button
               onClick={() => setShowCreate(true)}
@@ -337,7 +344,7 @@ export default function Home({ onOpenSettings, hasApiKeys = true }: HomeProps) {
               style={{ background: "var(--primary)", color: "#fff" }}
             >
               <Plus size={14} />
-              Create Room
+              Создать комнату
             </button>
           </div>
         ) : (
@@ -405,19 +412,19 @@ export default function Home({ onOpenSettings, hasApiKeys = true }: HomeProps) {
               className="w-full max-w-sm rounded-xl p-5 space-y-4"
               style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
             >
-              <h2 className="font-semibold" style={{ color: "var(--foreground)" }}>Create Room</h2>
+              <h2 className="font-semibold" style={{ color: "var(--foreground)" }}>Создать комнату</h2>
               <input
                 autoFocus
                 value={createForm.title}
                 onChange={(e) => setCreateForm({ ...createForm, title: e.target.value })}
-                placeholder="Room name..."
+                placeholder="Название комнаты..."
                 className="w-full px-3 py-2 rounded-lg text-sm outline-none"
                 style={{ background: "var(--elevated)", border: "1px solid var(--border)", color: "var(--foreground)" }}
               />
               <input
                 value={createForm.description}
                 onChange={(e) => setCreateForm({ ...createForm, description: e.target.value })}
-                placeholder="Description (optional)..."
+                placeholder="Описание (необязательно)..."
                 className="w-full px-3 py-2 rounded-lg text-sm outline-none"
                 style={{ background: "var(--elevated)", border: "1px solid var(--border)", color: "var(--foreground)" }}
               />
@@ -429,10 +436,10 @@ export default function Home({ onOpenSettings, hasApiKeys = true }: HomeProps) {
                     onChange={(e) => setCreateForm({ ...createForm, isPrivate: e.target.checked })}
                     className="rounded"
                   />
-                  Private room
+                  Приватная
                 </label>
                 <label className="flex items-center gap-2 text-sm ml-auto" style={{ color: "var(--muted-foreground)" }}>
-                  Max users:
+                  Макс. участников:
                   <select
                     value={createForm.maxUsers}
                     onChange={(e) => setCreateForm({ ...createForm, maxUsers: Number(e.target.value) })}
@@ -446,7 +453,7 @@ export default function Home({ onOpenSettings, hasApiKeys = true }: HomeProps) {
               <div className="flex gap-2 pt-1">
                 <button onClick={() => setShowCreate(false)} className="flex-1 py-2 rounded-lg text-sm"
                   style={{ background: "var(--elevated)", color: "var(--foreground)", border: "1px solid var(--border)" }}>
-                  Cancel
+                  Отмена
                 </button>
                 <button
                   onClick={handleCreateRoom}
@@ -454,7 +461,7 @@ export default function Home({ onOpenSettings, hasApiKeys = true }: HomeProps) {
                   className="flex-1 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
                   style={{ background: "var(--primary)", color: "#fff" }}
                 >
-                  {creating ? "Creating..." : "Create"}
+                  {creating ? "Создание..." : "Создать"}
                 </button>
               </div>
             </motion.div>
@@ -476,20 +483,20 @@ export default function Home({ onOpenSettings, hasApiKeys = true }: HomeProps) {
               className="w-full max-w-sm rounded-xl p-5 space-y-4"
               style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
             >
-              <h2 className="font-semibold" style={{ color: "var(--foreground)" }}>Join Room</h2>
+              <h2 className="font-semibold" style={{ color: "var(--foreground)" }}>Войти в комнату</h2>
               <input
                 autoFocus
                 value={inviteCode}
                 onChange={(e) => setInviteCode(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleJoinByCode()}
-                placeholder="Invite code..."
+                placeholder="Код приглашения..."
                 className="w-full px-3 py-2 rounded-lg text-sm outline-none"
                 style={{ background: "var(--elevated)", border: "1px solid var(--border)", color: "var(--foreground)" }}
               />
               <div className="flex gap-2">
                 <button onClick={() => setShowJoin(false)} className="flex-1 py-2 rounded-lg text-sm"
                   style={{ background: "var(--elevated)", color: "var(--foreground)", border: "1px solid var(--border)" }}>
-                  Cancel
+                  Отмена
                 </button>
                 <button
                   onClick={handleJoinByCode}
@@ -497,7 +504,7 @@ export default function Home({ onOpenSettings, hasApiKeys = true }: HomeProps) {
                   className="flex-1 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
                   style={{ background: "var(--primary)", color: "#fff" }}
                 >
-                  Join
+                  Войти
                 </button>
               </div>
             </motion.div>

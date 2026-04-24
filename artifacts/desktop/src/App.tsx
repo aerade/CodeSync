@@ -150,32 +150,32 @@ function App() {
     const cleanupAvailable = api.onUpdateAvailable((data) => {
       const { version, releaseNotes } = data;
       setPendingUpdate(data);
-      toast.loading(`Downloading update v${version}…`, {
+      toast.loading(`Загрузка обновления v${version}…`, {
         id: PROGRESS_TOAST_ID,
-        description: "Starting download…",
+        description: "Начало загрузки…",
         duration: Infinity,
         action: releaseNotes
-          ? { label: "What's new", onClick: () => setReleaseNotesOpen(true) }
+          ? { label: "Что нового", onClick: () => setReleaseNotesOpen(true) }
           : undefined,
       });
     });
 
     const cleanupProgress = api.onUpdateProgress?.((data) => {
       const mbps = (data.bytesPerSecond / 1_048_576).toFixed(1);
-      toast.loading(`Downloading update — ${data.percent}%`, {
+      toast.loading(`Загрузка обновления — ${data.percent}%`, {
         id: PROGRESS_TOAST_ID,
-        description: `${mbps} MB/s`,
+        description: `${mbps} МБ/с`,
         duration: Infinity,
       });
     });
 
     const cleanupDownloaded = api.onUpdateDownloaded?.((data) => {
       toast.dismiss(PROGRESS_TOAST_ID);
-      toast.success(`Update v${data.version} ready to install`, {
-        description: "Restart CodeSync to apply the update.",
+      toast.success(`Обновление v${data.version} готово к установке`, {
+        description: "Перезапустите CodeSync для применения обновления.",
         duration: Infinity,
         action: {
-          label: "Restart now",
+          label: "Перезапустить",
           onClick: () => api.installUpdate?.(),
         },
       });

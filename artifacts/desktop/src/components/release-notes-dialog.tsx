@@ -36,10 +36,10 @@ export function ReleaseNotesDialog({
       >
         <DialogHeader>
           <DialogTitle style={{ color: "var(--foreground)" }}>
-            What's new in v{version}
+            Что нового в v{version}
           </DialogTitle>
           <DialogDescription style={{ color: "var(--muted-foreground)" }}>
-            A new version of CodeSync is downloading in the background.
+            Новая версия CodeSync загружается в фоне.
           </DialogDescription>
         </DialogHeader>
 
@@ -56,7 +56,7 @@ export function ReleaseNotesDialog({
               className="text-sm"
               style={{ color: "var(--muted-foreground)" }}
             >
-              No release notes available for this version.
+              Нет заметок о выпуске для этой версии.
             </p>
           )}
         </ScrollArea>

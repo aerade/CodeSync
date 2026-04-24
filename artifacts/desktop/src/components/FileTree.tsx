@@ -2,7 +2,7 @@ import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ChevronRight, ChevronDown, File, Folder, FolderOpen,
-  Plus, FilePlus, FolderPlus, Trash2, MoreHorizontal,
+  FilePlus, FolderPlus, Trash2, MoreHorizontal,
 } from "lucide-react";
 import type { File as RoomFile } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -149,7 +149,7 @@ export function FileTree({ files, activeFileId, onSelect, onCreate, onDelete }: 
           onBlur={commitCreate}
           className="flex-1 bg-transparent outline-none text-xs border-b"
           style={{ borderColor: "var(--primary)", color: "var(--foreground)" }}
-          placeholder={showNew?.isFolder ? "folder-name" : "file.ext"}
+          placeholder={showNew?.isFolder ? "имя-папки" : "файл.расш"}
         />
       </div>
     );
@@ -158,12 +158,12 @@ export function FileTree({ files, activeFileId, onSelect, onCreate, onDelete }: 
   return (
     <div className="h-full flex flex-col" onClick={() => setContextMenu(null)}>
       <div className="flex items-center justify-between px-3 py-2 shrink-0">
-        <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--muted-foreground)" }}>Explorer</span>
+        <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--muted-foreground)" }}>Проводник</span>
         <div className="flex items-center gap-0.5">
-          <button onClick={() => startCreate(undefined, false)} className="p-1 rounded hover:opacity-70 transition-opacity" style={{ color: "var(--muted-foreground)" }} title="New file">
+          <button onClick={() => startCreate(undefined, false)} className="p-1 rounded hover:opacity-70 transition-opacity" style={{ color: "var(--muted-foreground)" }} title="Новый файл">
             <FilePlus size={12} />
           </button>
-          <button onClick={() => startCreate(undefined, true)} className="p-1 rounded hover:opacity-70 transition-opacity" style={{ color: "var(--muted-foreground)" }} title="New folder">
+          <button onClick={() => startCreate(undefined, true)} className="p-1 rounded hover:opacity-70 transition-opacity" style={{ color: "var(--muted-foreground)" }} title="Новая папка">
             <FolderPlus size={12} />
           </button>
         </div>
@@ -175,7 +175,7 @@ export function FileTree({ files, activeFileId, onSelect, onCreate, onDelete }: 
         {files.length === 0 && !showNew && (
           <div className="flex flex-col items-center justify-center h-32 gap-2">
             <File size={20} style={{ color: "var(--muted-foreground)" }} />
-            <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>No files yet</p>
+            <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>Нет файлов</p>
           </div>
         )}
       </div>
@@ -196,10 +196,10 @@ export function FileTree({ files, activeFileId, onSelect, onCreate, onDelete }: 
                 return (
                   <>
                     <button onClick={() => startCreate(f.id, false)} className="flex items-center gap-2 w-full px-3 py-1.5 text-xs hover:opacity-80" style={{ color: "var(--foreground)" }}>
-                      <FilePlus size={11} /> New File
+                      <FilePlus size={11} /> Новый файл
                     </button>
                     <button onClick={() => startCreate(f.id, true)} className="flex items-center gap-2 w-full px-3 py-1.5 text-xs hover:opacity-80" style={{ color: "var(--foreground)" }}>
-                      <FolderPlus size={11} /> New Folder
+                      <FolderPlus size={11} /> Новая папка
                     </button>
                     <div className="my-1 border-t" style={{ borderColor: "var(--border)" }} />
                   </>
@@ -212,7 +212,7 @@ export function FileTree({ files, activeFileId, onSelect, onCreate, onDelete }: 
               className="flex items-center gap-2 w-full px-3 py-1.5 text-xs hover:opacity-80"
               style={{ color: "#EF4444" }}
             >
-              <Trash2 size={11} /> Delete
+              <Trash2 size={11} /> Удалить
             </button>
           </motion.div>
         )}
