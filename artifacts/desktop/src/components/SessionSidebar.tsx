@@ -26,7 +26,7 @@ export function SessionSidebar({ roomId, members, currentUser, room, onSettingsO
   return (
     <div
       className="flex flex-col items-center py-2.5 gap-0.5 border-r shrink-0"
-      style={{ width: "48px", borderColor: "var(--border)", background: "var(--surface)" }}
+      style={{ width: "56px", borderColor: "var(--border)", background: "var(--surface)" }}
     >
       {/* Logo mark */}
       <div
@@ -60,7 +60,7 @@ export function SessionSidebar({ roomId, members, currentUser, room, onSettingsO
               animate={{ opacity: 1, x: 0, scale: 1 }}
               exit={{ opacity: 0, x: -6, scale: 0.97 }}
               transition={{ duration: 0.14 }}
-              className="fixed left-14 top-[72px] z-50 rounded-xl py-2 min-w-[190px]"
+              className="fixed left-[60px] top-[72px] z-50 rounded-xl py-2 min-w-[190px]"
               style={{
                 background: "var(--elevated)",
                 border: "1px solid var(--border)",
@@ -167,7 +167,7 @@ function SidebarBtn({
   return (
     <button
       onClick={onClick}
-      className="sidebar-tooltip relative w-8 h-8 rounded-lg flex items-center justify-center transition-all"
+      className="sidebar-tooltip relative w-9 h-9 rounded-lg flex items-center justify-center transition-all"
       data-tooltip={label}
       style={{
         background: active ? "var(--primary-muted)" : "transparent",

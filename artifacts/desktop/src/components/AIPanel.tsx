@@ -348,7 +348,6 @@ export function AIPanel({ roomId, fileId, language, code, onApply }: Props) {
                 border: "1px solid var(--border)",
                 transition: "border-color 0.15s ease",
               }}
-              onFocus={() => {}}
             >
               <textarea
                 ref={textareaRef}
