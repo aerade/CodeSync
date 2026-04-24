@@ -110,25 +110,39 @@ SQLite, PTY, окна и системных уведомлений. В Electron 
 
 ## Что сделано
 
-- [x] Каркас Electron (main + preload + меню на русском)
-- [x] IPC: FS, SQLite (better-sqlite3), PTY (node-pty)
-- [x] Vite + React 19 + Tailwind v4 рендерер
-- [x] Дизайн-система Cursor/Antigravity-стиль
+- [x] Каркас Electron (main + preload + нативное меню на русском)
+- [x] IPC: FS (read/write/create/rename/remove/move/pickDir), SQLite
+      (better-sqlite3 для projects/settings), PTY (node-pty с поддержкой
+      нескольких сессий)
+- [x] Vite + React 19 + Tailwind v4 рендерер; продакшен-сборка
+      запекается в Electron
+- [x] Дизайн-система Cursor/Antigravity-стиль (#0F0F11/#18181B/#A395FF,
+      JetBrains Mono, glass blur, focus-ring)
 - [x] TitleBar (нативные кнопки mac/win), ActivityBar, SideBar
-- [x] FileTree (lazy-loading, рекурсивный)
+- [x] FileTree: lazy-loading, drag-and-drop, контекстное меню
+      (создать файл/папку, переименовать, удалить)
 - [x] TabsBar + Monaco EditorPane (тема codesync-dark)
-- [x] BottomPanel (терминал/проблемы/вывод) с xterm.js
-- [x] AIPanel со streaming SSE через api-server
-- [x] CommandPalette (cmdk) с глобальными хоткеями
-- [x] StatusBar
-- [x] Welcome-экран с recents
-- [x] Реакция на нативное меню через IPC
+- [x] **Yjs + y-monaco + y-websocket binding** для облачных файлов —
+      полноценное совместное редактирование с awareness
+- [x] BottomPanel: **многозакладочный терминал** (несколько pty-сессий
+      на проект)
+- [x] **Гостевая авторизация** через `POST /api/auth/guest` с хранением
+      токена в локальной SQLite (`x-guest-token`)
+- [x] **Управление облачными комнатами**: создание, вход по ID,
+      загрузка списка файлов, открытие файла комнаты в редакторе
+- [x] **Панель истории версий**: список снапшотов, восстановление
+      версии через `POST /snapshots/:id/restore`
+- [x] **Сохранение снапшота** облачного файла по ⌘/Ctrl+S
+- [x] AIPanel со streaming SSE через api-server и гостевым токеном
+- [x] CommandPalette (cmdk) — палитра команд
+- [x] **Глобальные хоткеи** через `globalShortcut`:
+      `⌘/Ctrl+Shift+O/N/T/I/K`, активируют окно, даже когда оно не в
+      фокусе
+- [x] **Поиск** по всему проекту (recursive FS, фильтр по содержимому)
+- [x] **Git**-секция: чтение `.git/HEAD` и текущей ветки
+- [x] StatusBar, Welcome-экран с recents
+- [x] Реакция на нативное меню и глобальные хоткеи через IPC
+- [x] ESM/CJS-разделение: `dev` запускает Vite + Electron параллельно
+      через `concurrently`+`wait-on`; `electron:build` пишет
+      `dist-electron/package.json` с `type:commonjs`
 
-## Намеренно вне scope (для будущих задач)
-
-- Полная интеграция Yjs/y-monaco для облачных комнат (есть инфра, но не
-  включена в EditorPane)
-- Поиск по всему проекту
-- Git-интеграция
-- Магазин расширений
-- Auto-update / code-signing / multi-platform CI

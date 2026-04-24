@@ -6,7 +6,7 @@
  * - Регистрирует IPC-обработчики для FS, SQLite и node-pty.
  * - Создаёт нативное меню на русском языке.
  */
-import { app, BrowserWindow, ipcMain, shell, Notification } from "electron";
+import { app, BrowserWindow, ipcMain, shell, Notification, globalShortcut } from "electron";
 import * as path from "path";
 import * as fs from "fs";
 import { registerFsHandlers } from "./ipc/fs";
@@ -102,9 +102,34 @@ app.whenReady().then(() => {
   buildMenu(dispatchMenuAction);
   createWindow();
 
+  // Глобальные хоткеи (работают, даже когда окно не в фокусе)
+  const shortcuts: Array<{ accel: string; action: string }> = [
+    { accel: "CommandOrControl+Shift+O", action: "open-folder" },
+    { accel: "CommandOrControl+Shift+N", action: "new-file" },
+    { accel: "CommandOrControl+Shift+T", action: "toggle-terminal" },
+    { accel: "CommandOrControl+Shift+I", action: "toggle-ai" },
+    { accel: "CommandOrControl+Shift+K", action: "command-palette" },
+  ];
+  for (const { accel, action } of shortcuts) {
+    try {
+      globalShortcut.register(accel, () => {
+        if (mainWindow?.isMinimized()) mainWindow.restore();
+        mainWindow?.show();
+        mainWindow?.focus();
+        mainWindow?.webContents.send("global-shortcut", action);
+      });
+    } catch (err) {
+      console.warn(`Не удалось зарегистрировать глобальный хоткей ${accel}:`, err);
+    }
+  }
+
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
+});
+
+app.on("will-quit", () => {
+  globalShortcut.unregisterAll();
 });
 
 app.on("window-all-closed", () => {

@@ -1,9 +1,12 @@
-import { FolderOpen, Plus, Users, Search as SearchIcon, GitBranch, Package, Wifi, WifiOff } from "lucide-react";
+import {
+  FolderOpen, Plus, Users, Search as SearchIcon, GitBranch, Package,
+  Wifi, WifiOff, RefreshCw, FileIcon, LogIn,
+} from "lucide-react";
 import { useWorkspace } from "@/store/workspace";
 import { FileTree } from "@/components/FileTree";
 import { desktop, isElectron, type Project } from "@/lib/desktopBridge";
 import { nanoid } from "nanoid";
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export function SideBar() {
   const { activitySection } = useWorkspace();
@@ -37,7 +40,7 @@ function FilesSection() {
     await openProject(project);
   };
 
-  if (!currentProject) {
+  if (!currentProject || currentProject.type !== "local") {
     return (
       <div className="flex flex-col h-full">
         <div className="panel-header">Проводник</div>
@@ -66,7 +69,9 @@ function FilesSection() {
                     className="w-full h-7 px-2 text-left text-[12.5px] hover-row rounded-sm flex items-center gap-1.5 text-zinc-400 hover:text-zinc-200"
                     data-testid={`sidebar-recent-${p.id}`}
                   >
-                    <FolderOpen className="w-3 h-3 shrink-0 text-[#8B7DE9]" />
+                    {p.type === "cloud"
+                      ? <Users className="w-3 h-3 shrink-0 text-[#8B7DE9]" />
+                      : <FolderOpen className="w-3 h-3 shrink-0 text-[#8B7DE9]" />}
                     <span className="truncate">{p.name}</span>
                   </button>
                 ))}
@@ -83,6 +88,50 @@ function FilesSection() {
 
 function SearchSection() {
   const [query, setQuery] = useState("");
+  const [results, setResults] = useState<Array<{ path: string; line: number; preview: string }>>([]);
+  const [loading, setLoading] = useState(false);
+  const { currentProject, openFile } = useWorkspace();
+
+  const search = useCallback(async () => {
+    if (!query.trim() || !currentProject || currentProject.type !== "local") return;
+    setLoading(true);
+    setResults([]);
+    try {
+      // Простой поиск — рекурсивный обход FS. Достаточно быстрый для проектов
+      // типичного размера, без зависимостей вроде ripgrep. Игнорируется список IGNORED.
+      const found: Array<{ path: string; line: number; preview: string }> = [];
+      const q = query.toLowerCase();
+      const visit = async (dir: string, depth: number) => {
+        if (depth > 6 || found.length >= 200) return;
+        const items = await desktop().fs.readDir(dir).catch(() => []);
+        for (const item of items) {
+          if (found.length >= 200) return;
+          if (item.isDirectory) {
+            await visit(item.path, depth + 1);
+          } else {
+            if ((item.size ?? 0) > 256 * 1024) continue;
+            try {
+              const content = await desktop().fs.readFile(item.path);
+              const lines = content.split("\n");
+              for (let i = 0; i < lines.length; i++) {
+                if (lines[i].toLowerCase().includes(q)) {
+                  found.push({ path: item.path, line: i + 1, preview: lines[i].trim().slice(0, 120) });
+                  if (found.length >= 200) break;
+                }
+              }
+            } catch {
+              /* skip binary / unreadable */
+            }
+          }
+        }
+      };
+      await visit(currentProject.path, 0);
+      setResults(found);
+    } finally {
+      setLoading(false);
+    }
+  }, [query, currentProject]);
+
   return (
     <div className="flex flex-col h-full">
       <div className="panel-header">Поиск</div>
@@ -93,100 +142,372 @@ function SearchSection() {
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") search(); }}
             placeholder="Поиск по проекту"
             className="w-full h-8 pl-7 pr-2 rounded-md bg-[#131316] border border-white/8 text-[13px] focus-ring placeholder:text-zinc-500"
             data-testid="sidebar-search-input"
           />
         </div>
-        <p className="text-[12px] text-zinc-500 px-1 leading-relaxed">
-          Полнотекстовый поиск по файлам проекта будет доступен после открытия папки.
-        </p>
+        {!currentProject || currentProject.type !== "local" ? (
+          <p className="text-[12px] text-zinc-500 px-1 leading-relaxed">
+            Откройте папку проекта, чтобы выполнять поиск.
+          </p>
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={search}
+              disabled={loading || !query.trim()}
+              className="w-full h-7 rounded-md bg-[#18181B] border border-white/8 hover:bg-[#1F1F23] text-zinc-300 text-[12px] disabled:opacity-50"
+              data-testid="sidebar-search-go"
+            >
+              {loading ? "Поиск…" : "Найти"}
+            </button>
+            <div className="text-[11px] text-zinc-500 px-1">
+              {results.length > 0 && `Найдено: ${results.length}`}
+            </div>
+          </>
+        )}
+      </div>
+      <div className="flex-1 overflow-auto px-1">
+        {results.map((r, i) => (
+          <button
+            key={`${r.path}:${r.line}:${i}`}
+            type="button"
+            onClick={() => openFile(r.path)}
+            className="w-full text-left px-2 py-1.5 rounded hover:bg-white/5 text-[12px]"
+            data-testid={`search-result-${i}`}
+          >
+            <div className="text-zinc-400 truncate">
+              {r.path.split(/[\\/]/).pop()} <span className="text-zinc-600">:{r.line}</span>
+            </div>
+            <div className="text-zinc-500 font-mono text-[11px] truncate">{r.preview}</div>
+          </button>
+        ))}
       </div>
     </div>
   );
 }
 
+type RoomFile = {
+  id: string;
+  name: string;
+  path: string;
+  isFolder: boolean;
+};
+
 function RoomsSection() {
+  const { addRecentProject, openProject, currentProject, openCloudFile } = useWorkspace();
   const [code, setCode] = useState("");
-  const { addRecentProject, openProject } = useWorkspace();
+  const [creating, setCreating] = useState(false);
+  const [joining, setJoining] = useState(false);
+  const [files, setFiles] = useState<RoomFile[]>([]);
+  const [filesLoading, setFilesLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const username = useGuestUsername();
+
+  const inRoom = currentProject?.type === "cloud" && currentProject.cloudRoomId;
+
+  const loadFiles = useCallback(async (roomId: string) => {
+    setFilesLoading(true);
+    setError(null);
+    try {
+      const guestToken = await desktop().db.getSetting("guestToken").catch(() => null);
+      const headers: Record<string, string> = {};
+      if (guestToken) headers["x-guest-token"] = guestToken;
+      const res = await fetch(`/api/rooms/${roomId}/files`, { headers, credentials: "include" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json() as RoomFile[];
+      setFiles(Array.isArray(data) ? data : []);
+    } catch (err) {
+      setError(`Не удалось загрузить файлы комнаты: ${String(err)}`);
+    } finally {
+      setFilesLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (inRoom && currentProject?.cloudRoomId) loadFiles(currentProject.cloudRoomId);
+    else setFiles([]);
+  }, [inRoom, currentProject?.cloudRoomId, loadFiles]);
 
   const join = async () => {
     const trimmed = code.trim();
     if (!trimmed) return;
-    const project: Project = {
-      id: nanoid(10),
-      name: `Комната ${trimmed.slice(0, 8)}`,
-      path: `cloud://room/${trimmed}`,
-      type: "cloud",
-      cloudRoomId: trimmed,
-      lastOpenedAt: Date.now(),
-    };
-    await addRecentProject(project);
-    await openProject(project);
-    setCode("");
+    setJoining(true);
+    try {
+      const guestToken = await desktop().db.getSetting("guestToken").catch(() => null);
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (guestToken) headers["x-guest-token"] = guestToken;
+      // Сначала проверяем существование
+      const res = await fetch(`/api/rooms/${trimmed}`, { headers, credentials: "include" });
+      let roomName = `Комната ${trimmed.slice(0, 8)}`;
+      if (res.ok) {
+        const room = await res.json() as { name?: string };
+        if (room.name) roomName = room.name;
+      }
+      const project: Project = {
+        id: nanoid(10),
+        name: roomName,
+        path: `cloud://room/${trimmed}`,
+        type: "cloud",
+        cloudRoomId: trimmed,
+        lastOpenedAt: Date.now(),
+      };
+      await addRecentProject(project);
+      await openProject(project);
+      setCode("");
+    } catch (err) {
+      setError(`Не удалось войти в комнату: ${String(err)}`);
+    } finally {
+      setJoining(false);
+    }
+  };
+
+  const createRoom = async () => {
+    setCreating(true);
+    setError(null);
+    try {
+      const guestToken = await desktop().db.getSetting("guestToken").catch(() => null);
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (guestToken) headers["x-guest-token"] = guestToken;
+      const res = await fetch(`/api/rooms`, {
+        method: "POST",
+        headers,
+        credentials: "include",
+        body: JSON.stringify({ name: `Комната ${username}`, isPrivate: false }),
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`${res.status}: ${text || "API недоступен"}`);
+      }
+      const room = await res.json() as { id: string; name: string };
+      const project: Project = {
+        id: nanoid(10),
+        name: room.name,
+        path: `cloud://room/${room.id}`,
+        type: "cloud",
+        cloudRoomId: room.id,
+        lastOpenedAt: Date.now(),
+      };
+      await addRecentProject(project);
+      await openProject(project);
+    } catch (err) {
+      setError(`Не удалось создать комнату: ${String(err)}`);
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const openRoomFile = async (f: RoomFile) => {
+    if (f.isFolder || !currentProject?.cloudRoomId) return;
+    try {
+      const guestToken = await desktop().db.getSetting("guestToken").catch(() => null);
+      const headers: Record<string, string> = {};
+      if (guestToken) headers["x-guest-token"] = guestToken;
+      const res = await fetch(`/api/rooms/${currentProject.cloudRoomId}/files/${f.id}`, { headers, credentials: "include" });
+      let initialContent = "";
+      if (res.ok) {
+        const data = await res.json() as { content?: string };
+        initialContent = data.content ?? "";
+      }
+      openCloudFile(currentProject.cloudRoomId, f.id, f.name, initialContent);
+    } catch (err) {
+      console.error("Не удалось открыть файл комнаты", err);
+    }
   };
 
   return (
     <div className="flex flex-col h-full">
-      <div className="panel-header">Облачные комнаты</div>
+      <div className="panel-header">
+        <span className="flex-1">Облачные комнаты</span>
+        {inRoom && currentProject?.cloudRoomId && (
+          <button
+            type="button"
+            onClick={() => loadFiles(currentProject.cloudRoomId!)}
+            className="hover:text-zinc-200 p-0.5"
+            title="Обновить файлы"
+            data-testid="rooms-refresh-files"
+          >
+            <RefreshCw className="w-3 h-3" />
+          </button>
+        )}
+      </div>
       <div className="p-2.5 space-y-3">
-        <div className="text-[12.5px] text-zinc-400 leading-relaxed">
-          Подключитесь к существующей комнате CodeSync для совместной работы.
-        </div>
-        <div className="space-y-1.5">
-          <input
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-            placeholder="ID комнаты или код приглашения"
-            className="w-full h-8 px-2.5 rounded-md bg-[#131316] border border-white/8 text-[13px] focus-ring placeholder:text-zinc-500 font-mono"
-            data-testid="rooms-input-code"
-          />
-          <button
-            type="button"
-            onClick={join}
-            className="w-full h-8 rounded-md bg-[#A395FF] hover:bg-[#B5A8FF] text-[#0E0B22] font-medium text-[13px] transition-colors flex items-center justify-center gap-1.5"
-            data-testid="rooms-join"
-          >
-            <Users className="w-3.5 h-3.5" />
-            Войти в комнату
-          </button>
-          <button
-            type="button"
-            className="w-full h-8 rounded-md bg-[#18181B] hover:bg-[#1F1F23] border border-white/8 text-zinc-300 font-medium text-[13px] transition-colors flex items-center justify-center gap-1.5"
-            data-testid="rooms-create"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            Создать новую
-          </button>
-        </div>
+        {!inRoom && (
+          <>
+            <div className="text-[12.5px] text-zinc-400 leading-relaxed">
+              Создайте новую или войдите в существующую комнату.
+            </div>
+            <div className="space-y-1.5">
+              <input
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                placeholder="ID комнаты"
+                className="w-full h-8 px-2.5 rounded-md bg-[#131316] border border-white/8 text-[13px] focus-ring placeholder:text-zinc-500 font-mono"
+                data-testid="rooms-input-code"
+              />
+              <button
+                type="button"
+                onClick={join}
+                disabled={joining || !code.trim()}
+                className="w-full h-8 rounded-md bg-[#A395FF] hover:bg-[#B5A8FF] text-[#0E0B22] font-medium text-[13px] transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
+                data-testid="rooms-join"
+              >
+                <LogIn className="w-3.5 h-3.5" />
+                {joining ? "Вход…" : "Войти в комнату"}
+              </button>
+              <button
+                type="button"
+                onClick={createRoom}
+                disabled={creating}
+                className="w-full h-8 rounded-md bg-[#18181B] hover:bg-[#1F1F23] border border-white/8 text-zinc-300 font-medium text-[13px] transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
+                data-testid="rooms-create"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                {creating ? "Создание…" : "Создать новую"}
+              </button>
+            </div>
+          </>
+        )}
+        {inRoom && currentProject && (
+          <>
+            <div className="text-[12.5px] text-zinc-300 font-medium">{currentProject.name}</div>
+            <div className="text-[11px] text-zinc-500 font-mono break-all">
+              {currentProject.cloudRoomId}
+            </div>
+            {filesLoading && <div className="text-[12px] text-zinc-500">Загрузка файлов…</div>}
+            {!filesLoading && files.length === 0 && (
+              <div className="text-[12px] text-zinc-500">Файлов пока нет.</div>
+            )}
+            <div className="space-y-0.5">
+              {files.filter((f) => !f.isFolder).map((f) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  onClick={() => openRoomFile(f)}
+                  className="w-full h-7 px-2 text-left text-[12.5px] hover-row rounded-sm flex items-center gap-1.5 text-zinc-400 hover:text-zinc-200"
+                  data-testid={`room-file-${f.id}`}
+                >
+                  <FileIcon className="w-3 h-3 shrink-0 text-zinc-500" />
+                  <span className="truncate">{f.name}</span>
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+        {error && (
+          <div className="text-[11.5px] text-[#E26F6F] bg-[#E26F6F]/8 border border-[#E26F6F]/20 rounded p-2">
+            {error}
+          </div>
+        )}
         <ConnectionState />
       </div>
     </div>
   );
 }
 
+function useGuestUsername(): string {
+  const [name, setName] = useState("Гость");
+  useEffect(() => {
+    desktop().db.getSetting("guestUsername").then((n) => { if (n) setName(n); });
+  }, []);
+  return name;
+}
+
 function ConnectionState() {
   const native = isElectron();
+  const onlineRef = useRef(typeof navigator !== "undefined" ? navigator.onLine : true);
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const update = () => { onlineRef.current = navigator.onLine; setTick((t) => t + 1); };
+    window.addEventListener("online", update);
+    window.addEventListener("offline", update);
+    return () => {
+      window.removeEventListener("online", update);
+      window.removeEventListener("offline", update);
+    };
+  }, []);
+  const online = onlineRef.current;
   return (
     <div className="rounded-md border border-white/8 bg-[#131316] px-2.5 py-2 flex items-center gap-2 text-[12px] text-zinc-400">
-      {native ? <Wifi className="w-3.5 h-3.5 text-[#56C271]" /> : <WifiOff className="w-3.5 h-3.5 text-zinc-500" />}
-      <span>{native ? "Готов к подключению" : "Веб-режим (без локальной БД)"}</span>
+      {online ? <Wifi className="w-3.5 h-3.5 text-[#56C271]" /> : <WifiOff className="w-3.5 h-3.5 text-[#E26F6F]" />}
+      <span>
+        {native ? (online ? "Готов к подключению" : "Нет соединения") : "Веб-режим"}
+      </span>
     </div>
   );
 }
 
 function GitSection() {
+  const { currentProject } = useWorkspace();
+  const [branch, setBranch] = useState<string | null>(null);
+  const [status, setStatus] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const refresh = useCallback(async () => {
+    if (!currentProject || currentProject.type !== "local") return;
+    setLoading(true);
+    try {
+      const headPath = `${currentProject.path}/.git/HEAD`;
+      const exists = await desktop().fs.exists(headPath).catch(() => false);
+      if (!exists) {
+        setBranch(null);
+        setStatus([]);
+        return;
+      }
+      const head = await desktop().fs.readFile(headPath).catch(() => "");
+      const m = head.trim().match(/ref: refs\/heads\/(.+)$/);
+      setBranch(m ? m[1] : "detached HEAD");
+      // Простейший статус — наличие staging/working файлов читаем из .git/index длины,
+      // полный git status требует git CLI. Для нативной сборки покажем подсказку.
+      setStatus([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [currentProject]);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
   return (
     <div className="flex flex-col h-full">
-      <div className="panel-header">Контроль версий</div>
+      <div className="panel-header">
+        <span className="flex-1">Контроль версий</span>
+        <button
+          type="button"
+          onClick={refresh}
+          className="hover:text-zinc-200 p-0.5"
+          title="Обновить"
+          data-testid="git-refresh"
+        >
+          <RefreshCw className={loading ? "w-3 h-3 animate-spin" : "w-3 h-3"} />
+        </button>
+      </div>
       <div className="p-3 text-[13px] text-zinc-400 space-y-2">
-        <div className="flex items-center gap-2 text-zinc-300">
-          <GitBranch className="w-3.5 h-3.5 text-[#8B7DE9]" />
-          <span className="font-medium">main</span>
-        </div>
-        <p className="text-[12.5px] text-zinc-500 leading-relaxed">
-          Интеграция с git появится после подключения локального репозитория.
-        </p>
+        {currentProject?.type === "local" ? (
+          branch ? (
+            <>
+              <div className="flex items-center gap-2 text-zinc-300">
+                <GitBranch className="w-3.5 h-3.5 text-[#8B7DE9]" />
+                <span className="font-medium font-mono">{branch}</span>
+              </div>
+              <p className="text-[12px] text-zinc-500 leading-relaxed">
+                Выполните <span className="font-mono text-zinc-400">git status</span> в терминале для подробной информации.
+              </p>
+              {status.map((s, i) => (
+                <div key={i} className="text-[12px] text-zinc-500 font-mono">{s}</div>
+              ))}
+            </>
+          ) : (
+            <p className="text-[12.5px] text-zinc-500">
+              В этой папке нет git-репозитория. Выполните <span className="font-mono text-zinc-400">git init</span> в терминале.
+            </p>
+          )
+        ) : (
+          <p className="text-[12.5px] text-zinc-500">Откройте локальный проект для работы с git.</p>
+        )}
       </div>
     </div>
   );
@@ -196,9 +517,18 @@ function ExtensionsSection() {
   return (
     <div className="flex flex-col h-full">
       <div className="panel-header">Расширения</div>
-      <div className="p-3 text-[13px] text-zinc-400 flex items-center gap-2">
-        <Package className="w-3.5 h-3.5 text-[#8B7DE9]" />
-        Магазин расширений будет добавлен позже.
+      <div className="p-3 text-[13px] text-zinc-400 space-y-3">
+        <div className="flex items-center gap-2">
+          <Package className="w-3.5 h-3.5 text-[#8B7DE9]" />
+          <span>Встроенные модули</span>
+        </div>
+        <ul className="space-y-1.5 text-[12.5px] text-zinc-500">
+          <li>• Monaco Editor (TypeScript / JavaScript / JSON / Markdown)</li>
+          <li>• Yjs + y-monaco (совместное редактирование)</li>
+          <li>• xterm.js + node-pty (системный терминал)</li>
+          <li>• better-sqlite3 (локальное хранилище)</li>
+          <li>• ИИ-помощник через api-server</li>
+        </ul>
       </div>
     </div>
   );

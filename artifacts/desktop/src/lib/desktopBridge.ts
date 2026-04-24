@@ -57,6 +57,7 @@ export interface DesktopAPI {
     remove(path: string): Promise<void>;
     exists(path: string): Promise<boolean>;
     homeDir(): Promise<string>;
+    move(srcPath: string, destDir: string): Promise<string>;
   };
 
   // Локальная БД (SQLite)
@@ -85,6 +86,7 @@ export interface DesktopAPI {
   };
   notify(title: string, body?: string): void;
   onMenuAction(cb: (action: string) => void): () => void;
+  onGlobalShortcut(cb: (action: string) => void): () => void;
 }
 
 declare global {
@@ -155,6 +157,16 @@ function makeBrowserBridge(): DesktopAPI {
         return ls.getItem(`codesync.desktop.file:${path}`) !== null;
       },
       homeDir: async () => "/home/user",
+      move: async (srcPath, destDir) => {
+        if (!ls) return srcPath;
+        const v = ls.getItem(`codesync.desktop.file:${srcPath}`);
+        if (v === null) return srcPath;
+        const name = srcPath.split(/[\\/]/).pop() ?? srcPath;
+        const newPath = `${destDir.replace(/\/$/, "")}/${name}`;
+        ls.setItem(`codesync.desktop.file:${newPath}`, v);
+        ls.removeItem(`codesync.desktop.file:${srcPath}`);
+        return newPath;
+      },
     },
 
     db: {
@@ -209,6 +221,7 @@ function makeBrowserBridge(): DesktopAPI {
       subscribers.add(cb);
       return () => subscribers.delete(cb);
     },
+    onGlobalShortcut: emptyUnsub,
   };
 }
 

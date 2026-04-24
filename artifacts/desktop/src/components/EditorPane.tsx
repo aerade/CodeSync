@@ -1,12 +1,24 @@
 import Editor, { type OnMount } from "@monaco-editor/react";
 import { useWorkspace } from "@/store/workspace";
 import { registerCustomThemes } from "@/lib/editorThemes";
-import { Sparkles, FolderOpen } from "lucide-react";
-import { useCallback } from "react";
+import { Sparkles, FolderOpen, Users } from "lucide-react";
+import { useCallback, useEffect, useRef } from "react";
+import * as Y from "yjs";
+import { WebsocketProvider } from "y-websocket";
+import { MonacoBinding } from "y-monaco";
+import { desktop } from "@/lib/desktopBridge";
+import type * as monacoEditor from "monaco-editor";
 
 export function EditorPane() {
   const { tabs, activeTabId, updateTabContent, openScratch, currentProject } = useWorkspace();
   const activeTab = tabs.find((t) => t.id === activeTabId);
+
+  // Yjs/y-monaco binding ref для облачных вкладок
+  const yRef = useRef<{
+    doc: Y.Doc;
+    provider: WebsocketProvider;
+    binding: MonacoBinding;
+  } | null>(null);
 
   const handleMount: OnMount = useCallback((editor, monaco) => {
     registerCustomThemes(monaco);
@@ -27,7 +39,73 @@ export function EditorPane() {
       padding: { top: 12, bottom: 12 },
       stickyScroll: { enabled: false },
     });
+
+    // Если активная вкладка — облачный файл, поднимаем Yjs/y-monaco binding
+    if (activeTab?.cloudRoomId && activeTab.cloudFileId) {
+      attachYjs(editor, monaco, activeTab.cloudRoomId, activeTab.cloudFileId);
+    }
+  }, [activeTab?.cloudRoomId, activeTab?.cloudFileId]);
+
+  const attachYjs = useCallback(async (
+    editor: monacoEditor.editor.IStandaloneCodeEditor,
+    _monaco: typeof monacoEditor,
+    roomId: string,
+    fileId: string,
+  ) => {
+    // Очистка старого binding
+    if (yRef.current) {
+      try { yRef.current.binding.destroy(); } catch { /* noop */ }
+      try { yRef.current.provider.destroy(); } catch { /* noop */ }
+      try { yRef.current.doc.destroy(); } catch { /* noop */ }
+      yRef.current = null;
+    }
+
+    const doc = new Y.Doc();
+    const yText = doc.getText("content");
+
+    // WebSocket-адрес зависит от среды: Replit / нативный Electron
+    const isHttps = typeof window !== "undefined" && window.location.protocol === "https:";
+    const wsProtocol = isHttps ? "wss:" : "ws:";
+    const wsHost = typeof window !== "undefined" && window.location.host
+      ? window.location.host
+      : "localhost:5000";
+    const wsBase = `${wsProtocol}//${wsHost}`;
+
+    // Имя пользователя для awareness
+    const username = (await desktop().db.getSetting("guestUsername").catch(() => null)) ?? "Гость";
+
+    const provider = new WebsocketProvider(wsBase, `ws/rooms/${roomId}/files/${fileId}`, doc, {
+      connect: true,
+      params: {},
+    });
+
+    provider.awareness.setLocalStateField("user", {
+      name: username,
+      color: "#A395FF",
+    });
+
+    const model = editor.getModel();
+    if (!model) return;
+
+    // Гарантируем, что модель пуста перед binding (Yjs синхронизирует первоначальный state)
+    model.setValue("");
+
+    const binding = new MonacoBinding(yText, model, new Set([editor]), provider.awareness);
+
+    yRef.current = { doc, provider, binding };
   }, []);
+
+  // При смене активной вкладки заново поднимаем/сбрасываем Yjs
+  useEffect(() => {
+    return () => {
+      if (yRef.current) {
+        try { yRef.current.binding.destroy(); } catch { /* noop */ }
+        try { yRef.current.provider.destroy(); } catch { /* noop */ }
+        try { yRef.current.doc.destroy(); } catch { /* noop */ }
+        yRef.current = null;
+      }
+    };
+  }, [activeTab?.id]);
 
   if (!activeTab) {
     return (
@@ -68,15 +146,24 @@ export function EditorPane() {
   }
 
   return (
-    <div className="flex-1 min-h-0 bg-[#0F0F11]">
+    <div className="flex-1 min-h-0 bg-[#0F0F11] relative">
+      {activeTab.cloudRoomId && (
+        <div className="absolute top-2 right-3 z-10 flex items-center gap-1.5 text-[11px] text-zinc-400 bg-[#18181B]/90 backdrop-blur-sm border border-white/10 rounded-full px-2.5 py-1">
+          <Users className="w-3 h-3 text-[#A395FF]" />
+          <span>Облачная комната · совместное редактирование</span>
+        </div>
+      )}
       <Editor
         key={activeTab.id}
         height="100%"
         width="100%"
         theme="codesync-dark"
         language={activeTab.language}
-        value={activeTab.content}
-        onChange={(v) => updateTabContent(activeTab.id, v ?? "")}
+        value={activeTab.cloudRoomId ? undefined : activeTab.content}
+        defaultValue={activeTab.cloudRoomId ? "" : undefined}
+        onChange={(v) => {
+          if (!activeTab.cloudRoomId) updateTabContent(activeTab.id, v ?? "");
+        }}
         onMount={handleMount}
         loading={
           <div className="h-full grid place-items-center text-[13px] text-zinc-500">

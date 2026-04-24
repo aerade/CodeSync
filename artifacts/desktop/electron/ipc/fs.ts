@@ -74,4 +74,11 @@ export function registerFsHandlers(ipc: IpcMain) {
   });
 
   ipc.handle("fs:homeDir", async () => os.homedir());
+
+  ipc.handle("fs:move", async (_e, srcPath: string, destDir: string) => {
+    const name = path.basename(srcPath);
+    const target = path.join(destDir, name);
+    await fs.rename(srcPath, target);
+    return target;
+  });
 }

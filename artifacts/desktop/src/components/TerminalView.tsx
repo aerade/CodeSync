@@ -4,15 +4,24 @@ import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import "@xterm/xterm/css/xterm.css";
 import { desktop, isElectron } from "@/lib/desktopBridge";
-import { useWorkspace } from "@/store/workspace";
 
-export function TerminalView() {
+type Props = {
+  /** Локальный uuid сессии (используется для key/lifecycle) */
+  sessionLocalId: string;
+  /** Рабочая директория для запуска оболочки */
+  cwd?: string;
+};
+
+/**
+ * Один экземпляр xterm.js, привязанный к одной node-pty сессии.
+ * При unmount убивает PTY и освобождает ресурсы.
+ */
+export function TerminalView({ sessionLocalId, cwd }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<XTerminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
   const sessionRef = useRef<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const { currentProject } = useWorkspace();
   const native = isElectron();
 
   useEffect(() => {
@@ -62,11 +71,7 @@ export function TerminalView() {
     let exitOff: (() => void) | null = null;
 
     if (native) {
-      desktop().pty.create({
-        cwd: currentProject?.type === "local" ? currentProject.path : undefined,
-        cols: term.cols,
-        rows: term.rows,
-      })
+      desktop().pty.create({ cwd, cols: term.cols, rows: term.rows })
         .then((sessionId) => {
           sessionRef.current = sessionId;
           dataOff = desktop().pty.onData((id, data) => {
@@ -86,7 +91,7 @@ export function TerminalView() {
     } else {
       term.write("\x1b[1;38;2;163;149;255mCodeSync Desktop Terminal\x1b[0m\r\n");
       term.write("\x1b[2mВеб-режим: реальный терминал доступен только в нативной сборке Electron.\x1b[0m\r\n");
-      term.write("\x1b[2mЗапустите `pnpm electron:dev` локально для подключения node-pty.\x1b[0m\r\n\r\n");
+      term.write("\x1b[2mЗапустите `pnpm dev` локально для подключения node-pty.\x1b[0m\r\n\r\n");
       term.write("\x1b[38;2;139;125;233m$\x1b[0m ");
       let buf = "";
       term.onData((data) => {
@@ -128,11 +133,11 @@ export function TerminalView() {
       termRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [native, currentProject?.path]);
+  }, [native, sessionLocalId, cwd]);
 
   return (
     <div className="relative h-full w-full bg-[#0F0F11]">
-      <div ref={containerRef} className="absolute inset-0" data-testid="terminal-container" />
+      <div ref={containerRef} className="absolute inset-0" data-testid={`terminal-container-${sessionLocalId}`} />
       {error && (
         <div className="absolute top-2 right-2 text-[12px] text-[#E26F6F] bg-[#18181B] border border-white/10 px-2 py-1 rounded">
           Не удалось запустить терминал: {error}

@@ -15,7 +15,7 @@ paths = [ "/desktop/" ]
 localPort = 21098
 
 [services.development]
-run = "pnpm --filter @workspace/desktop run dev"
+run = "pnpm --filter @workspace/desktop run dev:web"
 
 [services.production]
 build = [ "pnpm", "--filter", "@workspace/desktop", "run", "build" ]

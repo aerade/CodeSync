@@ -7,11 +7,43 @@ import { TabsBar } from "@/components/TabsBar";
 import { EditorPane } from "@/components/EditorPane";
 import { BottomPanel } from "@/components/BottomPanel";
 import { AIPanel } from "@/components/AIPanel";
+import { HistoryPanel } from "@/components/HistoryPanel";
 import { StatusBar } from "@/components/StatusBar";
 import { CommandPalette } from "@/components/CommandPalette";
 import { WelcomeScreen } from "@/components/WelcomeScreen";
 import { useHotkeys } from "@/hooks/useHotkeys";
 import { desktop } from "@/lib/desktopBridge";
+
+/**
+ * Гарантирует наличие гостевой учётной записи: при первом запуске
+ * запрашивает имя пользователя и обменивает его на постоянный
+ * x-guest-token в локальной БД (через API /api/auth/guest).
+ */
+async function ensureGuestAuth(): Promise<void> {
+  try {
+    const existing = await desktop().db.getSetting("guestToken");
+    if (existing) return;
+    const usernameSaved = await desktop().db.getSetting("guestUsername");
+    const username = usernameSaved ?? `Гость_${Math.random().toString(36).slice(2, 7)}`;
+    await desktop().db.setSetting("guestUsername", username);
+
+    const res = await fetch("/api/auth/guest", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username }),
+    });
+    if (!res.ok) {
+      console.warn("Не удалось создать гостевую сессию", res.status);
+      return;
+    }
+    const data = await res.json() as { token?: string };
+    if (data.token) {
+      await desktop().db.setSetting("guestToken", data.token);
+    }
+  } catch (err) {
+    console.warn("Гостевая авторизация недоступна (api-server offline?)", err);
+  }
+}
 
 function Shell() {
   const ws = useWorkspace();
@@ -26,11 +58,12 @@ function Shell() {
     { combo: "mod+i", handler: () => ws.toggleRightPanel() },
     { combo: "mod+`", handler: () => ws.toggleBottomPanel() },
     { combo: "mod+n", handler: () => ws.openScratch("typescript") },
+    { combo: "mod+shift+t", handler: () => ws.newTerminal() },
   ]);
 
-  // Реакция на действия из нативного меню
+  // Реакция на действия из нативного меню и глобальных хоткеев
   useEffect(() => {
-    const off = desktop().onMenuAction((action) => {
+    const handle = (action: string) => {
       switch (action) {
         case "open-folder":
           desktop().fs.pickDirectory().then(async (p) => {
@@ -63,11 +96,23 @@ function Shell() {
           break;
         case "toggle-ai":
           ws.toggleRightPanel();
+          ws.setRightPanelView("ai");
+          break;
+        case "toggle-history":
+          ws.toggleRightPanel();
+          ws.setRightPanelView("history");
           break;
       }
-    });
-    return () => off();
+    };
+    const off1 = desktop().onMenuAction(handle);
+    const off2 = desktop().onGlobalShortcut(handle);
+    return () => { off1(); off2(); };
   }, [ws]);
+
+  // Гостевая авторизация при первом запуске
+  useEffect(() => {
+    ensureGuestAuth();
+  }, []);
 
   return (
     <div className="h-screen w-screen flex flex-col bg-[#0F0F11] overflow-hidden">
@@ -91,7 +136,8 @@ function Shell() {
           {ws.showBottomPanel && <BottomPanel />}
         </main>
 
-        {ws.showRightPanel && <AIPanel />}
+        {ws.showRightPanel && ws.rightPanelView === "ai" && <AIPanel />}
+        {ws.showRightPanel && ws.rightPanelView === "history" && <HistoryPanel />}
       </div>
 
       <StatusBar />

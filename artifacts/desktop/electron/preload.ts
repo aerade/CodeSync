@@ -42,6 +42,7 @@ const api = {
     remove: (path: string) => ipcRenderer.invoke("fs:remove", path),
     exists: (path: string) => ipcRenderer.invoke("fs:exists", path),
     homeDir: () => ipcRenderer.invoke("fs:homeDir"),
+    move: (srcPath: string, destDir: string) => ipcRenderer.invoke("fs:move", srcPath, destDir),
   },
 
   db: {
@@ -67,6 +68,7 @@ const api = {
   },
   notify: (title: string, body?: string) => ipcRenderer.send("system:notify", { title, body }),
   onMenuAction: (cb: (action: string) => void) => on("menu:action", (a) => cb(String(a))),
+  onGlobalShortcut: (cb: (action: string) => void) => on("global-shortcut", (a) => cb(String(a))),
 };
 
 contextBridge.exposeInMainWorld("desktopAPI", api);

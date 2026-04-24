@@ -1,4 +1,4 @@
-import { FileText, Search, Users, GitBranch, Settings, Sparkles, TerminalSquare } from "lucide-react";
+import { FileText, Search, Users, GitBranch, Settings, Sparkles, TerminalSquare, History } from "lucide-react";
 import { useWorkspace } from "@/store/workspace";
 import { cn } from "@/lib/utils";
 
@@ -16,7 +16,6 @@ export function ActivityBar() {
   const {
     activitySection, setActivitySection,
     showLeftSidebar, toggleLeftSidebar,
-    showRightPanel, toggleRightPanel,
     showBottomPanel, toggleBottomPanel,
   } = useWorkspace();
 
@@ -63,18 +62,40 @@ export function ActivityBar() {
       >
         <TerminalSquare className="w-[18px] h-[18px]" strokeWidth={1.6} />
       </button>
-      <button
-        type="button"
-        onClick={toggleRightPanel}
-        className={cn(
-          "w-10 h-10 grid place-items-center rounded-md transition-colors",
-          showRightPanel ? "text-[#A395FF]" : "text-zinc-500 hover:text-zinc-200 hover:bg-white/5",
-        )}
-        title="ИИ-помощник"
-        data-testid="activity-ai"
-      >
-        <Sparkles className="w-[18px] h-[18px]" strokeWidth={1.6} />
-      </button>
+      <RightPanelButton view="history" Icon={History} title="История версий" testId="activity-history" />
+      <RightPanelButton view="ai" Icon={Sparkles} title="ИИ-помощник" testId="activity-ai" />
     </div>
+  );
+}
+
+function RightPanelButton({
+  view, Icon, title, testId,
+}: {
+  view: "ai" | "history";
+  Icon: typeof Sparkles;
+  title: string;
+  testId: string;
+}) {
+  const { showRightPanel, rightPanelView, setRightPanelView, toggleRightPanel } = useWorkspace();
+  const active = showRightPanel && rightPanelView === view;
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        if (active) toggleRightPanel();
+        else {
+          setRightPanelView(view);
+          if (!showRightPanel) toggleRightPanel();
+        }
+      }}
+      className={cn(
+        "w-10 h-10 grid place-items-center rounded-md transition-colors",
+        active ? "text-[#A395FF]" : "text-zinc-500 hover:text-zinc-200 hover:bg-white/5",
+      )}
+      title={title}
+      data-testid={testId}
+    >
+      <Icon className="w-[18px] h-[18px]" strokeWidth={1.6} />
+    </button>
   );
 }
