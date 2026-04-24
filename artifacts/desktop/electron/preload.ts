@@ -24,6 +24,12 @@ contextBridge.exposeInMainWorld("electronAPI", {
     return () => ipcRenderer.removeListener("open-settings", cb);
   },
 
+  // Binary encoding helpers: the sandboxed renderer (nodeIntegration: false,
+  // sandbox: true) has no Node.js Buffer. The preload runs in a privileged
+  // context with full Node.js, so we expose Buffer-based encoding here.
+  binaryToBase64: (bytes: number[]): string => Buffer.from(bytes).toString("base64"),
+  base64ToBinary: (b64: string): number[] => Array.from(Buffer.from(b64, "base64")),
+
   onServerReady: (cb: () => void) => {
     const handler = () => cb();
     ipcRenderer.on("server-ready", handler);

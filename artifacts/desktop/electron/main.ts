@@ -110,10 +110,7 @@ async function startServer(reusePort?: number): Promise<void> {
   const serverPath = getServerPath();
 
   if (!fs.existsSync(serverPath)) {
-    if (!isDev) {
-      dialog.showErrorBox("Server Error", `Embedded server not found at:\n${serverPath}\n\nPlease reinstall CodeSync.`);
-    }
-    return;
+    throw new Error(`Embedded server not found at: ${serverPath}. Please reinstall CodeSync.`);
   }
 
   // Reuse existing port on restart so frontend API_BASE stays valid

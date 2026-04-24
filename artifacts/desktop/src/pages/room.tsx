@@ -16,13 +16,20 @@ import {
 } from "lucide-react";
 
 /**
- * Encode a Uint8Array to base64.
- * The renderer runs in a sandboxed Chromium context (nodeIntegration: false,
- * sandbox: true) so Node's Buffer is unavailable. We iterate byte-by-byte
- * instead of spreading into String.fromCharCode(), which blows the call stack
- * for large Uint8Arrays (>65 000 bytes typical in Yjs state vectors).
+ * Encode a Uint8Array to a base64 string.
+ *
+ * Preferred path (Electron): delegates to the preload's Buffer.from().toString("base64")
+ * helper, exposed via contextBridge. The sandboxed renderer (nodeIntegration: false,
+ * sandbox: true) has no Node.js globals, so we route through the privileged preload.
+ *
+ * Fallback (browser / dev-server): iterates byte-by-byte to avoid the spread-operator
+ * stack overflow that btoa(String.fromCharCode(...arr)) causes on large arrays.
  */
 function uint8ArrayToBase64(arr: Uint8Array): string {
+  if (window.electronAPI?.binaryToBase64) {
+    return window.electronAPI.binaryToBase64(Array.from(arr));
+  }
+  // Browser fallback: loop instead of spread to avoid call-stack limits
   let binary = "";
   const len = arr.byteLength;
   for (let i = 0; i < len; i++) {
