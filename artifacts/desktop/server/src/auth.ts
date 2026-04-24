@@ -1,5 +1,4 @@
 import { Request, Response, NextFunction } from "express";
-import { db } from "./db.js";
 import { sign, verify } from "./jwt.js";
 
 export interface AuthUser {

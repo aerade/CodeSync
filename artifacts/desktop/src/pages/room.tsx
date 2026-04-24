@@ -234,7 +234,12 @@ export default function Room({ onOpenSettings, hasApiKeys = true }: { onOpenSett
           yText.insert(0, value);
         });
         const update = Y.encodeStateAsUpdate(ydoc);
-        const encoded = btoa(String.fromCharCode(...update));
+        // Safe base64 encoding that handles large Uint8Arrays without stack overflow
+        let binary = "";
+        for (let i = 0; i < update.length; i++) {
+          binary += String.fromCharCode(update[i]);
+        }
+        const encoded = btoa(binary);
         ws.send(JSON.stringify({ type: "yjs-update", update: encoded }));
       }
     }

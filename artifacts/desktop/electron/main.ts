@@ -3,7 +3,8 @@ import * as path from "path";
 import * as fs from "fs";
 import * as net from "net";
 import * as crypto from "crypto";
-import { fork, ChildProcess } from "child_process";
+import { spawn } from "child_process";
+import type { ChildProcess } from "child_process";
 
 const isDev = process.env.NODE_ENV === "development" || !app.isPackaged;
 const DEV_URL = "http://localhost:21098/desktop/";
@@ -122,10 +123,13 @@ async function startServer(reusePort?: number): Promise<void> {
     try { serverPort = await getFreePort(); } catch { serverPort = 57321; }
   }
 
+  // Normalize path separators: libsql file: URLs need forward slashes on Windows
+  const dbPath = getDbPath().replace(/\\/g, "/");
+
   const env: NodeJS.ProcessEnv = {
     ...process.env,
     PORT: String(serverPort),
-    DATABASE_URL: getDbPath(),
+    DATABASE_URL: dbPath,
     NODE_ENV: "production",
     JWT_SECRET: appSecrets.jwtSecret,
     INTERNAL_TOKEN: appSecrets.internalToken,
@@ -138,26 +142,34 @@ async function startServer(reusePort?: number): Promise<void> {
   const logPath = path.join(app.getPath("userData"), "server.log");
   const logStream = fs.createWriteStream(logPath, { flags: "a" });
 
-  serverProcess = fork(serverPath, [], {
+  // Use system node.exe (not Electron's bundled Node) so prebuilt native
+  // modules like @libsql/win32-x64-msvc load with the correct ABI.
+  serverProcess = spawn("node", [serverPath], {
     env,
-    stdio: ["ignore", "pipe", "pipe", "ipc"],
+    stdio: ["ignore", "pipe", "pipe"],
     detached: false,
     cwd: serverDir,
   });
 
-  (serverProcess.stdout as NodeJS.ReadableStream | null)?.on("data", (d: Buffer) => {
+  serverProcess.stdout?.on("data", (d: Buffer) => {
     const line = d.toString();
     console.log("[server]", line.trim());
     logStream.write(`[OUT] ${line}`);
   });
-  (serverProcess.stderr as NodeJS.ReadableStream | null)?.on("data", (d: Buffer) => {
+  serverProcess.stderr?.on("data", (d: Buffer) => {
     const line = d.toString();
     console.error("[server-err]", line.trim());
     logStream.write(`[ERR] ${line}`);
   });
 
-  serverProcess.on("error", (err) => {
+  serverProcess.on("error", (err: Error & { code?: string }) => {
     console.error("[electron] Server process error:", err);
+    if (err.code === "ENOENT") {
+      dialog.showErrorBox(
+        "Сервер не запустился",
+        "Node.js не найден в PATH.\n\nУбедитесь, что Node.js установлен и добавлен в PATH,\nзатем перезапустите приложение.",
+      );
+    }
   });
 
   serverProcess.on("exit", (code) => {
@@ -269,7 +281,8 @@ function buildMenu(): void {
         { role: "resetZoom" as const }, { role: "zoomIn" as const }, { role: "zoomOut" as const },
         { type: "separator" as const },
         { role: "togglefullscreen" as const },
-        ...(isDev ? [{ role: "toggleDevTools" as const }] : []),
+        { type: "separator" as const },
+        { role: "toggleDevTools" as const },
       ],
     },
     {
