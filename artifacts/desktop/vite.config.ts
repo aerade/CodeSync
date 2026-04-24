@@ -5,8 +5,10 @@ import path from "path";
 
 // Replit-артефакт всегда передаёт PORT/BASE_PATH через workflow.
 // Для standalone-сборки (electron:dist, локальная разработка вне Replit)
-// нужны разумные значения по умолчанию, иначе vite build падает.
-const rawPort = process.env.PORT ?? "5173";
+// дефолт жёстко согласован с `package.json` (wait-on + Electron VITE_DEV_URL),
+// чтобы `pnpm dev` поднимался без дополнительных переменных окружения.
+const DEFAULT_DESKTOP_PORT = 21098;
+const rawPort = process.env.PORT ?? String(DEFAULT_DESKTOP_PORT);
 const port = Number(rawPort);
 if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);

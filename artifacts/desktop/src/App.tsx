@@ -114,6 +114,19 @@ function Shell() {
           ws.toggleRightPanel();
           ws.setRightPanelView("settings");
           break;
+        case "help-docs":
+          // Открываем документацию во внешнем браузере, чтобы не выходить
+          // за пределы Electron-окна. URL — публичная страница CodeSync.
+          window.open("https://github.com/replit/codesync-desktop#readme", "_blank", "noopener");
+          break;
+        case "help-about":
+          window.alert(
+            "CodeSync Desktop\n" +
+            "Версия 0.1.0 — нативный код-редактор\n" +
+            "Совместная работа через комнаты api-server.\n" +
+            "Local-first SQLite + Yjs CRDT.",
+          );
+          break;
       }
     };
     const off1 = desktop().onMenuAction(handle);

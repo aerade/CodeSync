@@ -1,12 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { Sparkles, Send, X, Bot, User } from "lucide-react";
 import { useWorkspace } from "@/store/workspace";
-import { desktop } from "@/lib/desktopBridge";
+import { apiFetch, getApiBase } from "@/lib/apiConfig";
+import { log } from "@/lib/logger";
 import { cn } from "@/lib/utils";
 
 type ChatMsg = { id: string; role: "user" | "assistant"; content: string; streaming?: boolean };
-
-const API_BASE = "/api";
 
 export function AIPanel() {
   const { tabs, activeTabId, toggleRightPanel, currentProject } = useWorkspace();
@@ -36,15 +35,12 @@ export function AIPanel() {
         ...messages.map((m) => ({ role: m.role, content: m.content })),
         { role: "user" as const, content: text },
       ];
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
-      // Попытка прикрепить гостевой токен, если он сохранён локально.
-      const guestToken = await desktop().db.getSetting("guestToken").catch(() => null);
-      if (guestToken) headers["x-guest-token"] = guestToken;
-
-      const res = await fetch(`${API_BASE}/ai/chat`, {
+      // Идём через apiFetch — он сам читает базовый URL из настроек
+      // (необходимо в packaged Electron, где origin = `file://`),
+      // выставляет `x-guest-token` и опускает `credentials` для cross-origin.
+      const res = await apiFetch(`/api/ai/chat`, {
         method: "POST",
-        headers,
-        credentials: "include",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           messages: messagesPayload,
           roomId: currentProject?.cloudRoomId,
@@ -76,18 +72,20 @@ export function AIPanel() {
                     prev.map((m) => (m.id === aiMsg.id ? { ...m, content: m.content + chunk } : m)),
                   );
                 }
-              } catch {
-                /* ignore */
+              } catch (parseErr) {
+                log.debug("ai", "Не удалось разобрать SSE-строку", parseErr);
               }
             }
           }
         }
       }
     } catch (err) {
+      log.error("ai", "Запрос к /ai/chat провалился", err);
+      const baseHint = getApiBase() || "/api";
       setMessages((prev) =>
         prev.map((m) => (m.id === aiMsg.id ? {
           ...m,
-          content: `Не удалось получить ответ: ${String(err)}. Убедитесь, что API-сервер доступен по ${API_BASE}.`,
+          content: `Не удалось получить ответ: ${String(err)}. Проверьте, что API-сервер доступен по ${baseHint} (можно изменить в Настройках).`,
           streaming: false,
         } : m)),
       );

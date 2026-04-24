@@ -66,8 +66,11 @@ pnpm --filter @workspace/desktop run electron:dev # терминал #2
 pnpm --filter @workspace/desktop run electron:dist
 ```
 
-В режиме разработки Electron подключается к `http://localhost:5173/desktop/`
-(можно переопределить переменной `VITE_DEV_URL`).
+В режиме разработки Vite слушает порт **21098** (этот же порт назначает
+артефакту workflow в Replit; локально он используется как дефолт), и
+Electron подключается к `http://localhost:21098/desktop/`.
+Переопределить можно переменными `PORT` (для Vite) и `VITE_DEV_URL`
+(для Electron) — оба значения должны указывать на один и тот же адрес.
 
 ## Архитектура
 

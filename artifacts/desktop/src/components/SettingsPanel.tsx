@@ -46,7 +46,7 @@ export function SettingsPanel() {
     setPinging(true);
     setPingResult(null);
     try {
-      const res = await apiFetch("/api/health", { method: "GET" });
+      const res = await apiFetch("/api/healthz", { method: "GET" });
       setPingResult(`OK ${res.status}`);
     } catch (err) {
       setPingResult(`Ошибка: ${String(err)}`);
