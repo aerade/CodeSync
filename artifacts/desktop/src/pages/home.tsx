@@ -45,7 +45,14 @@ function RoomCard({ room, onClick, index }: { room: Room; onClick: () => void; i
           </div>
         </div>
         <div className="flex items-center gap-1.5 shrink-0 ml-2">
-          {isRecent && <span className="status-dot-online" />}
+          {isRecent && (
+            <>
+              <span className="status-dot-online" />
+              <span className="text-xs" style={{ color: "#4ade80", opacity: 0.75 }}>
+                Активно
+              </span>
+            </>
+          )}
           <ArrowRight
             size={13}
             className="opacity-0 group-hover:opacity-100 transition-opacity"
