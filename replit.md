@@ -33,28 +33,11 @@ artifacts/
       ws/              # collaborationServer.ts (Yjs + WebSocket)
       app.ts           # Express app + Clerk middleware
       index.ts         # HTTP + WebSocket server setup
-  codesync/            # React+Vite web frontend (ORIGINAL, unchanged)
+  codesync/            # React+Vite web frontend
     src/
       pages/           # home.tsx, dashboard.tsx, room.tsx, not-found.tsx
       components/      # FileTree, AIPanel, Terminal, SessionSidebar, ParticleBackground
       hooks/           # useCurrentUser.ts
-  desktop/             # NEW: Standalone Desktop app — Electron + embedded SQLite server
-    src/
-      pages/           # home.tsx (auth + room list), room.tsx (3-col IDE layout), settings.tsx
-      components/      # FileTree.tsx, AIPanel.tsx, SessionSidebar.tsx, TerminalPanel.tsx
-      lib/             # api.ts (reads __ELECTRON_API_URL__ injected by preload), utils.ts
-    electron/          # main.ts (spawns embedded server, safeStorage), preload.ts (IPC bridge)
-    server/            # SELF-CONTAINED embedded API server (no PostgreSQL, no Clerk)
-      src/
-        index.ts       # Express + WebSocket, calls initDb + setupSchema on startup
-        db.ts          # @libsql/client SQLite setup + schema creation
-        auth.ts        # HMAC JWT middleware, guest tokens
-        routes/        # auth.ts, rooms.ts, files.ts, execute.ts, ai.ts
-        ws/collab.ts   # Yjs WebSocket collaboration
-      build.mjs        # esbuild → dist/server.cjs (bundles everything, externalizes @libsql native)
-      dist/            # Built output: server.cjs + node_modules/@libsql/linux-x64-gnu/
-    electron-builder.yml: extraResources: server/dist/ → resources/server/
-    Design tokens: bg #0C0C0E, surface #16161A, accent #7C6FF7 (purple), font: Geist
 lib/
   db/                  # Drizzle ORM + PostgreSQL schema
     src/schema/        # users, rooms, roomMembers, files, events, yjsSnapshots, fileSnapshots
@@ -70,18 +53,14 @@ lib/
 - **Monaco Editor**: VS-Code-like editor with Deep Focus dark theme, autocomplete/suggestions for JS/TS/HTML
 - **AI Panel**: Three tabs — code review (SSE), chat (SSE with tool-calling for file create/edit/delete), and History (file snapshots)
 - **File History & Revert**: `file_snapshots` table stores content snapshots on every save or AI edit; History tab shows timeline with author/timestamp, inline preview, and one-click Restore
-- **AI Diff Display**: When AI edits a file via chat, Monaco editor highlights changed lines with green decorations (`ai-diff-added` CSS class) so users can see what changed
+- **AI Diff Display**: When AI edits a file via chat, Monaco editor highlights changed lines with green decorations (`ai-diff-added` CSS class)
 - **Code execution**: Local execution (child_process) with auth + rate limiting, supports JS/TS/C/C++/Bash/HTML preview
 - **File tree**: Create/delete files and folders, drag-and-drop to move, context menus, Ctrl+click multi-select with bulk delete
-- **Guest mode**: Join rooms without account; can't create rooms. Proper error messages for restricted actions
-- **Session sidebar**: Online collaborators (240px panel), real-time room chat via WS `type:"chat"` with file attachment (any type up to 5MB), message actions (copy/reply/edit/delete), reply-with-quote, inline edit mode, file download button, animated message bubbles. No emoji/reactions.
-- **Room settings**: Left sidebar navigation (7 sections: Внешний вид, Редактор, Присутствие, Звук, Комната, Уведомления, Горячие клавиши). Owner "Комната" section: editable name/description, privacy toggle, maxUsers slider (1-5), password field. `rooms` table has `password` nullable text column.
-- **AI chat plan mode**: Toggle "Plan" button to make AI plan tasks step-by-step before executing; file attachment for AI (AI reads text/code files sent by user); copy button on all messages
-- **VS Code-style file icons**: Unique icons for JS, JSX, TS, TSX, Python, HTML, CSS, SCSS, JSON, Markdown, Go, Rust, Java, C/C++, C#, Ruby, PHP, Shell, SQL, YAML, Vue, Svelte, Dockerfile, Image
-- **WS chat events**: Server broadcasts `type:"chat"` with `messageId`, `fileAttachment`, `replyTo`; handles `chat_edit` and `chat_delete` broadcast to all room participants
-- **AI Chat panel**: Draggable + resizable (SE corner), AbortController streaming, paper-plane send button, no hint text, image folder auto-creation
-- **Selection menu scroll dismiss**: hides when user scrolls >150px from where selection was made
-- **Room management**: Duplicate room name prevention (409 error), private rooms visible to members on dashboard
+- **Guest mode**: Join rooms without account; can't create rooms
+- **Session sidebar**: Online collaborators, real-time room chat via WS `type:"chat"` with file attachment, reply-with-quote, inline edit mode
+- **Room settings**: Left sidebar navigation (7 sections). Owner section: editable name/description, privacy toggle, maxUsers slider, password field
+- **AI chat plan mode**: Toggle "Plan" button; file attachment for AI; copy button on all messages
+- **VS Code-style file icons**: Unique icons for 20+ languages
 
 ## Color Palette "Deep Focus"
 
