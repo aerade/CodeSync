@@ -308,7 +308,7 @@ function MiniCodeLines({ seed }: { seed: string }) {
 
 function RoomCard({ room, onOpen, onDelete }: { room: Room; onOpen: () => void; onDelete: () => void }) {
   const accent = roomAccent(room.id);
-  const isActive = room.memberCount > 0;
+  const isRecent = Date.now() - new Date(room.updatedAt).getTime() < 5 * 60 * 1000;
   const isLocked = room.isPrivate && room.isJoined === false;
 
   return (
@@ -318,6 +318,7 @@ function RoomCard({ room, onOpen, onDelete }: { room: Room; onOpen: () => void; 
       exit={{ opacity: 0, scale: 0.95 }}
       whileHover="hover"
       data-testid={`card-room-${room.id}`}
+      className="room-card"
       style={{
         position: "relative",
         borderRadius: 16,
@@ -384,15 +385,9 @@ function RoomCard({ room, onOpen, onDelete }: { room: Room; onOpen: () => void; 
                   Приват
                 </span>
               )}
-              {isActive && (
+              {isRecent && (
                 <span style={{ display: "flex", alignItems: "center", gap: 3 }}>
-                  <span style={{
-                    width: 5, height: 5, borderRadius: "50%",
-                    background: "#3FB950",
-                    boxShadow: "0 0 6px #3FB950",
-                    display: "inline-block",
-                    animation: "roomPulse 2s ease-in-out infinite",
-                  }} />
+                  <span className="room-card-active-dot" />
                 </span>
               )}
             </div>
