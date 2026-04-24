@@ -225,7 +225,7 @@ export default function SettingsDialog({ open, onOpenChange }: SettingsDialogPro
                             </span>
                           ) : (
                             <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium bg-green-500/15 text-green-400 border border-green-500/25">
-                              Видимо
+                              Отображается
                             </span>
                           )}
                         </div>

@@ -1,8 +1,9 @@
-import { Switch, Route, Router as WouterRouter } from "wouter";
+import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster, toast } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { ReleaseNotesDialog } from "@/components/release-notes-dialog";
 import { toSummary } from "@/lib/release-notes";
 import { LoadingScreen } from "@/components/LoadingScreen";
@@ -22,16 +23,28 @@ const queryClient = new QueryClient({
 });
 
 function Router({ onOpenSettings, hasApiKeys }: { onOpenSettings: () => void; hasApiKeys: boolean }) {
+  const [location] = useLocation();
   return (
-    <Switch>
-      <Route path="/">
-        {() => <Home onOpenSettings={onOpenSettings} hasApiKeys={hasApiKeys} />}
-      </Route>
-      <Route path="/room/:roomId">
-        {() => <Room onOpenSettings={onOpenSettings} hasApiKeys={hasApiKeys} />}
-      </Route>
-      <Route component={NotFound} />
-    </Switch>
+    <AnimatePresence mode="wait" initial={false}>
+      <motion.div
+        key={location}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.12, ease: "easeOut" }}
+        style={{ height: "100%" }}
+      >
+        <Switch>
+          <Route path="/">
+            {() => <Home onOpenSettings={onOpenSettings} hasApiKeys={hasApiKeys} />}
+          </Route>
+          <Route path="/room/:roomId">
+            {() => <Room onOpenSettings={onOpenSettings} hasApiKeys={hasApiKeys} />}
+          </Route>
+          <Route component={NotFound} />
+        </Switch>
+      </motion.div>
+    </AnimatePresence>
   );
 }
 
