@@ -19,7 +19,8 @@ if (!isElectronBuild && (Number.isNaN(port) || port <= 0)) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-const basePath = process.env.BASE_PATH ?? "/desktop/";
+// In Electron builds, assets must use relative paths (file:// protocol has no server root).
+const basePath = isElectronBuild ? "./" : (process.env.BASE_PATH ?? "/desktop/");
 
 export default defineConfig({
   base: basePath,
