@@ -57,15 +57,19 @@ dmg:
 
 # Windows
 win:
+  sign: null
+  signingHashAlgorithms: null
   target:
-    - target: zip
+    - target: nsis
       arch: [x64]
 
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
+  installerIcon: build/icon.ico
   createDesktopShortcut: true
   createStartMenuShortcut: true
+  shortcutName: CodeSync
 
 # Linux
 linux:

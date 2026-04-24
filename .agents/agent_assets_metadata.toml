@@ -6,3 +6,9 @@ id = "3ZWCQcfLOGCDrt7QVHi-g"
 uri = "file://SETUP.md"
 type = "text"
 title = "CodeSync — Документация по запуску"
+
+[[outputs]]
+id = "eiSBJCMzYs_J3V6osBK6Y"
+uri = "file://artifacts/desktop/dist/electron/CodeSync-1.0.0-win-portable.zip"
+type = "unspecified"
+title = "CodeSync Desktop 1.0.0 — Windows (portable)"
