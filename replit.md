@@ -38,6 +38,16 @@ artifacts/
       pages/           # home.tsx, dashboard.tsx, room.tsx, not-found.tsx
       components/      # FileTree, AIPanel, Terminal, SessionSidebar, ParticleBackground
       hooks/           # useCurrentUser.ts
+  desktop/             # CodeSync Desktop — нативное Electron-приложение (Russian UI)
+    src/               # React 19 renderer (работает в Electron И в Replit web preview через bridge)
+      App.tsx          # каркас IDE (TitleBar/ActivityBar/SideBar/Editor/BottomPanel/AIPanel)
+      components/      # 12 компонентов в стиле Cursor/Antigravity
+      store/workspace.tsx  # глобальный контекст (проекты, табы, видимость панелей)
+      lib/desktopBridge.ts # абстракция window.desktopAPI / browser fallback (localStorage)
+      lib/editorThemes.ts  # тема Monaco "codesync-dark"
+      hooks/useHotkeys.ts  # Ctrl+K палитра, Ctrl+S сохранение, Ctrl+B/I/`/N
+    electron/          # main + preload + IPC (FS, SQLite, node-pty), русское меню
+    electron-builder.yml # сборка mac/win/linux установщиков
 lib/
   db/                  # Drizzle ORM + PostgreSQL schema
     src/schema/        # users, rooms, roomMembers, files, events, yjsSnapshots, fileSnapshots

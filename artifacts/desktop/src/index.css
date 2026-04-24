@@ -1,0 +1,207 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ============================================================
+   ДИЗАЙН-ТОКЕНЫ — Cursor / Claude Code / Antigravity стиль
+   ============================================================ */
+:root {
+  /* База: глубокий чёрно-серый */
+  --bg-app: #0F0F11;
+  --bg-surface: #18181B;
+  --bg-surface-2: #1F1F23;
+  --bg-elevated: #25252B;
+  --bg-input: #131316;
+
+  /* Бордеры */
+  --border-soft: rgba(255, 255, 255, 0.06);
+  --border-default: rgba(255, 255, 255, 0.10);
+  --border-strong: rgba(255, 255, 255, 0.16);
+
+  /* Текст */
+  --fg-default: #E4E4E7;
+  --fg-muted: #A1A1AA;
+  --fg-subtle: #71717A;
+  --fg-faint: #52525B;
+
+  /* Акценты — приглушённый фиолет */
+  --accent: #8B7DE9;
+  --accent-strong: #A395FF;
+  --accent-soft: rgba(139, 125, 233, 0.14);
+  --accent-glow: rgba(139, 125, 233, 0.28);
+
+  /* Семантические */
+  --ok: #56C271;
+  --warn: #E0B655;
+  --err: #E26F6F;
+
+  /* Стекло */
+  --glass-bg: rgba(255, 255, 255, 0.03);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-shadow: 0 12px 48px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+
+  --radius: 0.5rem;
+  --radius-sm: 0.35rem;
+  --radius-lg: 0.75rem;
+}
+
+@theme inline {
+  --color-background: var(--bg-app);
+  --color-foreground: var(--fg-default);
+  --color-card: var(--bg-surface);
+  --color-card-foreground: var(--fg-default);
+  --color-popover: var(--bg-elevated);
+  --color-popover-foreground: var(--fg-default);
+  --color-primary: var(--accent);
+  --color-primary-foreground: #0E0B22;
+  --color-secondary: var(--bg-surface-2);
+  --color-secondary-foreground: var(--fg-default);
+  --color-muted: var(--bg-surface-2);
+  --color-muted-foreground: var(--fg-muted);
+  --color-accent: var(--bg-elevated);
+  --color-accent-foreground: var(--fg-default);
+  --color-destructive: var(--err);
+  --color-destructive-foreground: #FFFFFF;
+  --color-border: var(--border-default);
+  --color-input: var(--border-default);
+  --color-ring: var(--accent);
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', ui-monospace, monospace;
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+/* ============================================================
+   БАЗА
+   ============================================================ */
+@layer base {
+  * {
+    border-color: var(--border-soft);
+    box-sizing: border-box;
+  }
+  html, body, #root {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+  }
+  body {
+    background: var(--bg-app);
+    color: var(--fg-default);
+    font-family: var(--font-sans);
+    font-feature-settings: 'cv02', 'cv03', 'cv11';
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+  }
+  code, pre, .monaco-editor, [data-mono] {
+    font-family: var(--font-mono);
+    font-variant-ligatures: contextual;
+  }
+
+  /* Тонкие нативные скроллбары */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.08);
+    border: 2px solid transparent;
+    background-clip: content-box;
+    border-radius: 6px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.18);
+    background-clip: content-box;
+  }
+
+  /* Selection */
+  ::selection {
+    background: var(--accent-soft);
+    color: var(--fg-default);
+  }
+}
+
+/* ============================================================
+   УТИЛИТЫ
+   ============================================================ */
+@layer utilities {
+  .glass {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    backdrop-filter: blur(14px) saturate(140%);
+    -webkit-backdrop-filter: blur(14px) saturate(140%);
+    box-shadow: var(--glass-shadow);
+  }
+  .surface {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-default);
+  }
+  .surface-2 {
+    background: var(--bg-surface-2);
+    border: 1px solid var(--border-default);
+  }
+  .hover-row {
+    transition: background-color 120ms ease;
+  }
+  .hover-row:hover {
+    background-color: rgba(255, 255, 255, 0.04);
+  }
+  .hover-row.is-active {
+    background-color: rgba(139, 125, 233, 0.10);
+    color: var(--fg-default);
+  }
+  .titlebar-drag { -webkit-app-region: drag; }
+  .titlebar-no-drag { -webkit-app-region: no-drag; }
+
+  .ring-accent { box-shadow: 0 0 0 1px var(--accent), 0 0 24px var(--accent-glow); }
+
+  .focus-ring:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 1px var(--accent-strong), 0 0 0 3px rgba(139, 125, 233, 0.18);
+  }
+
+  .panel-header {
+    height: 30px;
+    display: flex;
+    align-items: center;
+    padding: 0 10px;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--fg-subtle);
+    border-bottom: 1px solid var(--border-soft);
+    background: var(--bg-surface);
+    user-select: none;
+  }
+
+  .kbd {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    padding: 1px 5px;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    font-weight: 500;
+    color: var(--fg-muted);
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-default);
+    border-radius: 4px;
+    line-height: 1.2;
+  }
+}
+
+/* ============================================================
+   xterm.js
+   ============================================================ */
+.xterm {
+  padding: 8px 12px;
+  height: 100%;
+}
+.xterm-viewport {
+  background: transparent !important;
+}

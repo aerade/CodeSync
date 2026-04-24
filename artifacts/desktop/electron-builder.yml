@@ -1,0 +1,41 @@
+appId: com.codesync.desktop
+productName: CodeSync Desktop
+artifactName: ${productName}-${version}-${os}-${arch}.${ext}
+copyright: Copyright © 2026 CodeSync
+
+directories:
+  output: release
+  buildResources: build
+
+files:
+  - dist-electron/**/*
+  - dist/public/**/*
+  - package.json
+  - "!node_modules/**/*.{md,markdown,ts,map}"
+  - "!**/{.DS_Store,.git,.github,.gitignore,.vscode,test,tests,__tests__}"
+
+asar: true
+asarUnpack:
+  - "**/node_modules/better-sqlite3/**/*"
+  - "**/node_modules/node-pty/**/*"
+
+mac:
+  category: public.app-category.developer-tools
+  target:
+    - target: dmg
+      arch: [arm64, x64]
+  hardenedRuntime: false
+  gatekeeperAssess: false
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+
+linux:
+  target:
+    - target: AppImage
+      arch: [x64]
+    - target: deb
+      arch: [x64]
+  category: Development
