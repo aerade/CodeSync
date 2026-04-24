@@ -1,10 +1,12 @@
 import {
   FolderOpen, Plus, Users, Search as SearchIcon, GitBranch, Package,
-  Wifi, WifiOff, RefreshCw, FileIcon, LogIn,
+  Wifi, WifiOff, RefreshCw, FileIcon, LogIn, Hash,
 } from "lucide-react";
 import { useWorkspace } from "@/store/workspace";
 import { FileTree } from "@/components/FileTree";
 import { desktop, isElectron, type Project } from "@/lib/desktopBridge";
+import { apiFetch } from "@/lib/apiConfig";
+import { log } from "@/lib/logger";
 import { nanoid } from "nanoid";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -197,7 +199,7 @@ type RoomFile = {
 };
 
 function RoomsSection() {
-  const { addRecentProject, openProject, currentProject, openCloudFile } = useWorkspace();
+  const { addRecentProject, openProject, currentProject, openCloudFile, recentRooms, rememberRoom } = useWorkspace();
   const [code, setCode] = useState("");
   const [creating, setCreating] = useState(false);
   const [joining, setJoining] = useState(false);
@@ -212,14 +214,12 @@ function RoomsSection() {
     setFilesLoading(true);
     setError(null);
     try {
-      const guestToken = await desktop().db.getSetting("guestToken").catch(() => null);
-      const headers: Record<string, string> = {};
-      if (guestToken) headers["x-guest-token"] = guestToken;
-      const res = await fetch(`/api/rooms/${roomId}/files`, { headers, credentials: "include" });
+      const res = await apiFetch(`/api/rooms/${roomId}/files`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json() as RoomFile[];
       setFiles(Array.isArray(data) ? data : []);
     } catch (err) {
+      log.error("rooms", `Не удалось загрузить файлы комнаты ${roomId}`, err);
       setError(`Не удалось загрузить файлы комнаты: ${String(err)}`);
     } finally {
       setFilesLoading(false);
@@ -231,33 +231,52 @@ function RoomsSection() {
     else setFiles([]);
   }, [inRoom, currentProject?.cloudRoomId, loadFiles]);
 
+  /**
+   * Вход в комнату по invite-коду или прямому room id.
+   * Сначала пробуем `GET /api/rooms/join/:code` (короткий код), при 404 —
+   * fallback к `GET /api/rooms/:id` (UUID комнаты).
+   */
   const join = async () => {
     const trimmed = code.trim();
     if (!trimmed) return;
     setJoining(true);
+    setError(null);
     try {
-      const guestToken = await desktop().db.getSetting("guestToken").catch(() => null);
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (guestToken) headers["x-guest-token"] = guestToken;
-      // Сначала проверяем существование
-      const res = await fetch(`/api/rooms/${trimmed}`, { headers, credentials: "include" });
-      let roomName = `Комната ${trimmed.slice(0, 8)}`;
-      if (res.ok) {
-        const room = await res.json() as { name?: string };
-        if (room.name) roomName = room.name;
+      let roomId = trimmed;
+      let roomTitle = `Комната ${trimmed.slice(0, 8)}`;
+      let inviteCode: string | null = null;
+      // Попытка №1 — invite-код
+      const inviteRes = await apiFetch(`/api/rooms/join/${encodeURIComponent(trimmed.toUpperCase())}`);
+      if (inviteRes.ok) {
+        const room = await inviteRes.json() as { id: string; title?: string; inviteCode?: string };
+        roomId = room.id;
+        if (room.title) roomTitle = room.title;
+        inviteCode = room.inviteCode ?? trimmed.toUpperCase();
+      } else {
+        // Попытка №2 — UUID комнаты
+        const direct = await apiFetch(`/api/rooms/${trimmed}`);
+        if (direct.ok) {
+          const room = await direct.json() as { title?: string; inviteCode?: string };
+          if (room.title) roomTitle = room.title;
+          inviteCode = room.inviteCode ?? null;
+        } else {
+          throw new Error(`Комната не найдена (HTTP ${inviteRes.status} / ${direct.status})`);
+        }
       }
       const project: Project = {
         id: nanoid(10),
-        name: roomName,
-        path: `cloud://room/${trimmed}`,
+        name: roomTitle,
+        path: `cloud://room/${roomId}`,
         type: "cloud",
-        cloudRoomId: trimmed,
+        cloudRoomId: roomId,
         lastOpenedAt: Date.now(),
       };
       await addRecentProject(project);
+      await rememberRoom({ id: roomId, inviteCode, title: roomTitle, lastJoinedAt: Date.now() });
       await openProject(project);
       setCode("");
     } catch (err) {
+      log.error("rooms", "join", err);
       setError(`Не удалось войти в комнату: ${String(err)}`);
     } finally {
       setJoining(false);
@@ -268,31 +287,34 @@ function RoomsSection() {
     setCreating(true);
     setError(null);
     try {
-      const guestToken = await desktop().db.getSetting("guestToken").catch(() => null);
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (guestToken) headers["x-guest-token"] = guestToken;
-      const res = await fetch(`/api/rooms`, {
+      const res = await apiFetch(`/api/rooms`, {
         method: "POST",
-        headers,
-        credentials: "include",
-        body: JSON.stringify({ name: `Комната ${username}`, isPrivate: false }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: `Комната ${username}`, isPrivate: false }),
       });
       if (!res.ok) {
         const text = await res.text();
         throw new Error(`${res.status}: ${text || "API недоступен"}`);
       }
-      const room = await res.json() as { id: string; name: string };
+      const room = await res.json() as { id: string; title: string; inviteCode?: string };
       const project: Project = {
         id: nanoid(10),
-        name: room.name,
+        name: room.title,
         path: `cloud://room/${room.id}`,
         type: "cloud",
         cloudRoomId: room.id,
         lastOpenedAt: Date.now(),
       };
       await addRecentProject(project);
+      await rememberRoom({
+        id: room.id,
+        inviteCode: room.inviteCode ?? null,
+        title: room.title,
+        lastJoinedAt: Date.now(),
+      });
       await openProject(project);
     } catch (err) {
+      log.error("rooms", "create", err);
       setError(`Не удалось создать комнату: ${String(err)}`);
     } finally {
       setCreating(false);
@@ -302,10 +324,7 @@ function RoomsSection() {
   const openRoomFile = async (f: RoomFile) => {
     if (f.isFolder || !currentProject?.cloudRoomId) return;
     try {
-      const guestToken = await desktop().db.getSetting("guestToken").catch(() => null);
-      const headers: Record<string, string> = {};
-      if (guestToken) headers["x-guest-token"] = guestToken;
-      const res = await fetch(`/api/rooms/${currentProject.cloudRoomId}/files/${f.id}`, { headers, credentials: "include" });
+      const res = await apiFetch(`/api/rooms/${currentProject.cloudRoomId}/files/${f.id}`);
       let initialContent = "";
       if (res.ok) {
         const data = await res.json() as { content?: string };
@@ -313,7 +332,7 @@ function RoomsSection() {
       }
       openCloudFile(currentProject.cloudRoomId, f.id, f.name, initialContent);
     } catch (err) {
-      console.error("Не удалось открыть файл комнаты", err);
+      log.error("rooms", `Не удалось открыть файл комнаты ${f.id}`, err);
     }
   };
 
@@ -337,16 +356,19 @@ function RoomsSection() {
         {!inRoom && (
           <>
             <div className="text-[12.5px] text-zinc-400 leading-relaxed">
-              Создайте новую или войдите в существующую комнату.
+              Создайте новую или войдите по invite-коду (8 символов) либо ID комнаты.
             </div>
             <div className="space-y-1.5">
-              <input
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-                placeholder="ID комнаты"
-                className="w-full h-8 px-2.5 rounded-md bg-[#131316] border border-white/8 text-[13px] focus-ring placeholder:text-zinc-500 font-mono"
-                data-testid="rooms-input-code"
-              />
+              <div className="relative">
+                <Hash className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-zinc-500" />
+                <input
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                  placeholder="Invite-код или ID"
+                  className="w-full h-8 pl-7 pr-2 rounded-md bg-[#131316] border border-white/8 text-[13px] focus-ring placeholder:text-zinc-500 font-mono uppercase"
+                  data-testid="rooms-input-code"
+                />
+              </div>
               <button
                 type="button"
                 onClick={join}
@@ -368,6 +390,26 @@ function RoomsSection() {
                 {creating ? "Создание…" : "Создать новую"}
               </button>
             </div>
+            {recentRooms.length > 0 && (
+              <div className="space-y-1 pt-2 border-t border-white/5">
+                <div className="text-[11px] uppercase tracking-wider text-zinc-500 mb-1">Недавние</div>
+                {recentRooms.slice(0, 6).map((r) => (
+                  <button
+                    key={r.id}
+                    type="button"
+                    onClick={() => { setCode(r.inviteCode ?? r.id); }}
+                    className="w-full h-8 px-2 text-left text-[12.5px] hover-row rounded-sm flex items-center gap-1.5 text-zinc-400 hover:text-zinc-200"
+                    data-testid={`recent-room-${r.id}`}
+                  >
+                    <Users className="w-3 h-3 shrink-0 text-[#8B7DE9]" />
+                    <span className="truncate flex-1">{r.title}</span>
+                    {r.inviteCode && (
+                      <span className="font-mono text-[10.5px] text-zinc-500">{r.inviteCode}</span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
           </>
         )}
         {inRoom && currentProject && (

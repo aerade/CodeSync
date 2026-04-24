@@ -7,6 +7,8 @@ import * as Y from "yjs";
 import { WebsocketProvider } from "y-websocket";
 import { MonacoBinding } from "y-monaco";
 import { desktop } from "@/lib/desktopBridge";
+import { getWsBase } from "@/lib/apiConfig";
+import { log } from "@/lib/logger";
 import type * as monacoEditor from "monaco-editor";
 
 export function EditorPane() {
@@ -54,25 +56,24 @@ export function EditorPane() {
   ) => {
     // Очистка старого binding
     if (yRef.current) {
-      try { yRef.current.binding.destroy(); } catch { /* noop */ }
-      try { yRef.current.provider.destroy(); } catch { /* noop */ }
-      try { yRef.current.doc.destroy(); } catch { /* noop */ }
+      try { yRef.current.binding.destroy(); } catch (err) { log.debug("editor", "binding destroy", err); }
+      try { yRef.current.provider.destroy(); } catch (err) { log.debug("editor", "provider destroy", err); }
+      try { yRef.current.doc.destroy(); } catch (err) { log.debug("editor", "doc destroy", err); }
       yRef.current = null;
     }
 
     const doc = new Y.Doc();
     const yText = doc.getText("content");
 
-    // WebSocket-адрес зависит от среды: Replit / нативный Electron
-    const isHttps = typeof window !== "undefined" && window.location.protocol === "https:";
-    const wsProtocol = isHttps ? "wss:" : "ws:";
-    const wsHost = typeof window !== "undefined" && window.location.host
-      ? window.location.host
-      : "localhost:5000";
-    const wsBase = `${wsProtocol}//${wsHost}`;
+    // WebSocket-адрес из настроек (apiConfig). Поддерживает раздельный
+    // деплой api-server и desktop: значение задаётся в SettingsPanel.
+    const wsBase = await getWsBase();
 
     // Имя пользователя для awareness
-    const username = (await desktop().db.getSetting("guestUsername").catch(() => null)) ?? "Гость";
+    const username = (await desktop().db.getSetting("guestUsername").catch((err) => {
+      log.debug("editor", "settings.guestUsername", err);
+      return null;
+    })) ?? "Гость";
 
     const provider = new WebsocketProvider(wsBase, `ws/rooms/${roomId}/files/${fileId}`, doc, {
       connect: true,
@@ -93,15 +94,21 @@ export function EditorPane() {
     const binding = new MonacoBinding(yText, model, new Set([editor]), provider.awareness);
 
     yRef.current = { doc, provider, binding };
+
+    // Подписываемся на события y-websocket для диагностики (вместо тихих catch).
+    const onError = (err: unknown) => log.warn("editor", "Yjs WS connection-error", err);
+    const onStatus = (s: unknown) => log.debug("editor", "Yjs status", s);
+    (provider as unknown as { on: (e: string, cb: (v: unknown) => void) => void }).on("connection-error", onError);
+    (provider as unknown as { on: (e: string, cb: (v: unknown) => void) => void }).on("status", onStatus);
   }, []);
 
   // При смене активной вкладки заново поднимаем/сбрасываем Yjs
   useEffect(() => {
     return () => {
       if (yRef.current) {
-        try { yRef.current.binding.destroy(); } catch { /* noop */ }
-        try { yRef.current.provider.destroy(); } catch { /* noop */ }
-        try { yRef.current.doc.destroy(); } catch { /* noop */ }
+        try { yRef.current.binding.destroy(); } catch (err) { log.debug("editor", "cleanup binding", err); }
+        try { yRef.current.provider.destroy(); } catch (err) { log.debug("editor", "cleanup provider", err); }
+        try { yRef.current.doc.destroy(); } catch (err) { log.debug("editor", "cleanup doc", err); }
         yRef.current = null;
       }
     };

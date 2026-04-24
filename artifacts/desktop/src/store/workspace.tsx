@@ -1,6 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { desktop, type Project } from "@/lib/desktopBridge";
+import { desktop, type Project, type RecentRoom } from "@/lib/desktopBridge";
 import { detectLanguage } from "@/lib/utils";
+import { apiFetch } from "@/lib/apiConfig";
+import { log } from "@/lib/logger";
 import { nanoid } from "nanoid";
 
 export type OpenTab = {
@@ -34,7 +36,7 @@ type WorkspaceState = {
   showLeftSidebar: boolean;
   showRightPanel: boolean;
   showBottomPanel: boolean;
-  rightPanelView: "ai" | "history";
+  rightPanelView: "ai" | "history" | "chat" | "settings";
   bottomPanelView: "terminal" | "problems" | "output";
   activitySection: "files" | "search" | "rooms" | "git" | "extensions";
 };
@@ -45,6 +47,10 @@ type WorkspaceActions = {
   refreshRecentProjects: () => Promise<void>;
   addRecentProject: (project: Project) => Promise<void>;
   removeRecentProject: (id: string) => Promise<void>;
+
+  recentRooms: RecentRoom[];
+  refreshRecentRooms: () => Promise<void>;
+  rememberRoom: (room: RecentRoom) => Promise<void>;
 
   openFile: (path: string) => Promise<void>;
   openCloudFile: (roomId: string, fileId: string, name: string, initialContent: string) => void;
@@ -85,6 +91,7 @@ const WorkspaceContext = createContext<Ctx | null>(null);
 export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [currentProject, setCurrentProject] = useState<Project | null>(null);
   const [recentProjects, setRecentProjects] = useState<Project[]>([]);
+  const [recentRooms, setRecentRooms] = useState<RecentRoom[]>([]);
   const [tabs, setTabs] = useState<OpenTab[]>([]);
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
 
@@ -120,6 +127,26 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     await desktop().db.removeProject(id);
     await refreshRecentProjects();
   }, [refreshRecentProjects]);
+
+  const refreshRecentRooms = useCallback(async () => {
+    try {
+      const rooms = await desktop().db.listRecentRooms();
+      setRecentRooms(rooms);
+    } catch (err) {
+      log.warn("workspace", "Не удалось загрузить недавние комнаты", err);
+    }
+  }, []);
+
+  useEffect(() => { refreshRecentRooms(); }, [refreshRecentRooms]);
+
+  const rememberRoom = useCallback(async (room: RecentRoom) => {
+    try {
+      await desktop().db.upsertRecentRoom(room);
+      await refreshRecentRooms();
+    } catch (err) {
+      log.warn("workspace", "Не удалось сохранить комнату", err);
+    }
+  }, [refreshRecentRooms]);
 
   const openProject = useCallback(async (project: Project) => {
     const updated = { ...project, lastOpenedAt: Date.now() };
@@ -222,26 +249,29 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     if (tab.cloudRoomId && tab.cloudFileId) {
       // Облачный файл сохраняется автоматически через Yjs; снапшот делаем явно.
       try {
-        const guestToken = await desktop().db.getSetting("guestToken").catch(() => null);
-        const headers: Record<string, string> = { "Content-Type": "application/json" };
-        if (guestToken) headers["x-guest-token"] = guestToken;
-        await fetch(`/api/rooms/${tab.cloudRoomId}/files/${tab.cloudFileId}/snapshots`, {
+        const res = await apiFetch(`/api/rooms/${tab.cloudRoomId}/files/${tab.cloudFileId}/snapshots`, {
           method: "POST",
-          headers,
-          credentials: "include",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ content: tab.content }),
         });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         setTabs((prev) => prev.map((t) => (t.id === id ? { ...t, isDirty: false } : t)));
       } catch (err) {
-        console.error("Снапшот облачного файла не создан", err);
+        log.error("workspace", "Снапшот облачного файла не создан", err);
       }
       return;
     }
     try {
       await desktop().fs.writeFile(tab.filePath, tab.content);
+      // Локальная история версий: каждое сохранение = новая версия в SQLite
+      try {
+        await desktop().db.saveFileVersion(tab.filePath, tab.content);
+      } catch (err) {
+        log.warn("workspace", "Не записана локальная версия", err);
+      }
       setTabs((prev) => prev.map((t) => (t.id === id ? { ...t, isDirty: false } : t)));
     } catch (err) {
-      console.error("Сохранение не удалось", err);
+      log.error("workspace", `Сохранение ${tab.filePath} не удалось`, err);
     }
   }, [tabs]);
 
@@ -260,7 +290,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       refreshTree();
       return target;
     } catch (err) {
-      console.error("Не удалось создать файл", err);
+      log.error("workspace", `createFile ${target}`, err);
       return null;
     }
   }, [refreshTree]);
@@ -274,7 +304,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       refreshTree();
       return target;
     } catch (err) {
-      console.error("Не удалось создать папку", err);
+      log.error("workspace", `createDir ${target}`, err);
       return null;
     }
   }, [refreshTree]);
@@ -296,7 +326,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       refreshTree();
       return newPath;
     } catch (err) {
-      console.error("Переименование не удалось", err);
+      log.error("workspace", `rename ${oldPath} → ${newPath}`, err);
       return null;
     }
   }, [refreshTree]);
@@ -307,7 +337,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       setTabs((prev) => prev.filter((t) => t.filePath !== path && !t.filePath.startsWith(path + "/") && !t.filePath.startsWith(path + "\\")));
       refreshTree();
     } catch (err) {
-      console.error("Удаление не удалось", err);
+      log.error("workspace", `delete ${path}`, err);
     }
   }, [refreshTree]);
 
@@ -318,7 +348,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       refreshTree();
       return newPath;
     } catch (err) {
-      console.error("Перемещение не удалось", err);
+      log.error("workspace", `move ${srcPath} → ${destDir}`, err);
       return null;
     }
   }, [refreshTree]);
@@ -355,6 +385,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const value = useMemo<Ctx>(() => ({
     currentProject,
     recentProjects,
+    recentRooms,
     tabs,
     activeTabId,
     termSessions,
@@ -372,6 +403,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     refreshRecentProjects,
     addRecentProject,
     removeRecentProject,
+    refreshRecentRooms,
+    rememberRoom,
     openFile,
     openCloudFile,
     openScratch,
@@ -395,12 +428,13 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     setBottomPanelView,
     setActivitySection,
   }), [
-    currentProject, recentProjects, tabs, activeTabId,
+    currentProject, recentProjects, recentRooms, tabs, activeTabId,
     termSessions, activeTermId,
     showLeftSidebar, showRightPanel, showBottomPanel,
     rightPanelView, bottomPanelView, activitySection, treeRefreshKey, refreshTree,
     openProject, closeProject, refreshRecentProjects,
     addRecentProject, removeRecentProject,
+    refreshRecentRooms, rememberRoom,
     openFile, openCloudFile, openScratch, closeTab, setActiveTab,
     updateTabContent, saveActiveTab, saveTab,
     createFileAt, createDirAt, renamePath, deletePath, movePath,

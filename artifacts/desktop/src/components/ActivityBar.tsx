@@ -1,4 +1,4 @@
-import { FileText, Search, Users, GitBranch, Settings, Sparkles, TerminalSquare, History } from "lucide-react";
+import { FileText, Search, Users, GitBranch, Settings, Sparkles, TerminalSquare, History, MessageSquare, Cog } from "lucide-react";
 import { useWorkspace } from "@/store/workspace";
 import { cn } from "@/lib/utils";
 
@@ -63,7 +63,9 @@ export function ActivityBar() {
         <TerminalSquare className="w-[18px] h-[18px]" strokeWidth={1.6} />
       </button>
       <RightPanelButton view="history" Icon={History} title="История версий" testId="activity-history" />
+      <RightPanelButton view="chat" Icon={MessageSquare} title="Чат комнаты" testId="activity-chat" />
       <RightPanelButton view="ai" Icon={Sparkles} title="ИИ-помощник" testId="activity-ai" />
+      <RightPanelButton view="settings" Icon={Cog} title="Настройки" testId="activity-settings" />
     </div>
   );
 }
@@ -71,7 +73,7 @@ export function ActivityBar() {
 function RightPanelButton({
   view, Icon, title, testId,
 }: {
-  view: "ai" | "history";
+  view: "ai" | "history" | "chat" | "settings";
   Icon: typeof Sparkles;
   title: string;
   testId: string;

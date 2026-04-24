@@ -23,6 +23,30 @@ export type Project = {
   cloudRoomId?: string;
 };
 
+export type LocalFileVersion = {
+  id: number;
+  filePath: string;
+  content: string;
+  createdAt: number;
+  size: number;
+};
+
+export type RecentRoom = {
+  id: string;
+  inviteCode: string | null;
+  title: string;
+  lastJoinedAt: number;
+};
+
+export type AiHistoryRole = "user" | "assistant" | "system";
+export type AiHistoryMessage = {
+  id: number;
+  scope: string;
+  role: AiHistoryRole;
+  content: string;
+  createdAt: number;
+};
+
 export type PtyOptions = {
   cwd?: string;
   cols?: number;
@@ -67,6 +91,17 @@ export interface DesktopAPI {
     removeProject(id: string): Promise<void>;
     getSetting(key: string): Promise<string | null>;
     setSetting(key: string, value: string): Promise<void>;
+
+    saveFileVersion(filePath: string, content: string): Promise<number | null>;
+    listFileVersions(filePath: string): Promise<LocalFileVersion[]>;
+    getFileVersion(id: number): Promise<LocalFileVersion | null>;
+
+    listRecentRooms(): Promise<RecentRoom[]>;
+    upsertRecentRoom(room: RecentRoom): Promise<void>;
+
+    appendAiMessage(scope: string, role: AiHistoryRole, content: string): Promise<number | null>;
+    listAiMessages(scope: string, limit?: number): Promise<AiHistoryMessage[]>;
+    clearAiHistory(scope: string): Promise<void>;
   };
 
   // Терминал (node-pty)
@@ -194,7 +229,71 @@ function makeBrowserBridge(): DesktopAPI {
         ls.setItem(PROJECTS_KEY, JSON.stringify(list.filter((x) => x.id !== id)));
       },
       getSetting: async (key) => ls?.getItem(SETTINGS_PREFIX + key) ?? null,
-      setSetting: async (key, v) => ls?.setItem(SETTINGS_PREFIX + key, v),
+      setSetting: async (key, v) => { ls?.setItem(SETTINGS_PREFIX + key, v ?? ""); },
+
+      saveFileVersion: async (filePath, content) => {
+        if (!ls) return null;
+        const key = `codesync.desktop.versions:${filePath}`;
+        const list = JSON.parse(ls.getItem(key) ?? "[]") as LocalFileVersion[];
+        const next: LocalFileVersion = {
+          id: Date.now(),
+          filePath,
+          content,
+          createdAt: Date.now(),
+          size: content.length,
+        };
+        list.unshift(next);
+        ls.setItem(key, JSON.stringify(list.slice(0, 50)));
+        return next.id;
+      },
+      listFileVersions: async (filePath) => {
+        if (!ls) return [];
+        const list = JSON.parse(ls.getItem(`codesync.desktop.versions:${filePath}`) ?? "[]");
+        return Array.isArray(list) ? (list as LocalFileVersion[]) : [];
+      },
+      getFileVersion: async (id) => {
+        if (!ls) return null;
+        const all = Object.keys(ls).filter((k) => k.startsWith("codesync.desktop.versions:"));
+        for (const k of all) {
+          const list = JSON.parse(ls.getItem(k) ?? "[]") as LocalFileVersion[];
+          const found = list.find((v) => v.id === id);
+          if (found) return found;
+        }
+        return null;
+      },
+
+      listRecentRooms: async () => {
+        if (!ls) return [];
+        const list = JSON.parse(ls.getItem("codesync.desktop.recentRooms") ?? "[]");
+        return Array.isArray(list) ? (list as RecentRoom[]) : [];
+      },
+      upsertRecentRoom: async (room) => {
+        if (!ls) return;
+        const list = JSON.parse(ls.getItem("codesync.desktop.recentRooms") ?? "[]") as RecentRoom[];
+        const idx = list.findIndex((r) => r.id === room.id);
+        if (idx >= 0) list[idx] = room;
+        else list.unshift(room);
+        list.sort((a, b) => b.lastJoinedAt - a.lastJoinedAt);
+        ls.setItem("codesync.desktop.recentRooms", JSON.stringify(list.slice(0, 20)));
+      },
+
+      appendAiMessage: async (scope, role, content) => {
+        if (!ls) return null;
+        const key = `codesync.desktop.ai:${scope}`;
+        const list = JSON.parse(ls.getItem(key) ?? "[]") as AiHistoryMessage[];
+        const msg: AiHistoryMessage = { id: Date.now(), scope, role, content, createdAt: Date.now() };
+        list.push(msg);
+        ls.setItem(key, JSON.stringify(list.slice(-500)));
+        return msg.id;
+      },
+      listAiMessages: async (scope, limit) => {
+        if (!ls) return [];
+        const list = JSON.parse(ls.getItem(`codesync.desktop.ai:${scope}`) ?? "[]") as AiHistoryMessage[];
+        return list.slice(-(limit ?? 200));
+      },
+      clearAiHistory: async (scope) => {
+        ls?.removeItem(`codesync.desktop.ai:${scope}`);
+      },
     },
 
     pty: {

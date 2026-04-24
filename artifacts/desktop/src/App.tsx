@@ -8,11 +8,15 @@ import { EditorPane } from "@/components/EditorPane";
 import { BottomPanel } from "@/components/BottomPanel";
 import { AIPanel } from "@/components/AIPanel";
 import { HistoryPanel } from "@/components/HistoryPanel";
+import { ChatPanel } from "@/components/ChatPanel";
+import { SettingsPanel } from "@/components/SettingsPanel";
 import { StatusBar } from "@/components/StatusBar";
 import { CommandPalette } from "@/components/CommandPalette";
 import { WelcomeScreen } from "@/components/WelcomeScreen";
 import { useHotkeys } from "@/hooks/useHotkeys";
 import { desktop } from "@/lib/desktopBridge";
+import { apiFetch, setGuestToken } from "@/lib/apiConfig";
+import { log } from "@/lib/logger";
 
 /**
  * Гарантирует наличие гостевой учётной записи: при первом запуске
@@ -27,21 +31,21 @@ async function ensureGuestAuth(): Promise<void> {
     const username = usernameSaved ?? `Гость_${Math.random().toString(36).slice(2, 7)}`;
     await desktop().db.setSetting("guestUsername", username);
 
-    const res = await fetch("/api/auth/guest", {
+    const res = await apiFetch("/api/auth/guest", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username }),
     });
     if (!res.ok) {
-      console.warn("Не удалось создать гостевую сессию", res.status);
+      log.warn("auth", `Гостевая сессия не создана (HTTP ${res.status})`);
       return;
     }
     const data = await res.json() as { token?: string };
     if (data.token) {
-      await desktop().db.setSetting("guestToken", data.token);
+      await setGuestToken(data.token);
     }
   } catch (err) {
-    console.warn("Гостевая авторизация недоступна (api-server offline?)", err);
+    log.warn("auth", "Гостевая авторизация недоступна (api-server offline?)", err);
   }
 }
 
@@ -102,6 +106,14 @@ function Shell() {
           ws.toggleRightPanel();
           ws.setRightPanelView("history");
           break;
+        case "toggle-chat":
+          ws.toggleRightPanel();
+          ws.setRightPanelView("chat");
+          break;
+        case "toggle-settings":
+          ws.toggleRightPanel();
+          ws.setRightPanelView("settings");
+          break;
       }
     };
     const off1 = desktop().onMenuAction(handle);
@@ -138,6 +150,8 @@ function Shell() {
 
         {ws.showRightPanel && ws.rightPanelView === "ai" && <AIPanel />}
         {ws.showRightPanel && ws.rightPanelView === "history" && <HistoryPanel />}
+        {ws.showRightPanel && ws.rightPanelView === "chat" && <ChatPanel />}
+        {ws.showRightPanel && ws.rightPanelView === "settings" && <SettingsPanel />}
       </div>
 
       <StatusBar />

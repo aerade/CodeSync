@@ -51,6 +51,20 @@ const api = {
     removeProject: (id: string) => ipcRenderer.invoke("db:removeProject", id),
     getSetting: (key: string) => ipcRenderer.invoke("db:getSetting", key),
     setSetting: (key: string, value: string) => ipcRenderer.invoke("db:setSetting", key, value),
+
+    saveFileVersion: (filePath: string, content: string) =>
+      ipcRenderer.invoke("db:saveFileVersion", filePath, content),
+    listFileVersions: (filePath: string) => ipcRenderer.invoke("db:listFileVersions", filePath),
+    getFileVersion: (id: number) => ipcRenderer.invoke("db:getFileVersion", id),
+
+    listRecentRooms: () => ipcRenderer.invoke("db:listRecentRooms"),
+    upsertRecentRoom: (room: unknown) => ipcRenderer.invoke("db:upsertRecentRoom", room),
+
+    appendAiMessage: (scope: string, role: string, content: string) =>
+      ipcRenderer.invoke("db:appendAiMessage", scope, role, content),
+    listAiMessages: (scope: string, limit?: number) =>
+      ipcRenderer.invoke("db:listAiMessages", scope, limit),
+    clearAiHistory: (scope: string) => ipcRenderer.invoke("db:clearAiHistory", scope),
   },
 
   pty: {
