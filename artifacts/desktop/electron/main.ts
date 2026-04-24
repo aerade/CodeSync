@@ -11,6 +11,7 @@ const DEV_URL = "http://localhost:21098/desktop/";
 
 let mainWindow: BrowserWindow | null = null;
 let serverProcess: ChildProcess | null = null;
+let serverLogStream: fs.WriteStream | null = null;
 let serverPort = 57321;
 let serverReady = false;
 
@@ -137,7 +138,14 @@ async function startServer(reusePort?: number): Promise<void> {
 
   const serverDir = path.dirname(serverPath);
   const logPath = path.join(app.getPath("userData"), "server.log");
-  const logStream = fs.createWriteStream(logPath, { flags: "a" });
+
+  // Close previous log stream before opening a new one (on server restart)
+  if (serverLogStream) {
+    try { serverLogStream.end(); } catch { /* ignore */ }
+    serverLogStream = null;
+  }
+  serverLogStream = fs.createWriteStream(logPath, { flags: "a" });
+  const logStream = serverLogStream;
 
   // Use system node.exe (not Electron's bundled Node) so prebuilt native
   // modules like @libsql/win32-x64-msvc load with the correct ABI.
@@ -175,6 +183,11 @@ async function startServer(reusePort?: number): Promise<void> {
     }
     serverProcess = null;
     serverReady = false;
+    // Close log stream when server process ends to release the file descriptor
+    if (serverLogStream) {
+      try { serverLogStream.end(); } catch { /* ignore */ }
+      serverLogStream = null;
+    }
   });
 
   await waitForServer(serverPort, 30);
@@ -224,8 +237,11 @@ function createWindow(): void {
     mainWindow.loadFile(path.join(__dirname, "../public/index.html"));
   }
 
-  // Always open DevTools so errors are visible (remove once stable)
-  mainWindow.webContents.openDevTools({ mode: "detach" });
+  // Auto-open DevTools in dev mode for debugging; in production it's
+  // accessible via View → Toggle Developer Tools in the menu.
+  if (isDev) {
+    mainWindow.webContents.openDevTools({ mode: "detach" });
+  }
 
   mainWindow.once("ready-to-show", () => {
     mainWindow?.show();
