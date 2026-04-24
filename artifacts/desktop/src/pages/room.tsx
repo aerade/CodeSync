@@ -15,6 +15,22 @@ import {
   Eye, X, PanelLeft, PanelRight, Loader2, Settings
 } from "lucide-react";
 
+/**
+ * Encode a Uint8Array to base64.
+ * The renderer runs in a sandboxed Chromium context (nodeIntegration: false,
+ * sandbox: true) so Node's Buffer is unavailable. We iterate byte-by-byte
+ * instead of spreading into String.fromCharCode(), which blows the call stack
+ * for large Uint8Arrays (>65 000 bytes typical in Yjs state vectors).
+ */
+function uint8ArrayToBase64(arr: Uint8Array): string {
+  let binary = "";
+  const len = arr.byteLength;
+  for (let i = 0; i < len; i++) {
+    binary += String.fromCharCode(arr[i]);
+  }
+  return btoa(binary);
+}
+
 const LANG_LABELS: Record<string, string> = {
   javascript: "JS", typescript: "TS", python: "Python",
   go: "Go", rust: "Rust", java: "Java", cpp: "C++",
@@ -234,12 +250,7 @@ export default function Room({ onOpenSettings, hasApiKeys = true }: { onOpenSett
           yText.insert(0, value);
         });
         const update = Y.encodeStateAsUpdate(ydoc);
-        // Safe base64 encoding that handles large Uint8Arrays without stack overflow
-        let binary = "";
-        for (let i = 0; i < update.length; i++) {
-          binary += String.fromCharCode(update[i]);
-        }
-        const encoded = btoa(binary);
+        const encoded = uint8ArrayToBase64(update);
         ws.send(JSON.stringify({ type: "yjs-update", update: encoded }));
       }
     }

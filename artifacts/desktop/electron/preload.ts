@@ -24,6 +24,18 @@ contextBridge.exposeInMainWorld("electronAPI", {
     return () => ipcRenderer.removeListener("open-settings", cb);
   },
 
+  onServerReady: (cb: () => void) => {
+    const handler = () => cb();
+    ipcRenderer.on("server-ready", handler);
+    return () => ipcRenderer.removeListener("server-ready", handler);
+  },
+
+  onServerError: (cb: (data: { message: string }) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, data: { message: string }) => cb(data);
+    ipcRenderer.on("server-error", handler);
+    return () => ipcRenderer.removeListener("server-error", handler);
+  },
+
   onServerRestarted: (cb: (data: { apiUrl: string }) => void) => {
     const handler = (_event: Electron.IpcRendererEvent, data: { apiUrl: string }) => cb(data);
     ipcRenderer.on("server-restarted", handler);

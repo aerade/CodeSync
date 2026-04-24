@@ -1,5 +1,8 @@
 import { Request, Response, NextFunction } from "express";
 import { sign, verify } from "./jwt.js";
+// Note: db/client is intentionally NOT imported here. All auth functions in this
+// file operate only on JWT tokens (sign/verify). Database access for user
+// lookups is done in the routes (routes/auth.ts) which import client directly.
 
 export interface AuthUser {
   id: string;

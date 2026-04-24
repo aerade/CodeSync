@@ -8,6 +8,8 @@ declare global {
       saveSettings: (settings: { openaiApiKey?: string; anthropicApiKey?: string }) => Promise<{ ok: boolean }>;
       getAppVersion: () => Promise<string>;
       onOpenSettings: (cb: () => void) => () => void;
+      onServerReady: (cb: () => void) => () => void;
+      onServerError: (cb: (data: { message: string }) => void) => () => void;
       onServerRestarted: (cb: (data: { apiUrl: string }) => void) => () => void;
       onUpdateProgress: (cb: (data: { percent: number; bytesPerSecond: number; transferred: number; total: number }) => void) => () => void;
       onUpdateAvailable: (cb: (data: { version: string; releaseNotes: string | null }) => void) => () => void;

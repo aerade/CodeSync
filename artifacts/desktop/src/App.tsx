@@ -43,6 +43,7 @@ function ContentReady({ onReady }: { onReady: () => (() => void) | void }) {
 }
 
 const MIN_LOADER_MS = 400;
+const isElectron = typeof window !== "undefined" && !!window.electronAPI;
 
 function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -50,24 +51,53 @@ function App() {
   const [showLoader, setShowLoader] = useState(true);
   const [loaderFading, setLoaderFading] = useState(false);
 
+  // In Electron: wait for server-ready IPC before hiding the loader.
+  // In browser (dev server): server is assumed ready immediately.
+  const [serverReady, setServerReady] = useState(!isElectron);
+
   const [releaseNotesOpen, setReleaseNotesOpen] = useState(false);
   const [pendingUpdate, setPendingUpdate] = useState<{ version: string; releaseNotes: string | null } | null>(null);
 
   const loadStartTime = useRef(Date.now());
+  const contentReadyRef = useRef(false);
 
-  const handleContentReady = useCallback(() => {
+  // Attempt to hide the loader — only succeeds when both content AND server are ready
+  const tryHideLoader = useCallback((isServerReady: boolean) => {
+    if (!contentReadyRef.current || !isServerReady) return;
     const elapsed = Date.now() - loadStartTime.current;
     const delay = Math.max(0, MIN_LOADER_MS - elapsed);
-    let hideTimer: ReturnType<typeof setTimeout>;
-    const fadeTimer = setTimeout(() => {
+    setTimeout(() => {
       setLoaderFading(true);
-      hideTimer = setTimeout(() => setShowLoader(false), 200);
+      setTimeout(() => setShowLoader(false), 200);
     }, delay);
-    return () => {
-      clearTimeout(fadeTimer);
-      clearTimeout(hideTimer);
-    };
   }, []);
+
+  const handleContentReady = useCallback(() => {
+    contentReadyRef.current = true;
+    tryHideLoader(serverReady);
+  }, [serverReady, tryHideLoader]);
+
+  // Listen for server-ready / server-error from the Electron main process
+  useEffect(() => {
+    const api = window.electronAPI;
+    if (!api?.onServerReady) return;
+    const cleanupReady = api.onServerReady(() => {
+      setServerReady(true);
+      tryHideLoader(true);
+    });
+    const cleanupError = api.onServerError?.((data) => {
+      setServerReady(true);
+      tryHideLoader(true);
+      toast.error("Сервер не запустился", {
+        description: data.message,
+        duration: Infinity,
+      });
+    });
+    return () => {
+      cleanupReady?.();
+      cleanupError?.();
+    };
+  }, [tryHideLoader]);
 
   useEffect(() => {
     const api = window.electronAPI;

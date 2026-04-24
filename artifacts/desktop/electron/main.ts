@@ -198,7 +198,7 @@ async function waitForServer(port: number, maxAttempts: number): Promise<void> {
     });
     if (ok) return;
   }
-  console.warn("[electron] Server did not become ready in time, continuing anyway");
+  throw new Error(`Server did not become ready after ${maxAttempts * 0.5}s`);
 }
 
 function createWindow(): void {
@@ -232,14 +232,6 @@ function createWindow(): void {
 
   mainWindow.once("ready-to-show", () => {
     mainWindow?.show();
-
-    // On first run, auto-open the settings dialog so user can add API keys
-    const settings = loadSettings();
-    if (settings.firstRun) {
-      setTimeout(() => {
-        mainWindow?.webContents.send("open-settings");
-      }, 1500);
-    }
   });
 
   mainWindow.webContents.setWindowOpenHandler(({ url: href }) => {
@@ -401,16 +393,47 @@ if (isDev) {
   });
 }
 
+// ─── Server background startup (non-blocking) ─────────────────────────────────
+
+async function startServerInBackground(): Promise<void> {
+  try {
+    await startServer(serverPort);
+    serverReady = true;
+    mainWindow?.webContents.send("server-ready");
+    console.log("[electron] Server ready, signaling renderer");
+
+    // On first run, open settings so user can add API keys
+    const settings = loadSettings();
+    if (settings.firstRun) {
+      setTimeout(() => mainWindow?.webContents.send("open-settings"), 1000);
+    }
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[electron] Server startup failed:", msg);
+    mainWindow?.webContents.send("server-error", {
+      message: "Встроенный сервер не запустился. Проверьте логи в папке AppData/Roaming/CodeSync/server.log",
+    });
+    dialog.showErrorBox(
+      "Сервер не запустился",
+      `Встроенный сервер не смог запуститься.\n\nОшибка: ${msg}\n\nЛоги: %APPDATA%\\CodeSync\\server.log`,
+    );
+  }
+}
+
 // ─── App Lifecycle ────────────────────────────────────────────────────────────
 
 app.whenReady().then(async () => {
-  await startServer();
+  // Pre-allocate port so preload sees the correct API URL before the server starts
+  try { serverPort = await getFreePort(); } catch { serverPort = 57321; }
+
+  // Create window immediately — renderer shows loading screen while server starts
   createWindow();
   buildMenu();
 
-  if (!isDev) {
-    setupAutoUpdater();
-  }
+  if (!isDev) setupAutoUpdater();
+
+  // Start the embedded server in the background; signal renderer when ready
+  startServerInBackground();
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
