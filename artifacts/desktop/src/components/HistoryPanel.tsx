@@ -96,6 +96,7 @@ export function HistoryPanel() {
     if (!activeTab) return;
     if (!window.confirm("Восстановить эту версию? Текущие изменения будут заменены.")) return;
     setBusyId(entry.id);
+    const startedAt = Date.now();
     try {
       if (entry.kind === "cloud" && activeTab.cloudRoomId && activeTab.cloudFileId) {
         const res = await apiFetch(
@@ -109,6 +110,17 @@ export function HistoryPanel() {
         await saveTab(activeTab.id);
       }
       await fetchEntries();
+      // Уведомление о завершении долгой операции (требование skill desktop):
+      // показываем только если процесс занял заметное время или окно вне фокуса.
+      const elapsed = Date.now() - startedAt;
+      const docHidden = typeof document !== "undefined" && document.visibilityState !== "visible";
+      if (elapsed > 1500 || docHidden) {
+        try {
+          desktop().notify("Версия восстановлена", `${activeTab.fileName} (${new Date(entry.ts).toLocaleString("ru-RU")})`);
+        } catch (notifyErr) {
+          log.debug("history", "notify", notifyErr);
+        }
+      }
     } catch (err) {
       log.error("history", "restore", err);
       setError(`Не удалось восстановить: ${String(err)}`);

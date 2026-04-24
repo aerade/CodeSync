@@ -26,7 +26,7 @@ type ChatMessage = {
 type Participant = { id: string; name: string; color: string };
 
 export function ChatPanel() {
-  const { tabs, activeTabId, currentProject, toggleRightPanel } = useWorkspace();
+  const { tabs, activeTabId, currentProject, toggleRightPanel, showRightPanel, rightPanelView } = useWorkspace();
   const activeTab = tabs.find((t) => t.id === activeTabId);
   const roomId = currentProject?.cloudRoomId ?? activeTab?.cloudRoomId;
   const fileId = activeTab?.cloudFileId ?? "__room__";
@@ -37,6 +37,14 @@ export function ChatPanel() {
   const [connected, setConnected] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
   const usernameRef = useRef("Гость");
+  // Снимок видимости панели — нужен внутри `connect`, чтобы решить,
+  // показывать ли нативное уведомление о упоминании.
+  const visibilityRef = useRef({ showRightPanel, rightPanelView });
+  useEffect(() => {
+    visibilityRef.current = { showRightPanel, rightPanelView };
+  }, [showRightPanel, rightPanelView]);
+  // Антиспам-таймер: не более одного уведомления раз в 4 секунды.
+  const lastNotifyRef = useRef(0);
 
   useEffect(() => {
     desktop().db.getSetting("guestUsername").then((n) => { if (n) usernameRef.current = n; }).catch(() => {});
@@ -80,13 +88,39 @@ export function ChatPanel() {
           const msg = JSON.parse(ev.data) as Record<string, unknown>;
           const t = String(msg.type ?? "");
           if (t === "chat") {
-            setMessages((prev) => prev.concat({
+            const incoming: ChatMessage = {
               id: String(msg.messageId ?? msg.id ?? `${Date.now()}_${Math.random()}`),
               authorId: String(msg.authorId ?? msg.userId ?? "?"),
               authorName: String(msg.authorName ?? msg.username ?? "Аноним"),
               text: String(msg.message ?? msg.text ?? ""),
               ts: typeof msg.ts === "number" ? msg.ts : Date.now(),
-            }));
+            };
+            setMessages((prev) => prev.concat(incoming));
+
+            // Нативные уведомления для упоминаний @username — требование
+            // «уведомления о упоминаниях в чате».
+            try {
+              const me = usernameRef.current.trim();
+              const isSelf = incoming.authorId === "self" || incoming.authorName === me;
+              if (!isSelf && me && me !== "Гость") {
+                const mentionRe = new RegExp(`(^|\\s)@${me.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\$&")}(\\b|$)`, "i");
+                if (mentionRe.test(incoming.text)) {
+                  const snap = visibilityRef.current;
+                  const panelHidden = !snap.showRightPanel || snap.rightPanelView !== "chat";
+                  const docHidden = typeof document !== "undefined" && document.visibilityState !== "visible";
+                  const now = Date.now();
+                  if ((panelHidden || docHidden) && now - lastNotifyRef.current > 4000) {
+                    lastNotifyRef.current = now;
+                    desktop().notify(
+                      `Упоминание в чате (${incoming.authorName})`,
+                      incoming.text.replace(/\s+/g, " ").trim().slice(0, 140),
+                    );
+                  }
+                }
+              }
+            } catch (notifyErr) {
+              log.debug("chat", "Не удалось отправить уведомление об упоминании", notifyErr);
+            }
           } else if (t === "presence" && Array.isArray(msg.users)) {
             setParticipants(
               (msg.users as Array<Record<string, unknown>>).map((u) => ({
