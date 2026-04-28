@@ -43,6 +43,8 @@ jobs:
         with:
           node-version: 20
           cache: pnpm
+      - name: Install Python setuptools (needed for node-pty native build)
+        run: python -m pip install setuptools
       - run: pnpm install --no-frozen-lockfile
       - name: Build Windows installer (unsigned)
         run: pnpm --filter @workspace/desktop run electron:build:win
