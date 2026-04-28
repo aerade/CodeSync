@@ -168,7 +168,7 @@ export function FileTree({ rootPath }: { rootPath: string }) {
               className={cn(
                 "w-full flex items-center gap-1 h-[26px] px-1.5 text-[13px] text-left hover-row rounded-sm cursor-pointer",
                 isActive && "is-active",
-                isDragOver && "bg-[#A395FF]/10 outline outline-1 outline-[#A395FF]/40",
+                isDragOver && "bg-[#F97316]/10 outline outline-1 outline-[#F97316]/40",
               )}
               style={{ paddingLeft: 6 + depth * 14 }}
               onClick={() => !isRenaming && toggle(node)}
@@ -177,7 +177,7 @@ export function FileTree({ rootPath }: { rootPath: string }) {
               {node.isDirectory ? (
                 <>
                   {isOpen ? <ChevronDown className="w-3 h-3 text-zinc-500 shrink-0" /> : <ChevronRight className="w-3 h-3 text-zinc-500 shrink-0" />}
-                  {isOpen ? <FolderOpen className="w-[14px] h-[14px] text-[#8B7DE9] shrink-0" /> : <Folder className="w-[14px] h-[14px] text-[#8B7DE9] shrink-0" />}
+                  {isOpen ? <FolderOpen className="w-[14px] h-[14px] text-[#F97316] shrink-0" /> : <Folder className="w-[14px] h-[14px] text-[#F97316] shrink-0" />}
                 </>
               ) : (
                 <>
@@ -196,7 +196,7 @@ export function FileTree({ rootPath }: { rootPath: string }) {
                     if (e.key === "Escape") setRenamingPath(null);
                   }}
                   onClick={(e) => e.stopPropagation()}
-                  className="flex-1 bg-[#0F0F11] border border-[#A395FF]/40 rounded px-1 text-[12.5px] text-zinc-100 outline-none"
+                  className="flex-1 bg-[#0F0F11] border border-[#F97316]/40 rounded px-1 text-[12.5px] text-zinc-100 outline-none"
                   data-testid={`file-tree-rename-${node.name}`}
                 />
               ) : (
@@ -217,14 +217,14 @@ export function FileTree({ rootPath }: { rootPath: string }) {
                     className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-white/8 cursor-pointer outline-none"
                     data-testid={`ctx-new-file-${node.name}`}
                   >
-                    <FilePlus className="w-3.5 h-3.5 text-[#8B7DE9]" /> Новый файл
+                    <FilePlus className="w-3.5 h-3.5 text-[#F97316]" /> Новый файл
                   </ContextMenu.Item>
                   <ContextMenu.Item
                     onSelect={() => startCreate(node.path, "dir")}
                     className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-white/8 cursor-pointer outline-none"
                     data-testid={`ctx-new-dir-${node.name}`}
                   >
-                    <FolderPlus className="w-3.5 h-3.5 text-[#8B7DE9]" /> Новая папка
+                    <FolderPlus className="w-3.5 h-3.5 text-[#F97316]" /> Новая папка
                   </ContextMenu.Item>
                   <ContextMenu.Separator className="h-px bg-white/8 my-1" />
                 </>
@@ -254,7 +254,7 @@ export function FileTree({ rootPath }: { rootPath: string }) {
             {creating && creating.parent === node.path && (
               <div className="flex items-center gap-1 h-[24px] px-1.5" style={{ paddingLeft: 6 + (depth + 1) * 14 }}>
                 {creating.type === "dir"
-                  ? <Folder className="w-[14px] h-[14px] text-[#8B7DE9] shrink-0" />
+                  ? <Folder className="w-[14px] h-[14px] text-[#F97316] shrink-0" />
                   : <FileIcon className="w-[14px] h-[14px] text-zinc-500 shrink-0" />}
                 <input
                   autoFocus
@@ -266,7 +266,7 @@ export function FileTree({ rootPath }: { rootPath: string }) {
                     if (e.key === "Escape") setCreating(null);
                   }}
                   placeholder={creating.type === "file" ? "имя_файла.ts" : "имя-папки"}
-                  className="flex-1 bg-[#0F0F11] border border-[#A395FF]/40 rounded px-1 text-[12.5px] text-zinc-100 outline-none placeholder:text-zinc-600"
+                  className="flex-1 bg-[#0F0F11] border border-[#F97316]/40 rounded px-1 text-[12.5px] text-zinc-100 outline-none placeholder:text-zinc-600"
                   data-testid={`file-tree-create-input`}
                 />
               </div>
@@ -329,7 +329,7 @@ export function FileTree({ rootPath }: { rootPath: string }) {
         {creating && creating.parent === rootPath && (
           <div className="flex items-center gap-1 h-[24px] px-1.5" style={{ paddingLeft: 6 }}>
             {creating.type === "dir"
-              ? <Folder className="w-[14px] h-[14px] text-[#8B7DE9] shrink-0" />
+              ? <Folder className="w-[14px] h-[14px] text-[#F97316] shrink-0" />
               : <FileIcon className="w-[14px] h-[14px] text-zinc-500 shrink-0" />}
             <input
               autoFocus
@@ -341,7 +341,7 @@ export function FileTree({ rootPath }: { rootPath: string }) {
                 if (e.key === "Escape") setCreating(null);
               }}
               placeholder={creating.type === "file" ? "имя_файла.ts" : "имя-папки"}
-              className="flex-1 bg-[#0F0F11] border border-[#A395FF]/40 rounded px-1 text-[12.5px] text-zinc-100 outline-none placeholder:text-zinc-600"
+              className="flex-1 bg-[#0F0F11] border border-[#F97316]/40 rounded px-1 text-[12.5px] text-zinc-100 outline-none placeholder:text-zinc-600"
               data-testid="file-tree-create-input-root"
             />
           </div>

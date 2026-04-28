@@ -21,7 +21,7 @@ export function TabsBar() {
             onClick={() => setActiveTab(tab.id)}
             data-testid={`tab-${tab.id}`}
           >
-            {isActive && <span className="absolute left-0 right-0 top-0 h-[1.5px] bg-[#A395FF]" />}
+            {isActive && <span className="absolute left-0 right-0 top-0 h-[1.5px] bg-[#F97316]" />}
             <span className="text-[12.5px] truncate">{tab.fileName}</span>
             <button
               type="button"
@@ -31,7 +31,7 @@ export function TabsBar() {
               data-testid={`tab-close-${tab.id}`}
             >
               {tab.isDirty ? (
-                <Circle className="w-2 h-2 fill-current text-[#A395FF]" />
+                <Circle className="w-2 h-2 fill-current text-[#F97316]" />
               ) : (
                 <X className="w-3 h-3" />
               )}

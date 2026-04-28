@@ -53,7 +53,7 @@ function FilesSection() {
           <button
             type="button"
             onClick={handleOpenFolder}
-            className="w-full h-8 rounded-md bg-[#A395FF] hover:bg-[#B5A8FF] text-[#0E0B22] font-medium text-[13px] transition-colors flex items-center justify-center gap-1.5"
+            className="w-full h-8 rounded-md bg-[#F97316] hover:bg-[#FB923C] text-[#1C0A00] font-medium text-[13px] transition-colors flex items-center justify-center gap-1.5"
             data-testid="sidebar-open-folder"
           >
             <FolderOpen className="w-3.5 h-3.5" />
@@ -72,8 +72,8 @@ function FilesSection() {
                     data-testid={`sidebar-recent-${p.id}`}
                   >
                     {p.type === "cloud"
-                      ? <Users className="w-3 h-3 shrink-0 text-[#8B7DE9]" />
-                      : <FolderOpen className="w-3 h-3 shrink-0 text-[#8B7DE9]" />}
+                      ? <Users className="w-3 h-3 shrink-0 text-[#F97316]" />
+                      : <FolderOpen className="w-3 h-3 shrink-0 text-[#F97316]" />}
                     <span className="truncate">{p.name}</span>
                   </button>
                 ))}
@@ -390,7 +390,7 @@ function RoomsSection() {
                 type="button"
                 onClick={join}
                 disabled={joining || !code.trim()}
-                className="w-full h-8 rounded-md bg-[#A395FF] hover:bg-[#B5A8FF] text-[#0E0B22] font-medium text-[13px] transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
+                className="w-full h-8 rounded-md bg-[#F97316] hover:bg-[#FB923C] text-[#1C0A00] font-medium text-[13px] transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
                 data-testid="rooms-join"
               >
                 <LogIn className="w-3.5 h-3.5" />
@@ -418,7 +418,7 @@ function RoomsSection() {
                     className="w-full h-8 px-2 text-left text-[12.5px] hover-row rounded-sm flex items-center gap-1.5 text-zinc-400 hover:text-zinc-200"
                     data-testid={`recent-room-${r.id}`}
                   >
-                    <Users className="w-3 h-3 shrink-0 text-[#8B7DE9]" />
+                    <Users className="w-3 h-3 shrink-0 text-[#F97316]" />
                     <span className="truncate flex-1">{r.title}</span>
                     {r.inviteCode && (
                       <span className="font-mono text-[10.5px] text-zinc-500">{r.inviteCode}</span>
@@ -549,7 +549,7 @@ function GitSection() {
           branch ? (
             <>
               <div className="flex items-center gap-2 text-zinc-300">
-                <GitBranch className="w-3.5 h-3.5 text-[#8B7DE9]" />
+                <GitBranch className="w-3.5 h-3.5 text-[#F97316]" />
                 <span className="font-medium font-mono">{branch}</span>
               </div>
               <p className="text-[12px] text-zinc-500 leading-relaxed">
@@ -578,7 +578,7 @@ function ExtensionsSection() {
       <div className="panel-header">Расширения</div>
       <div className="p-3 text-[13px] text-zinc-400 space-y-3">
         <div className="flex items-center gap-2">
-          <Package className="w-3.5 h-3.5 text-[#8B7DE9]" />
+          <Package className="w-3.5 h-3.5 text-[#F97316]" />
           <span>Встроенные модули</span>
         </div>
         <ul className="space-y-1.5 text-[12.5px] text-zinc-500">

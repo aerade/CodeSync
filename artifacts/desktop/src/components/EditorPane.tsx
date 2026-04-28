@@ -93,7 +93,7 @@ export function EditorPane() {
 
     provider.awareness.setLocalStateField("user", {
       name: username,
-      color: "#A395FF",
+      color: "#F97316",
     });
 
     const model = editor.getModel();
@@ -129,8 +129,8 @@ export function EditorPane() {
     return (
       <div className="flex-1 grid place-items-center bg-[#0F0F11]">
         <div className="max-w-md text-center px-6">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#A395FF] to-[#6B5BD6] mx-auto mb-4 grid place-items-center shadow-[0_0_64px_rgba(139,125,233,0.35)]">
-            <Sparkles className="w-7 h-7 text-[#0E0B22]" />
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#F97316] to-[#EA580C] mx-auto mb-4 grid place-items-center shadow-[0_0_64px_rgba(249,115,22,0.35)]">
+            <Sparkles className="w-7 h-7 text-[#1C0A00]" />
           </div>
           <h2 className="text-lg font-semibold text-zinc-200 mb-1.5">CodeSync Desktop</h2>
           <p className="text-[13px] text-zinc-500 leading-relaxed mb-5">
@@ -150,7 +150,7 @@ export function EditorPane() {
             {!currentProject && (
               <button
                 type="button"
-                className="h-8 px-3 rounded-md bg-[#A395FF] hover:bg-[#B5A8FF] text-[#0E0B22] text-[13px] font-medium flex items-center gap-1.5"
+                className="h-8 px-3 rounded-md bg-[#F97316] hover:bg-[#FB923C] text-[#1C0A00] text-[13px] font-medium flex items-center gap-1.5"
                 data-testid="editor-empty-open"
               >
                 <FolderOpen className="w-3.5 h-3.5" />
@@ -167,7 +167,7 @@ export function EditorPane() {
     <div className="flex-1 min-h-0 bg-[#0F0F11] relative">
       {activeTab.cloudRoomId && (
         <div className="absolute top-2 right-3 z-10 flex items-center gap-1.5 text-[11px] text-zinc-400 bg-[#18181B]/90 backdrop-blur-sm border border-white/10 rounded-full px-2.5 py-1">
-          <Users className="w-3 h-3 text-[#A395FF]" />
+          <Users className="w-3 h-3 text-[#F97316]" />
           <span>Облачная комната · совместное редактирование</span>
         </div>
       )}

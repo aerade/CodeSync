@@ -37,12 +37,12 @@ export function ActivityBar() {
             }}
             className={cn(
               "relative w-10 h-10 grid place-items-center rounded-md transition-colors group",
-              active ? "text-[#A395FF]" : "text-zinc-500 hover:text-zinc-200 hover:bg-white/5",
+              active ? "text-[#F97316]" : "text-zinc-500 hover:text-zinc-200 hover:bg-white/5",
             )}
             title={item.label}
             data-testid={`activity-${item.id}`}
           >
-            {active && <span className="absolute left-0 top-1.5 bottom-1.5 w-[2px] rounded-r-full bg-[#A395FF]" />}
+            {active && <span className="absolute left-0 top-1.5 bottom-1.5 w-[2px] rounded-r-full bg-[#F97316]" />}
             <Icon className="w-[18px] h-[18px]" strokeWidth={1.6} />
           </button>
         );
@@ -55,7 +55,7 @@ export function ActivityBar() {
         onClick={toggleBottomPanel}
         className={cn(
           "w-10 h-10 grid place-items-center rounded-md transition-colors",
-          showBottomPanel ? "text-[#A395FF]" : "text-zinc-500 hover:text-zinc-200 hover:bg-white/5",
+          showBottomPanel ? "text-[#F97316]" : "text-zinc-500 hover:text-zinc-200 hover:bg-white/5",
         )}
         title="Терминал"
         data-testid="activity-terminal"
@@ -92,7 +92,7 @@ function RightPanelButton({
       }}
       className={cn(
         "w-10 h-10 grid place-items-center rounded-md transition-colors",
-        active ? "text-[#A395FF]" : "text-zinc-500 hover:text-zinc-200 hover:bg-white/5",
+        active ? "text-[#F97316]" : "text-zinc-500 hover:text-zinc-200 hover:bg-white/5",
       )}
       title={title}
       data-testid={testId}

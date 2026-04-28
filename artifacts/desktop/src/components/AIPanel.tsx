@@ -233,7 +233,7 @@ export function AIPanel() {
   return (
     <aside className="w-[380px] shrink-0 bg-[#0F0F11] border-l border-white/5 flex flex-col">
       <div className="flex items-center h-9 px-3 border-b border-white/5">
-        <Sparkles className="w-3.5 h-3.5 text-[#A395FF]" />
+        <Sparkles className="w-3.5 h-3.5 text-[#F97316]" />
         <span className="ml-2 text-[12px] font-medium tracking-wider uppercase text-zinc-300">ИИ-помощник</span>
         <div className="flex-1" />
         <button
@@ -287,7 +287,7 @@ export function AIPanel() {
               <div key={m.id} className="flex gap-2.5">
                 <div className={cn(
                   "w-6 h-6 rounded-md grid place-items-center shrink-0",
-                  m.role === "user" ? "bg-[#1F1F23] text-zinc-300" : "bg-gradient-to-br from-[#A395FF] to-[#6B5BD6] text-[#0E0B22]",
+                  m.role === "user" ? "bg-[#1F1F23] text-zinc-300" : "bg-gradient-to-br from-[#F97316] to-[#EA580C] text-[#1C0A00]",
                 )}>
                   {m.role === "user" ? <User className="w-3.5 h-3.5" /> : <Bot className="w-3.5 h-3.5" />}
                 </div>
@@ -323,7 +323,7 @@ export function AIPanel() {
                 type="button"
                 onClick={send}
                 disabled={sending || !input.trim()}
-                className="w-7 h-7 grid place-items-center rounded-md bg-[#A395FF] hover:bg-[#B5A8FF] text-[#0E0B22] disabled:opacity-40 disabled:cursor-not-allowed"
+                className="w-7 h-7 grid place-items-center rounded-md bg-[#F97316] hover:bg-[#FB923C] text-[#1C0A00] disabled:opacity-40 disabled:cursor-not-allowed"
                 aria-label="Отправить"
                 data-testid="ai-send"
               >
@@ -349,7 +349,7 @@ export function AIPanel() {
             type="button"
             onClick={runReview}
             disabled={sending || !activeTab?.content}
-            className="w-full h-9 rounded-md bg-[#A395FF] hover:bg-[#B5A8FF] text-[#0E0B22] text-[12.5px] font-medium disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            className="w-full h-9 rounded-md bg-[#F97316] hover:bg-[#FB923C] text-[#1C0A00] text-[12.5px] font-medium disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             data-testid="ai-review-run"
           >
             <FileSearch className="w-4 h-4" />
@@ -400,7 +400,7 @@ export function AIPanel() {
             {history.map((m) => (
               <div key={m.id} className="rounded-md border border-white/5 bg-[#131316] p-2">
                 <div className="flex items-center gap-2 text-[10.5px] uppercase tracking-wider text-zinc-500 mb-1">
-                  <span className={cn(m.role === "assistant" ? "text-[#A395FF]" : m.role === "user" ? "text-zinc-300" : "text-amber-300")}>
+                  <span className={cn(m.role === "assistant" ? "text-[#F97316]" : m.role === "user" ? "text-zinc-300" : "text-amber-300")}>
                     {m.role === "assistant" ? "ИИ" : m.role === "user" ? "Вы" : "Система"}
                   </span>
                   <span className="text-zinc-600">{new Date(m.createdAt).toLocaleString("ru-RU")}</span>

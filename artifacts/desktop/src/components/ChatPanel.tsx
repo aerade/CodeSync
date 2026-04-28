@@ -126,7 +126,7 @@ export function ChatPanel() {
               (msg.users as Array<Record<string, unknown>>).map((u) => ({
                 id: String(u.id ?? "?"),
                 name: String(u.name ?? "Аноним"),
-                color: String(u.color ?? "#A395FF"),
+                color: String(u.color ?? "#F97316"),
               })),
             );
           }
@@ -174,7 +174,7 @@ export function ChatPanel() {
     return (
       <aside className="w-[340px] shrink-0 bg-[#0F0F11] border-l border-white/5 flex flex-col">
         <div className="flex items-center h-9 px-3 border-b border-white/5">
-          <MessageSquare className="w-3.5 h-3.5 text-[#A395FF]" />
+          <MessageSquare className="w-3.5 h-3.5 text-[#F97316]" />
           <span className="ml-2 text-[12px] font-medium tracking-wider uppercase text-zinc-300">Чат комнаты</span>
           <div className="flex-1" />
           <button
@@ -196,7 +196,7 @@ export function ChatPanel() {
   return (
     <aside className="w-[340px] shrink-0 bg-[#0F0F11] border-l border-white/5 flex flex-col">
       <div className="flex items-center h-9 px-3 border-b border-white/5">
-        <MessageSquare className="w-3.5 h-3.5 text-[#A395FF]" />
+        <MessageSquare className="w-3.5 h-3.5 text-[#F97316]" />
         <span className="ml-2 text-[12px] font-medium tracking-wider uppercase text-zinc-300">Чат комнаты</span>
         <span className={`ml-2 w-1.5 h-1.5 rounded-full ${connected ? "bg-[#56C271]" : "bg-zinc-600"}`} />
         <div className="flex-1" />
@@ -256,7 +256,7 @@ export function ChatPanel() {
           type="button"
           onClick={send}
           disabled={!connected || !input.trim()}
-          className="h-8 w-8 grid place-items-center rounded-md bg-[#A395FF] hover:bg-[#B5A8FF] text-[#0E0B22] disabled:opacity-40"
+          className="h-8 w-8 grid place-items-center rounded-md bg-[#F97316] hover:bg-[#FB923C] text-[#1C0A00] disabled:opacity-40"
           aria-label="Отправить"
           data-testid="chat-send"
         >

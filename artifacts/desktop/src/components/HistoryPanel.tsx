@@ -132,7 +132,7 @@ export function HistoryPanel() {
   return (
     <aside className="w-[340px] shrink-0 bg-[#0F0F11] border-l border-white/5 flex flex-col">
       <div className="flex items-center h-9 px-3 border-b border-white/5">
-        <History className="w-3.5 h-3.5 text-[#A395FF]" />
+        <History className="w-3.5 h-3.5 text-[#F97316]" />
         <span className="ml-2 text-[12px] font-medium tracking-wider uppercase text-zinc-300">История версий</span>
         {isCloud && <Cloud className="ml-2 w-3 h-3 text-zinc-500" aria-label="Облачный файл" />}
         {isLocal && <HardDrive className="ml-2 w-3 h-3 text-zinc-500" aria-label="Локальный файл" />}

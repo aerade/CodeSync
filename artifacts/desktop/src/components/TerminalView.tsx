@@ -37,7 +37,7 @@ export function TerminalView({ sessionLocalId, cwd }: Props) {
       theme: {
         background: "#0F0F11",
         foreground: "#E4E4E7",
-        cursor: "#A395FF",
+        cursor: "#F97316",
         cursorAccent: "#0F0F11",
         black: "#18181B",
         red: "#E26F6F",
@@ -55,7 +55,7 @@ export function TerminalView({ sessionLocalId, cwd }: Props) {
         brightMagenta: "#D4C5FF",
         brightCyan: "#9DDADA",
         brightWhite: "#F4F4F5",
-        selectionBackground: "rgba(139,125,233,0.30)",
+        selectionBackground: "rgba(249,115,22,0.30)",
       },
     });
     const fit = new FitAddon();

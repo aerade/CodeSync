@@ -1,10 +1,9 @@
 @import "tailwindcss";
-@import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
 
 /* ============================================================
-   ДИЗАЙН-ТОКЕНЫ — Cursor / Claude Code / Antigravity стиль
+   ДИЗАЙН-ТОКЕНЫ
    ============================================================ */
 :root {
   /* База: глубокий чёрно-серый */
@@ -25,11 +24,11 @@
   --fg-subtle: #71717A;
   --fg-faint: #52525B;
 
-  /* Акценты — приглушённый фиолет */
-  --accent: #8B7DE9;
-  --accent-strong: #A395FF;
-  --accent-soft: rgba(139, 125, 233, 0.14);
-  --accent-glow: rgba(139, 125, 233, 0.28);
+  /* Акценты — тёплый оранжевый */
+  --accent: #F97316;
+  --accent-strong: #FB923C;
+  --accent-soft: rgba(249, 115, 22, 0.14);
+  --accent-glow: rgba(249, 115, 22, 0.28);
 
   /* Семантические */
   --ok: #56C271;
@@ -54,154 +53,79 @@
   --color-popover: var(--bg-elevated);
   --color-popover-foreground: var(--fg-default);
   --color-primary: var(--accent);
-  --color-primary-foreground: #0E0B22;
+  --color-primary-foreground: #1C0A00;
   --color-secondary: var(--bg-surface-2);
   --color-secondary-foreground: var(--fg-default);
   --color-muted: var(--bg-surface-2);
-  --color-muted-foreground: var(--fg-muted);
-  --color-accent: var(--bg-elevated);
+  --color-muted-foreground: var(--fg-subtle);
+  --color-accent: var(--bg-surface-2);
   --color-accent-foreground: var(--fg-default);
   --color-destructive: var(--err);
-  --color-destructive-foreground: #FFFFFF;
   --color-border: var(--border-default);
-  --color-input: var(--border-default);
+  --color-input: var(--bg-input);
   --color-ring: var(--accent);
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-mono: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', ui-monospace, monospace;
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius);
+  --radius-lg: var(--radius-lg);
 }
 
-/* ============================================================
-   БАЗА
-   ============================================================ */
-@layer base {
-  * {
-    border-color: var(--border-soft);
-    box-sizing: border-box;
-  }
-  html, body, #root {
-    height: 100%;
-    margin: 0;
-    padding: 0;
-  }
-  body {
-    background: var(--bg-app);
-    color: var(--fg-default);
-    font-family: var(--font-sans);
-    font-feature-settings: 'cv02', 'cv03', 'cv11';
-    -webkit-font-smoothing: antialiased;
-    overflow: hidden;
-  }
-  code, pre, .monaco-editor, [data-mono] {
-    font-family: var(--font-mono);
-    font-variant-ligatures: contextual;
-  }
+* { box-sizing: border-box; }
 
-  /* Тонкие нативные скроллбары */
-  ::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
-  }
-  ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.08);
-    border: 2px solid transparent;
-    background-clip: content-box;
-    border-radius: 6px;
-  }
-  ::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.18);
-    background-clip: content-box;
-  }
-
-  /* Selection */
-  ::selection {
-    background: var(--accent-soft);
-    color: var(--fg-default);
-  }
-}
-
-/* ============================================================
-   УТИЛИТЫ
-   ============================================================ */
-@layer utilities {
-  .glass {
-    background: var(--glass-bg);
-    border: 1px solid var(--glass-border);
-    backdrop-filter: blur(14px) saturate(140%);
-    -webkit-backdrop-filter: blur(14px) saturate(140%);
-    box-shadow: var(--glass-shadow);
-  }
-  .surface {
-    background: var(--bg-surface);
-    border: 1px solid var(--border-default);
-  }
-  .surface-2 {
-    background: var(--bg-surface-2);
-    border: 1px solid var(--border-default);
-  }
-  .hover-row {
-    transition: background-color 120ms ease;
-  }
-  .hover-row:hover {
-    background-color: rgba(255, 255, 255, 0.04);
-  }
-  .hover-row.is-active {
-    background-color: rgba(139, 125, 233, 0.10);
-    color: var(--fg-default);
-  }
-  .titlebar-drag { -webkit-app-region: drag; }
-  .titlebar-no-drag { -webkit-app-region: no-drag; }
-
-  .ring-accent { box-shadow: 0 0 0 1px var(--accent), 0 0 24px var(--accent-glow); }
-
-  .focus-ring:focus-visible {
-    outline: none;
-    box-shadow: 0 0 0 1px var(--accent-strong), 0 0 0 3px rgba(139, 125, 233, 0.18);
-  }
-
-  .panel-header {
-    height: 30px;
-    display: flex;
-    align-items: center;
-    padding: 0 10px;
-    font-size: 11px;
-    font-weight: 500;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: var(--fg-subtle);
-    border-bottom: 1px solid var(--border-soft);
-    background: var(--bg-surface);
-    user-select: none;
-  }
-
-  .kbd {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 18px;
-    padding: 1px 5px;
-    font-family: var(--font-mono);
-    font-size: 10.5px;
-    font-weight: 500;
-    color: var(--fg-muted);
-    background: var(--bg-elevated);
-    border: 1px solid var(--border-default);
-    border-radius: 4px;
-    line-height: 1.2;
-  }
-}
-
-/* ============================================================
-   xterm.js
-   ============================================================ */
-.xterm {
-  padding: 8px 12px;
+html, body, #root {
   height: 100%;
+  margin: 0;
+  padding: 0;
+  background: var(--bg-app);
+  color: var(--fg-default);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
-.xterm-viewport {
-  background: transparent !important;
+
+/* ── Titlebar drag region (Electron) ── */
+.titlebar-drag    { -webkit-app-region: drag; }
+.titlebar-no-drag { -webkit-app-region: no-drag; }
+
+/* ── Surface card ── */
+.surface {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
 }
+.surface-2 {
+  background: var(--bg-surface-2);
+  border: 1px solid var(--border-soft);
+}
+
+/* ── Keyboard shortcut badges ── */
+.kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 18px;
+  min-width: 18px;
+  padding: 0 4px;
+  border-radius: 4px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.05);
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--fg-muted);
+  line-height: 1;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.10); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.18); }
+
+/* ── Panel resize handle ── */
+.resize-handle {
+  background: transparent;
+  transition: background 0.15s;
+}
+.resize-handle:hover { background: var(--accent-soft); }
+
+/* ── Code editor overrides ── */
+.monaco-editor .current-line { background: rgba(255,255,255,0.035) !important; }
+.monaco-editor .cursor { border-color: var(--accent) !important; }

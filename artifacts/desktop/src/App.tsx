@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { WorkspaceProvider, useWorkspace } from "@/store/workspace";
+import { AuthProvider, useAuth } from "@/store/auth";
 import { TitleBar } from "@/components/TitleBar";
 import { ActivityBar } from "@/components/ActivityBar";
 import { SideBar } from "@/components/SideBar";
@@ -13,44 +14,13 @@ import { SettingsPanel } from "@/components/SettingsPanel";
 import { StatusBar } from "@/components/StatusBar";
 import { CommandPalette } from "@/components/CommandPalette";
 import { WelcomeScreen } from "@/components/WelcomeScreen";
+import { SignInScreen } from "@/components/SignInScreen";
 import { useHotkeys } from "@/hooks/useHotkeys";
 import { desktop } from "@/lib/desktopBridge";
-import { apiFetch, setGuestToken } from "@/lib/apiConfig";
-import { log } from "@/lib/logger";
-
-/**
- * Гарантирует наличие гостевой учётной записи: при первом запуске
- * запрашивает имя пользователя и обменивает его на постоянный
- * x-guest-token в локальной БД (через API /api/auth/guest).
- */
-async function ensureGuestAuth(): Promise<void> {
-  try {
-    const existing = await desktop().db.getSetting("guestToken");
-    if (existing) return;
-    const usernameSaved = await desktop().db.getSetting("guestUsername");
-    const username = usernameSaved ?? `Гость_${Math.random().toString(36).slice(2, 7)}`;
-    await desktop().db.setSetting("guestUsername", username);
-
-    const res = await apiFetch("/api/auth/guest", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username }),
-    });
-    if (!res.ok) {
-      log.warn("auth", `Гостевая сессия не создана (HTTP ${res.status})`);
-      return;
-    }
-    const data = await res.json() as { token?: string };
-    if (data.token) {
-      await setGuestToken(data.token);
-    }
-  } catch (err) {
-    log.warn("auth", "Гостевая авторизация недоступна (api-server offline?)", err);
-  }
-}
 
 function Shell() {
   const ws = useWorkspace();
+  const { user, loading } = useAuth();
   const [paletteOpen, setPaletteOpen] = useState(false);
 
   useHotkeys([
@@ -65,7 +35,6 @@ function Shell() {
     { combo: "mod+shift+t", handler: () => ws.newTerminal() },
   ]);
 
-  // Реакция на действия из нативного меню и глобальных хоткеев
   useEffect(() => {
     const handle = (action: string) => {
       switch (action) {
@@ -83,49 +52,32 @@ function Shell() {
             await ws.openProject(project);
           });
           break;
-        case "new-file":
-          ws.openScratch("typescript");
-          break;
-        case "save":
-          ws.saveActiveTab();
-          break;
-        case "command-palette":
-          setPaletteOpen(true);
-          break;
-        case "toggle-sidebar":
-          ws.toggleLeftSidebar();
-          break;
-        case "toggle-terminal":
-          ws.toggleBottomPanel();
-          break;
+        case "new-file": ws.openScratch("typescript"); break;
+        case "save": ws.saveActiveTab(); break;
+        case "command-palette": setPaletteOpen(true); break;
+        case "toggle-sidebar": ws.toggleLeftSidebar(); break;
+        case "toggle-terminal": ws.toggleBottomPanel(); break;
         case "toggle-ai":
-          ws.toggleRightPanel();
           ws.setRightPanelView("ai");
+          if (!ws.showRightPanel) ws.toggleRightPanel();
           break;
         case "toggle-history":
-          ws.toggleRightPanel();
           ws.setRightPanelView("history");
+          if (!ws.showRightPanel) ws.toggleRightPanel();
           break;
         case "toggle-chat":
-          ws.toggleRightPanel();
           ws.setRightPanelView("chat");
+          if (!ws.showRightPanel) ws.toggleRightPanel();
           break;
         case "toggle-settings":
-          ws.toggleRightPanel();
           ws.setRightPanelView("settings");
+          if (!ws.showRightPanel) ws.toggleRightPanel();
           break;
         case "help-docs":
-          // Открываем документацию во внешнем браузере, чтобы не выходить
-          // за пределы Electron-окна. URL — публичная страница CodeSync.
           window.open("https://github.com/replit/codesync-desktop#readme", "_blank", "noopener");
           break;
         case "help-about":
-          window.alert(
-            "CodeSync Desktop\n" +
-            "Версия 0.1.0 — нативный код-редактор\n" +
-            "Совместная работа через комнаты api-server.\n" +
-            "Local-first SQLite + Yjs CRDT.",
-          );
+          window.alert("CodeSync Desktop\nВерсия 0.1.0 — нативный код-редактор\nLocal-first SQLite + Yjs CRDT.");
           break;
       }
     };
@@ -134,10 +86,17 @@ function Shell() {
     return () => { off1(); off2(); };
   }, [ws]);
 
-  // Гостевая авторизация при первом запуске
-  useEffect(() => {
-    ensureGuestAuth();
-  }, []);
+  if (loading) {
+    return (
+      <div className="h-screen w-screen bg-[#0A0A0C] flex items-center justify-center">
+        <div className="w-8 h-8 rounded-full border-2 border-[#F97316] border-t-transparent animate-spin" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <SignInScreen />;
+  }
 
   return (
     <div className="h-screen w-screen flex flex-col bg-[#0F0F11] overflow-hidden">
@@ -168,7 +127,6 @@ function Shell() {
       </div>
 
       <StatusBar />
-
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
     </div>
   );
@@ -176,8 +134,10 @@ function Shell() {
 
 export default function App() {
   return (
-    <WorkspaceProvider>
-      <Shell />
-    </WorkspaceProvider>
+    <AuthProvider>
+      <WorkspaceProvider>
+        <Shell />
+      </WorkspaceProvider>
+    </AuthProvider>
   );
 }

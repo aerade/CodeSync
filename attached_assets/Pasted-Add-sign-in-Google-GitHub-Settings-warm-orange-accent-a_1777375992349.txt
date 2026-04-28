@@ -1,0 +1,130 @@
+Add sign-in (Google/GitHub), Settings, warm-orange accent and design polish to desktop app
+The CodeSync Desktop app currently jumps straight into a workspace via a silent "guest" session, has no real account model, lacks any Settings UI, and its visual design (muted purple accent, busy welcome screen, placeholder sections, mixed debug fallbacks) feels dated and slightly disorganized. We need to gate the app behind a proper sign-in / sign-up flow (Google or GitHub), add real App and Account settings, switch the accent to a warm orange, and tighten the overall layout so the product feels modern and intentional.
+
+
+View plan
+
+30 actions
+Now I have a complete picture. Let me start implementing. First, let me add the Clerk SDK to the desktop package.
+
+
+5 actions
+Let me explore a couple more things needed for the implementation.
+
+
+2 actions
+Now I'll implement everything. Starting with the design tokens (warm orange) and the auth/settings infrastructure.
+
+
+Edited artifacts/desktop/src/index.css
+Now let me create the auth, settings, and sign-in infrastructure in parallel.
+
+
+2 actions
+Now let me look at the apiConfig and api-client-react to wire Clerk JWT:
+
+
+10 actions
+Now I have all the context. Let me implement everything in parallel. First, update apiConfig to support Clerk JWT:
+
+
+Edited artifacts/desktop/src/lib/apiConfig.ts
+Now let me create the auth context, sign-in screen, settings screen, user menu, and update everything in parallel.
+
+
+4 actions
+Now let me create the UI context, the SettingsScreen, UserMenu, and update App.tsx — all in parallel:
+
+
+3 actions
+Now the App.tsx, TitleBar, ActivityBar, WelcomeScreen, EditorPane, and other component overhauls in parallel:
+
+
+Edited artifacts/desktop/src/App.tsx
+Now let me update TitleBar, ActivityBar, WelcomeScreen, EditorPane, and other components in parallel:
+
+
+4 actions
+Now I'll batch-update all the remaining files in parallel — the editor, panels, sidebar, command palette, electron menu, and remove the old SettingsPanel.
+
+
+5 actions
+Let me search for remaining purple hex codes and check the other files in parallel:
+
+
+5 actions
+Now batch all the remaining file edits in parallel:
+
+
+4 actions
+Now I'll batch all remaining edits in a single response:
+
+
+3 actions
+Now let me batch-edit all remaining files at once:
+
+
+3 actions
+Now let me batch all the SideBar, FileTree, AIPanel, ChatPanel, HistoryPanel, TabsBar, TerminalView, EditorPane empty state, and electron menu changes in parallel:
+
+
+Edited artifacts/desktop/src/components/SideBar.tsx
+Now I'll batch all remaining edits in one response — the SideBar polish, FileTree colors, AIPanel/ChatPanel/HistoryPanel/TabsBar/TerminalView/EditorPane color sweeps, and electron menu update:
+
+
+4 actions
+I need to add ReactNode import to SideBar:
+
+
+Edited artifacts/desktop/src/components/SideBar.tsx
+Now let me batch all remaining sweep edits in parallel — replacing purple with brand orange across multiple files:
+
+
+Ran cd
+Sweep done (the exit 1 is just rg finding no matches, which is what we want). Now verify and check FileTree's "var(--accent)/10" Tailwind syntax — Tailwind needs different syntax for CSS var with opacity. Let me check:
+
+
+3 actions
+Let me fix the FileTree opacity issue (Tailwind can't apply /N opacity to CSS vars), the EditorPane purple shadow, and check index.css for what's there:
+
+
+4 actions
+Now let me check ChatPanel inline color, AIPanel, and electron menu in parallel:
+
+
+7 actions
+Let me check ChatPanel send button still:
+
+
+4 actions
+Let me check the apiConfig has the right setClerkTokenGetter export, the appSettings, and the authContext structure briefly so I can verify everything wires up properly. Let me also verify the AIPanel for a bg-brand issue at line 290 (gradient) and start the workflow to validate the build:
+
+
+5 actions
+Now let me check the Clerk environment, restart the workflow, and verify it builds:
+
+
+4 actions
+Let me start the desktop workflow to verify it builds:
+
+
+2 actions
+The tw-animate-css import was already in index.css from the original. Let me remove that unused import (I had added @import "tw-animate-css" but the package isn't installed):
+
+
+7 actions
+The dev server starts cleanly. Now let me take a screenshot to verify the UI loads, then run e2e tests:
+
+
+Took a screenshot
+The sign-in screen renders beautifully with the warm orange branding, both Google and GitHub OAuth buttons, the "Войдите, чтобы продолжить" headline, and the three feature highlights. Clerk loaded successfully with no errors.
+
+Let me run an end-to-end test to verify the full flow works:
+
+
+6 actions
+I forgot to pass testClerkAuth: true. Let me retry:
+
+
+Ran e2e test with Clerk auth
+The ability to use Replit Agent has been disabled by your admin.
