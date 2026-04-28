@@ -15,13 +15,13 @@ function GoogleIcon({ className }: { className?: string }) {
 }
 
 export function SignInScreen() {
-  const { signIn } = useAuth();
-  const [loading, setLoading] = useState<Provider | null>(null);
+  const { signIn, loading: authLoading, error: authError } = useAuth();
+  const [active, setActive] = useState<Provider | null>(null);
 
   const handleSignIn = async (provider: Provider) => {
-    setLoading(provider);
+    setActive(provider);
     await signIn(provider);
-    setLoading(null);
+    setActive(null);
   };
 
   return (
@@ -56,24 +56,42 @@ export function SignInScreen() {
 
         {/* Sign-in buttons */}
         <div className="bg-[#18181B] border border-white/8 rounded-2xl p-5 shadow-[0_24px_64px_rgba(0,0,0,0.6)]">
-          <SignInButton
-            provider="google"
-            label="Войти через Google"
-            loading={loading === "google"}
-            disabled={loading !== null}
-            onClick={() => handleSignIn("google")}
-            icon={<GoogleIcon className="w-[18px] h-[18px]" />}
-          />
-          <div className="h-2.5" />
-          <SignInButton
-            provider="github"
-            label="Войти через GitHub"
-            loading={loading === "github"}
-            disabled={loading !== null}
-            onClick={() => handleSignIn("github")}
-            icon={<Github className="w-[18px] h-[18px]" strokeWidth={2} />}
-            dark
-          />
+          {authLoading && active ? (
+            <div className="flex flex-col items-center gap-3 py-4">
+              <span className="w-7 h-7 rounded-full border-2 border-[#F97316] border-t-transparent animate-spin" />
+              <p className="text-[13px] text-zinc-400 text-center leading-relaxed">
+                Открываем браузер для входа через {active === "google" ? "Google" : "GitHub"}…<br />
+                <span className="text-zinc-600">Вернитесь сюда после авторизации</span>
+              </p>
+            </div>
+          ) : (
+            <>
+              <SignInButton
+                provider="google"
+                label="Войти через Google"
+                loading={false}
+                disabled={!!active}
+                onClick={() => handleSignIn("google")}
+                icon={<GoogleIcon className="w-[18px] h-[18px]" />}
+              />
+              <div className="h-2.5" />
+              <SignInButton
+                provider="github"
+                label="Войти через GitHub"
+                loading={false}
+                disabled={!!active}
+                onClick={() => handleSignIn("github")}
+                icon={<Github className="w-[18px] h-[18px]" strokeWidth={2} />}
+                dark
+              />
+            </>
+          )}
+
+          {authError && (
+            <div className="mt-3 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20">
+              <p className="text-[12px] text-red-400 text-center">{authError}</p>
+            </div>
+          )}
 
           <p className="mt-5 text-center text-[11.5px] text-zinc-600 leading-relaxed">
             Входя, вы принимаете{" "}

@@ -2,11 +2,14 @@
  * Главный процесс Electron для CodeSync Desktop.
  *
  * - В режиме разработки (NODE_ENV=development) подключается к Vite dev-серверу.
- * - В продакшене загружает собранные файлы из dist/public.
+ * - В продакшене раздаёт собранные файлы через встроенный HTTP-сервер (не file://)
+ *   чтобы аутентификация и WebSocket работали корректно.
  * - Регистрирует IPC-обработчики для FS, SQLite и node-pty.
+ * - Регистрирует протокол codesync:// для OAuth deep link.
  * - Создаёт нативное меню на русском языке.
  */
 import { app, BrowserWindow, ipcMain, shell, Notification, globalShortcut } from "electron";
+import * as http from "http";
 import * as path from "path";
 import * as fs from "fs";
 import { registerFsHandlers } from "./ipc/fs";
@@ -18,6 +21,76 @@ const isDev = process.env.NODE_ENV === "development";
 const DEV_URL = process.env.VITE_DEV_URL ?? "http://localhost:5173/desktop/";
 
 let mainWindow: BrowserWindow | null = null;
+let localServerPort: number | null = null;
+
+// ─── Single-instance lock + deep-link (Windows / Linux) ──────────────────────
+
+const gotLock = app.requestSingleInstanceLock();
+if (!gotLock) {
+  app.quit();
+} else {
+  app.on("second-instance", (_e, argv) => {
+    const deepLink = argv.find((a) => a.startsWith("codesync://"));
+    if (deepLink) handleDeepLink(deepLink);
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+    }
+  });
+}
+
+// ─── Deep link handler ────────────────────────────────────────────────────────
+
+function handleDeepLink(url: string) {
+  try {
+    const parsed = new URL(url);
+    if (parsed.host === "auth") {
+      const token = parsed.searchParams.get("token");
+      const error = parsed.searchParams.get("error");
+      mainWindow?.webContents.send("auth:oauth-callback", { token, error });
+    }
+  } catch (err) {
+    console.error("Failed to parse deep link:", url, err);
+  }
+}
+
+// ─── Local HTTP server for production ────────────────────────────────────────
+
+async function startLocalServer(): Promise<number> {
+  const distPath = path.join(__dirname, "..", "dist", "public");
+  return new Promise((resolve, reject) => {
+    const server = http.createServer((req, res) => {
+      let urlPath = (req.url ?? "/").split("?")[0];
+      if (urlPath.startsWith("/desktop")) urlPath = urlPath.slice("/desktop".length) || "/";
+      let filePath = path.join(distPath, urlPath === "/" ? "index.html" : urlPath);
+      if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
+        filePath = path.join(distPath, "index.html");
+      }
+      const ext = path.extname(filePath).toLowerCase();
+      const mime: Record<string, string> = {
+        ".html": "text/html; charset=utf-8",
+        ".js": "application/javascript; charset=utf-8",
+        ".css": "text/css",
+        ".svg": "image/svg+xml",
+        ".png": "image/png",
+        ".ico": "image/x-icon",
+        ".woff2": "font/woff2",
+        ".woff": "font/woff",
+        ".json": "application/json",
+        ".webp": "image/webp",
+      };
+      res.writeHead(200, { "Content-Type": mime[ext] ?? "application/octet-stream" });
+      fs.createReadStream(filePath).pipe(res);
+    });
+    server.listen(0, "127.0.0.1", () => {
+      const addr = server.address() as { port: number };
+      resolve(addr.port);
+    });
+    server.on("error", reject);
+  });
+}
+
+// ─── Create main window ───────────────────────────────────────────────────────
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -54,14 +127,12 @@ function createWindow() {
     });
     mainWindow.webContents.openDevTools({ mode: "detach" });
   } else {
-    const indexPath = path.join(__dirname, "..", "dist", "public", "index.html");
-    if (fs.existsSync(indexPath)) {
-      mainWindow.loadFile(indexPath);
-    } else {
-      console.error(`Файл рендерера не найден: ${indexPath}`);
-    }
+    mainWindow.loadURL(`http://127.0.0.1:${localServerPort}/desktop/`).catch((err) => {
+      console.error("Failed to load from local server:", err);
+    });
   }
 
+  // Open all external URLs in the system browser
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url).catch(() => {});
     return { action: "deny" };
@@ -72,7 +143,34 @@ function dispatchMenuAction(action: string) {
   mainWindow?.webContents.send("menu:action", action);
 }
 
-app.whenReady().then(() => {
+// ─── Register codesync:// protocol before ready ───────────────────────────────
+
+if (!app.isDefaultProtocolClient("codesync")) {
+  if (isDev && process.argv.length >= 2) {
+    app.setAsDefaultProtocolClient("codesync", process.execPath, [path.resolve(process.argv[1] ?? ".")]);
+  } else {
+    app.setAsDefaultProtocolClient("codesync");
+  }
+}
+
+// macOS: deep link when app is already running
+app.on("open-url", (event, url) => {
+  event.preventDefault();
+  handleDeepLink(url);
+});
+
+// ─── App lifecycle ────────────────────────────────────────────────────────────
+
+app.whenReady().then(async () => {
+  if (!isDev) {
+    try {
+      localServerPort = await startLocalServer();
+      console.log(`Local renderer server started on port ${localServerPort}`);
+    } catch (err) {
+      console.error("Failed to start local server:", err);
+    }
+  }
+
   registerFsHandlers(ipcMain);
   registerDbHandlers(ipcMain, app.getPath("userData"));
   registerPtyHandlers(ipcMain, () => mainWindow?.webContents);
@@ -102,7 +200,7 @@ app.whenReady().then(() => {
   buildMenu(dispatchMenuAction);
   createWindow();
 
-  // Глобальные хоткеи (работают, даже когда окно не в фокусе)
+  // Глобальные хоткеи
   const shortcuts: Array<{ accel: string; action: string }> = [
     { accel: "CommandOrControl+Shift+O", action: "open-folder" },
     { accel: "CommandOrControl+Shift+N", action: "new-file" },

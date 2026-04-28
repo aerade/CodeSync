@@ -122,6 +122,7 @@ export interface DesktopAPI {
   notify(title: string, body?: string): void;
   onMenuAction(cb: (action: string) => void): () => void;
   onGlobalShortcut(cb: (action: string) => void): () => void;
+  onOAuthCallback(cb: (payload: { token: string | null; error: string | null }) => void): () => void;
 }
 
 declare global {
@@ -321,6 +322,7 @@ function makeBrowserBridge(): DesktopAPI {
       return () => subscribers.delete(cb);
     },
     onGlobalShortcut: emptyUnsub,
+    onOAuthCallback: emptyUnsub,
   };
 }
 

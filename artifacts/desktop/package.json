@@ -15,7 +15,10 @@
     "electron:build": "tsc -p electron/tsconfig.json && node -e \"require('fs').writeFileSync('dist-electron/package.json', JSON.stringify({type:'commonjs'}))\"",
     "electron:dev": "pnpm run electron:build && cross-env NODE_ENV=development VITE_DEV_URL=http://localhost:21098/desktop/ electron dist-electron/main.js",
     "electron:start": "pnpm run build && pnpm run electron:build && cross-env NODE_ENV=production electron dist-electron/main.js",
-    "electron:dist": "pnpm run build && pnpm run electron:build && electron-builder --config electron-builder.yml"
+    "electron:dist": "pnpm run build && pnpm run electron:build && electron-builder --config electron-builder.yml",
+    "build:full": "pnpm run build:web && pnpm run electron:build && electron-builder --config electron-builder.yml --linux",
+    "electron:build:win": "pnpm run build:web && pnpm run electron:build && electron-builder --config electron-builder.yml --win",
+    "electron:build:mac": "pnpm run build:web && pnpm run electron:build && electron-builder --config electron-builder.yml --mac"
   },
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",

@@ -1,4 +1,6 @@
-import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useRef, type ReactNode } from "react";
+import { desktop } from "@/lib/desktopBridge";
+import { getApiBase } from "@/lib/apiConfig";
 
 export type Provider = "google" | "github";
 
@@ -13,62 +15,96 @@ export interface AuthUser {
 interface AuthState {
   user: AuthUser | null;
   loading: boolean;
+  error: string | null;
   signIn: (provider: Provider) => Promise<void>;
   signOut: () => void;
 }
 
 const STORAGE_KEY = "cs_auth_user";
 
-const MOCK_USERS: Record<Provider, AuthUser> = {
-  google: {
-    id: "google_demo_001",
-    name: "Алексей Смирнов",
-    email: "alex@gmail.com",
-    avatarUrl: "https://api.dicebear.com/9.x/initials/svg?seed=AS&backgroundColor=f97316&textColor=ffffff",
-    provider: "google",
-  },
-  github: {
-    id: "github_demo_001",
-    name: "alex_dev",
-    email: "alex@users.noreply.github.com",
-    avatarUrl: "https://api.dicebear.com/9.x/initials/svg?seed=AD&backgroundColor=18181b&textColor=f97316",
-    provider: "github",
-  },
-};
-
 const AuthContext = createContext<AuthState | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const pendingSignIn = useRef(false);
 
+  // Restore persisted session on mount
   useEffect(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        setUser(JSON.parse(stored) as AuthUser);
-      }
-    } catch {
-    }
+      if (stored) setUser(JSON.parse(stored) as AuthUser);
+    } catch { /* ignore */ }
     setLoading(false);
+  }, []);
+
+  // Listen for OAuth deep-link callback sent by Electron main process
+  useEffect(() => {
+    const unsub = desktop().onOAuthCallback(async ({ token, error: cbError }) => {
+      if (!pendingSignIn.current) return;
+      pendingSignIn.current = false;
+
+      if (cbError) {
+        setError(cbError);
+        setLoading(false);
+        return;
+      }
+
+      if (!token) {
+        setError("OAuth завершился без токена");
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const base = await getApiBase();
+        const res = await fetch(`${base}/api/desktop-auth/exchange?token=${encodeURIComponent(token)}`);
+        if (!res.ok) throw new Error(`Exchange failed: ${res.status}`);
+        const data = await res.json() as { user: AuthUser };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data.user));
+        setUser(data.user);
+        setError(null);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Ошибка авторизации");
+      } finally {
+        setLoading(false);
+      }
+    });
+    return unsub;
   }, []);
 
   const signIn = async (provider: Provider) => {
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 900));
-    const u = MOCK_USERS[provider];
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(u));
-    setUser(u);
-    setLoading(false);
+    setError(null);
+    pendingSignIn.current = true;
+
+    try {
+      const base = await getApiBase();
+      const res = await fetch(`${base}/api/desktop-auth/start?provider=${provider}`, { method: "POST" });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({})) as { error?: string };
+        throw new Error(body.error ?? `Server returned ${res.status}`);
+      }
+      const { url } = await res.json() as { url: string };
+      // Open OAuth URL in system browser; callback comes back via codesync:// deep link
+      desktop().shell.openExternal(url);
+      // Loading remains true until onOAuthCallback fires
+    } catch (err) {
+      pendingSignIn.current = false;
+      setError(err instanceof Error ? err.message : "Не удалось начать авторизацию");
+      setLoading(false);
+    }
   };
 
   const signOut = () => {
     localStorage.removeItem(STORAGE_KEY);
     setUser(null);
+    setError(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, loading, error, signIn, signOut }}>
       {children}
     </AuthContext.Provider>
   );

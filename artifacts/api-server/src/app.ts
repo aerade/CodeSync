@@ -49,6 +49,10 @@ app.use(cors({
     if (process.env.NODE_ENV !== "production" && origin.startsWith("http://localhost")) {
       return callback(null, true);
     }
+    // Allow Electron's local renderer server (127.0.0.1 on any port, any environment)
+    if (origin.startsWith("http://127.0.0.1")) {
+      return callback(null, true);
+    }
     // Return false (not an Error) so cors sends a proper rejection instead of throwing
     return callback(null, false);
   },
