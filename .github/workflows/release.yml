@@ -66,7 +66,7 @@ jobs:
           node-version: 20
           cache: pnpm
       - name: Install Python setuptools (needed for node-pty native build)
-        run: pip3 install setuptools
+        run: pip3 install setuptools --break-system-packages
       - run: pnpm install --no-frozen-lockfile
       - name: Build macOS DMG (unsigned)
         run: pnpm --filter @workspace/desktop run electron:build:mac
