@@ -23,6 +23,11 @@ function Shell() {
   const { user, loading } = useAuth();
   const [paletteOpen, setPaletteOpen] = useState(false);
 
+  const openSettings = () => {
+    ws.setRightPanelView("settings");
+    if (!ws.showRightPanel) ws.toggleRightPanel();
+  };
+
   useHotkeys([
     { combo: "mod+k", handler: () => setPaletteOpen(true) },
     { combo: "mod+shift+p", handler: () => setPaletteOpen(true) },
@@ -33,6 +38,7 @@ function Shell() {
     { combo: "mod+`", handler: () => ws.toggleBottomPanel() },
     { combo: "mod+n", handler: () => ws.openScratch("typescript") },
     { combo: "mod+shift+t", handler: () => ws.newTerminal() },
+    { combo: "mod+,", handler: openSettings },
   ]);
 
   useEffect(() => {

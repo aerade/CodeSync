@@ -1,9 +1,11 @@
 import { useWorkspace } from "@/store/workspace";
+import { useAuth } from "@/store/auth";
 import { Wifi, WifiOff, GitBranch, Bell } from "lucide-react";
 import { isElectron, desktop } from "@/lib/desktopBridge";
 
 export function StatusBar() {
   const { tabs, activeTabId, currentProject } = useWorkspace();
+  const { user } = useAuth();
   const activeTab = tabs.find((t) => t.id === activeTabId);
   const native = isElectron();
 
@@ -25,7 +27,7 @@ export function StatusBar() {
           <span>main</span>
         </div>
         {currentProject && (
-          <span className="truncate max-w-[280px]">{currentProject.name}</span>
+          <span className="truncate max-w-[200px]">{currentProject.name}</span>
         )}
       </div>
 
@@ -37,6 +39,12 @@ export function StatusBar() {
             <span className="font-mono">LF</span>
             <span className="font-mono">{lineCount} стр.</span>
           </>
+        )}
+        {user && (
+          <div className="flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#F97316]" />
+            <span className="text-zinc-400">{user.name}</span>
+          </div>
         )}
         <button
           type="button"

@@ -576,18 +576,12 @@ function ExtensionsSection() {
   return (
     <div className="flex flex-col h-full">
       <div className="panel-header">Расширения</div>
-      <div className="p-3 text-[13px] text-zinc-400 space-y-3">
-        <div className="flex items-center gap-2">
-          <Package className="w-3.5 h-3.5 text-[#F97316]" />
-          <span>Встроенные модули</span>
-        </div>
-        <ul className="space-y-1.5 text-[12.5px] text-zinc-500">
-          <li>• Monaco Editor (TypeScript / JavaScript / JSON / Markdown)</li>
-          <li>• Yjs + y-monaco (совместное редактирование)</li>
-          <li>• xterm.js + node-pty (системный терминал)</li>
-          <li>• better-sqlite3 (локальное хранилище)</li>
-          <li>• ИИ-помощник через api-server</li>
-        </ul>
+      <div className="flex-1 flex flex-col items-center justify-center px-4 py-8 text-center gap-3">
+        <Package className="w-8 h-8 text-zinc-700" strokeWidth={1.4} />
+        <div className="text-[13px] font-medium text-zinc-400">Расширения пока недоступны</div>
+        <p className="text-[12px] text-zinc-600 leading-relaxed">
+          Поддержка расширений появится в следующих версиях CodeSync Desktop.
+        </p>
       </div>
     </div>
   );

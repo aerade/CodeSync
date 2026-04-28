@@ -129,3 +129,38 @@ html, body, #root {
 /* ── Code editor overrides ── */
 .monaco-editor .current-line { background: rgba(255,255,255,0.035) !important; }
 .monaco-editor .cursor { border-color: var(--accent) !important; }
+
+/* ── Glass card (used by CommandPalette) ── */
+.glass {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+/* ── Panel header strip ── */
+.panel-header {
+  display: flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 10px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--fg-subtle);
+  border-bottom: 1px solid var(--border-soft);
+  user-select: none;
+  gap: 6px;
+}
+
+/* ── Hoverable sidebar row ── */
+.hover-row {
+  transition: background 0.1s;
+}
+.hover-row:hover { background: rgba(255,255,255,0.04); }
+
+/* ── Focus ring ── */
+.focus-ring { outline: none; }
+.focus-ring:focus { box-shadow: 0 0 0 2px var(--accent-soft), 0 0 0 3px var(--accent); }

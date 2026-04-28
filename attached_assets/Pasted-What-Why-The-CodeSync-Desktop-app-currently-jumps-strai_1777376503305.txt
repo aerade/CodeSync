@@ -1,0 +1,46 @@
+What & Why
+The CodeSync Desktop app currently jumps straight into a workspace via a silent "guest" session, has no real account model, lacks any Settings UI, and its visual design (muted purple accent, busy welcome screen, placeholder sections, mixed debug fallbacks) feels dated and slightly disorganized. We need to gate the app behind a proper sign-in / sign-up flow (Google or GitHub), add real App and Account settings, switch the accent to a warm orange, and tighten the overall layout so the product feels modern and intentional.
+
+Done looks like
+On first launch (and whenever there's no signed-in user) the desktop app shows a clean, full-window Sign in / Sign up screen with two primary buttons: Continue with Google and Continue with GitHub. The rest of the IDE is not reachable until the user is authenticated.
+After successful sign-in, the user lands on the polished workspace; their avatar and name are visible (e.g. in the title bar / status bar) with a menu to open Account settings or sign out.
+A real Settings screen exists, opened from the Activity Bar, the user menu, the command palette, and the keyboard shortcut. It has at least two sections:
+Application — appearance (theme stays dark, accent shown as warm orange), editor (font family, font size, tab size, word wrap), behavior (auto-save toggle, confirm on close), keyboard shortcuts list. Settings persist locally.
+Account — avatar, display name, email, connected provider (Google/GitHub), sign-out, and a clearly-marked danger zone (delete local data).
+The "Extensions" placeholder no longer pretends to be Settings; the command palette "Settings" entry opens the real Settings screen.
+The accent color across the entire desktop app is a warm orange (used for the primary CTA, focus rings, active states, selection highlight, logo glow, status indicators). Purple accents are removed.
+The Welcome / Home screen is simplified and clearer: a focused hero, a tighter row of primary actions (Open folder, New file, Join cloud room), a clean list of recent projects, and the keyboard-shortcut hints moved into a discreet footer strip — no "debug" window.prompt fallbacks visible in the native build.
+Title bar, Activity Bar, Sidebar, Tabs, Status Bar and panels share consistent spacing, icon weight, and typographic hierarchy; stray placeholder copy ("Built-in modules", empty Git/Extensions states, etc.) is replaced with clear empty states or removed.
+Existing cloud-room / local-project flows continue to work after sign-in; API calls that previously used the guest token now use the authenticated user's identity.
+Out of scope
+Email/password sign-in, magic links, MFA, organizations, or any provider beyond Google and GitHub.
+Changes to the web artifact (artifacts/codesync) or the API server beyond the minimum needed to accept the authenticated user instead of (or alongside) the guest token.
+Building the actual Git, Extensions, and Search features — only their empty/placeholder states are tidied up visually.
+A light theme. The app stays dark; only the accent changes.
+Internationalization work beyond keeping existing Russian copy consistent on new screens.
+Steps
+Pick & wire the auth solution. Use the project's standard authentication solution with Google and GitHub providers enabled. Implement an OAuth flow that works inside the Electron desktop app (system browser + deep-link callback, or an in-app auth window — whichever the chosen solution recommends for Electron). Persist the session locally so the user stays signed in across restarts, and expose a signOut() that clears it.
+Gate the app behind auth. Replace the silent ensureGuestAuth bootstrap with a proper auth check. While the session is loading, show a minimal splash. If unauthenticated, render a full-window Sign in / Sign up screen with the two provider buttons, product name, short tagline, and a small legal/footer line. Only mount the workspace shell once a user is present.
+Propagate the authenticated identity. Update the API client / fetch helpers and any cloud-room calls to send the authenticated user's token instead of (or in addition to) the legacy guest token, and update the API server just enough to accept it. Keep the existing cloud-room join/create flows working end-to-end.
+Build the Settings screen. Add a dedicated full-pane Settings view with a left nav (Application, Account, Keyboard shortcuts, About) and the fields listed in "Done looks like". Wire it to the command palette entry, an Activity Bar icon, the user menu, and the mod+, shortcut. App preferences persist via the existing local settings store; account fields read from the auth provider.
+Add a user menu. Surface the signed-in user (avatar + name) in the title bar or status bar with a dropdown for "Account settings", "Application settings", and "Sign out".
+Re-skin to warm orange. Update the design tokens so the accent palette (--accent, --accent-strong, --accent-soft, --accent-glow, primary button, ring, selection, logo gradient, status "active" dots) uses a warm orange family. Sweep components for hardcoded purple hex values and replace them with tokens. Keep the dark base unchanged.
+Polish the Welcome screen and shells. Tighten the Welcome hero, make the action row responsive, move keyboard hints into a footer strip, and remove the visible window.prompt / "if (!native)" debug branches from the production UI (keep them only as silent guards). Replace empty-state copy in the Sidebar's Git and Extensions sections with clean, consistent empty states. Audit Title Bar, Tabs Bar, Status Bar, and panels for consistent spacing, icon size, and font weight.
+Verify end-to-end. First launch shows sign-in; signing in with Google or GitHub lands the user in the workspace; opening Settings, changing the editor font size, signing out, and signing back in all work; opening a local folder and joining a cloud room still work with the authenticated identity.
+Relevant files
+artifacts/desktop/src/App.tsx
+artifacts/desktop/src/index.css
+artifacts/desktop/src/components/WelcomeScreen.tsx
+artifacts/desktop/src/components/TitleBar.tsx
+artifacts/desktop/src/components/ActivityBar.tsx
+artifacts/desktop/src/components/SideBar.tsx
+artifacts/desktop/src/components/StatusBar.tsx
+artifacts/desktop/src/components/CommandPalette.tsx
+artifacts/desktop/src/store/workspace.tsx
+artifacts/desktop/src/lib/desktopBridge.ts
+artifacts/desktop/electron/main.ts
+artifacts/desktop/electron/preload.ts
+artifacts/desktop/electron/menu.ts
+artifacts/api-server/src/app.ts
+artifacts/api-server/src/routes
+artifacts/api-server/src/middlewares

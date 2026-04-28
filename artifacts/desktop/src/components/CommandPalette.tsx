@@ -105,7 +105,7 @@ export function CommandPalette({ open, onClose }: Props) {
             </Command.Group>
 
             <Command.Group heading="Прочее" className="text-[10.5px] text-zinc-500 uppercase tracking-wider px-2 pt-2 pb-1">
-              <Item icon={Settings} label="Настройки" onSelect={run(() => { ws.setRightPanelView("settings"); if (!ws.showRightPanel) ws.toggleRightPanel(); })} testId="cmd-settings" />
+              <Item icon={Settings} label="Настройки" hint={`${modKey()}+,`} onSelect={run(() => { ws.setRightPanelView("settings"); if (!ws.showRightPanel) ws.toggleRightPanel(); })} testId="cmd-settings" />
             </Command.Group>
           </Command.List>
         </Command>
