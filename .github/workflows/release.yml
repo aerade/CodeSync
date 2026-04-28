@@ -18,7 +18,7 @@ jobs:
           version: 9
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: 20
           cache: pnpm
       - run: pnpm install --no-frozen-lockfile
       - name: Build AppImage
@@ -28,7 +28,9 @@ jobs:
       - name: Upload AppImage
         uses: softprops/action-gh-release@v2
         with:
-          files: artifacts/desktop/dist/electron/CodeSync-*.AppImage
+          files: |
+            artifacts/desktop/dist/electron/CodeSync-*.AppImage
+            artifacts/desktop/dist/electron/CodeSync-*.deb
 
   build-win:
     runs-on: windows-latest
@@ -39,7 +41,7 @@ jobs:
           version: 9
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: 20
           cache: pnpm
       - run: pnpm install --no-frozen-lockfile
       - name: Build Windows installer (unsigned)
@@ -61,8 +63,10 @@ jobs:
           version: 9
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: 20
           cache: pnpm
+      - name: Install Python setuptools (needed for node-pty native build)
+        run: pip3 install setuptools
       - run: pnpm install --no-frozen-lockfile
       - name: Build macOS DMG (unsigned)
         run: pnpm --filter @workspace/desktop run electron:build:mac
