@@ -55,10 +55,24 @@ function cleanExpired() {
 // ─── Config helpers ───────────────────────────────────────────────────────────
 
 function apiBase(): string {
-  const env = process.env.API_PUBLIC_URL ?? process.env.REPLIT_DEV_DOMAIN;
-  if (!env) throw new Error("API_PUBLIC_URL is not configured");
-  if (env.startsWith("http")) return env.replace(/\/$/, "");
-  return `https://${env}`;
+  // Priority: explicit override → production domain(s) → dev domain
+  const explicit = process.env.API_PUBLIC_URL;
+  if (explicit?.trim()) {
+    const u = explicit.trim().replace(/\/$/, "");
+    return u.startsWith("http") ? u : `https://${u}`;
+  }
+
+  // REPLIT_DOMAINS may contain multiple comma-separated domains; take the first
+  const replitDomains = process.env.REPLIT_DOMAINS;
+  if (replitDomains?.trim()) {
+    const first = replitDomains.split(",")[0].trim();
+    return `https://${first}`;
+  }
+
+  const devDomain = process.env.REPLIT_DEV_DOMAIN;
+  if (devDomain?.trim()) return `https://${devDomain.trim()}`;
+
+  throw new Error("Cannot determine API public URL. Set API_PUBLIC_URL secret.");
 }
 
 // ─── POST /api/desktop-auth/start ────────────────────────────────────────────
