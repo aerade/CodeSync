@@ -20,7 +20,7 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
-      - run: pnpm install
+      - run: pnpm install --no-frozen-lockfile
       - name: Build AppImage
         run: pnpm --filter @workspace/desktop run build:full
         env:
@@ -41,7 +41,7 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
-      - run: pnpm install
+      - run: pnpm install --no-frozen-lockfile
       - name: Build Windows installer (unsigned)
         run: pnpm --filter @workspace/desktop run electron:build:win
         env:
@@ -63,7 +63,7 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
-      - run: pnpm install
+      - run: pnpm install --no-frozen-lockfile
       - name: Build macOS DMG (unsigned)
         run: pnpm --filter @workspace/desktop run electron:build:mac
         env:
