@@ -9,6 +9,10 @@
     "type": "git",
     "url": "https://github.com/aerade/CodeSync.git"
   },
+  "author": {
+    "name": "CodeSync",
+    "email": "noreply@codesync.app"
+  },
   "scripts": {
     "dev": "concurrently -k -n vite,electron -c blue,magenta \"pnpm run dev:web\" \"wait-on http://localhost:21098/desktop/ && pnpm run electron:dev\"",
     "dev:web": "vite --config vite.config.ts --host 0.0.0.0",
