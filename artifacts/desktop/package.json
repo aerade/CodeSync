@@ -5,6 +5,10 @@
   "type": "module",
   "main": "dist-electron/main.js",
   "description": "CodeSync Desktop — нативный код-редактор",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/aerade/CodeSync.git"
+  },
   "scripts": {
     "dev": "concurrently -k -n vite,electron -c blue,magenta \"pnpm run dev:web\" \"wait-on http://localhost:21098/desktop/ && pnpm run electron:dev\"",
     "dev:web": "vite --config vite.config.ts --host 0.0.0.0",
