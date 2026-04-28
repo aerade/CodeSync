@@ -43,18 +43,12 @@ jobs:
           cache: pnpm
       - run: pnpm install
       - name: Build Windows installer (unsigned)
-        # Signing is handled separately by SSL.com eSigner below.
-        # CSC_IDENTITY_AUTO_DISCOVERY=false prevents electron-builder from
-        # attempting to sign with any locally-available certificate.
         run: pnpm --filter @workspace/desktop run electron:build:win
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
-      - name: Sign Windows executables with SSL.com eSigner (EV cloud HSM)
-        # Uses SSL.com's CodeSignTool to sign all .exe files via their cloud HSM.
-        # EV certificates stored in SSL.com KeyLocker provide instant
-        # SmartScreen reputation — no download count warm-up required.
-        # dir_path signs every PE executable found in the given directory.
+      - name: Sign Windows executables with SSL.com eSigner
+        if: ${{ secrets.SSL_COM_USERNAME != '' }}
         uses: sslcom/esigner-codesign@v1.0.0
         with:
           command: sign
@@ -83,6 +77,7 @@ jobs:
           cache: pnpm
       - run: pnpm install
       - name: Import Apple Developer certificate into keychain
+        if: ${{ secrets.APPLE_CERTIFICATE_BASE64 != '' }}
         env:
           APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -110,9 +105,9 @@ jobs:
         run: pnpm --filter @workspace/desktop run electron:build:mac
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_IDENTITY_AUTO_DISCOVERY: ${{ secrets.APPLE_CERTIFICATE_BASE64 != '' && 'true' || 'false' }}
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          # notarytool credentials
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
       - name: Upload DMG
