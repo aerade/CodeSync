@@ -124,6 +124,46 @@ const FILE_TOOLS: Array<{
   {
     type: "function",
     function: {
+      name: "list_files",
+      description: "Получить список всех файлов и папок в текущей комнате с их ID, именами и языками.",
+      parameters: {
+        type: "object",
+        properties: {},
+        required: [],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "read_file",
+      description: "Прочитать содержимое файла по его ID. Используй list_files для получения ID.",
+      parameters: {
+        type: "object",
+        properties: {
+          fileId: { type: "string", description: "UUID файла из list_files" },
+        },
+        required: ["fileId"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "web_search",
+      description: "Найти актуальную информацию в интернете. Возвращает текстовые сниппеты. Используй для документации, примеров кода, актуальных данных.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: { type: "string", description: "Поисковый запрос (лучше на английском для технических тем)" },
+        },
+        required: ["query"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "search_images",
       description: "Найти изображения по ключевым словам. Запрос лучше на английском.",
       parameters: {
@@ -208,6 +248,95 @@ async function searchImagesDDG(query: string): Promise<Array<{ id: string; url: 
   throw new Error("Не удалось найти изображения. Попробуйте другой запрос.");
 }
 
+async function webSearch(query: string): Promise<Array<{ title: string; snippet: string; url: string }>> {
+  const ua = randomUA();
+  const encodedQ = encodeURIComponent(query);
+
+  // Try DuckDuckGo HTML endpoint
+  try {
+    const resp = await fetch(
+      `https://html.duckduckgo.com/html/?q=${encodedQ}&kl=us-en`,
+      {
+        headers: {
+          "User-Agent": ua,
+          "Accept": "text/html,application/xhtml+xml",
+          "Accept-Language": "en-US,en;q=0.9",
+          "Referer": "https://duckduckgo.com/",
+        },
+        signal: AbortSignal.timeout(10000),
+      }
+    );
+    if (resp.ok) {
+      const html = await resp.text();
+      const results: Array<{ title: string; snippet: string; url: string }> = [];
+
+      // Extract result blocks: <div class="result__body">
+      const blockRe = /<div class="result__body"[\s\S]*?<\/div>\s*<\/div>/g;
+      const titleRe = /<a[^>]+class="result__a"[^>]*>([^<]+)<\/a>/;
+      const snippetRe = /<a[^>]+class="result__snippet"[^>]*>([\s\S]*?)<\/a>/;
+      const urlRe = /<a[^>]+class="result__url"[^>]*>\s*([\s\S]*?)\s*<\/a>/;
+
+      let block: RegExpExecArray | null;
+      while ((block = blockRe.exec(html)) !== null && results.length < 8) {
+        const blockHtml = block[0];
+        const title = titleRe.exec(blockHtml)?.[1]?.replace(/<[^>]+>/g, "").trim() ?? "";
+        const snippet = snippetRe.exec(blockHtml)?.[1]?.replace(/<[^>]+>/g, "").trim() ?? "";
+        const urlRaw = urlRe.exec(blockHtml)?.[1]?.replace(/<[^>]+>/g, "").trim() ?? "";
+        if (title && (snippet || urlRaw)) {
+          results.push({ title, snippet, url: urlRaw });
+        }
+      }
+
+      // Fallback: simpler regex for result titles/snippets
+      if (results.length === 0) {
+        const simpleTitle = /<a class="result__a"[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/g;
+        let m: RegExpExecArray | null;
+        while ((m = simpleTitle.exec(html)) !== null && results.length < 8) {
+          const url = m[1] ?? "";
+          const title = (m[2] ?? "").replace(/<[^>]+>/g, "").trim();
+          if (title && url && !url.includes("duckduckgo.com")) {
+            results.push({ title, snippet: "", url });
+          }
+        }
+      }
+
+      if (results.length > 0) return results;
+    }
+  } catch (_) {}
+
+  // Fallback: Brave Search HTML
+  try {
+    const resp2 = await fetch(
+      `https://search.brave.com/search?q=${encodedQ}&source=web`,
+      {
+        headers: { "User-Agent": ua, "Accept": "text/html", "Accept-Language": "en-US,en;q=0.9" },
+        signal: AbortSignal.timeout(10000),
+      }
+    );
+    if (resp2.ok) {
+      const html2 = await resp2.text();
+      const results: Array<{ title: string; snippet: string; url: string }> = [];
+      const snippetRe2 = /<p[^>]+class="[^"]*snippet[^"]*"[^>]*>([\s\S]*?)<\/p>/g;
+      const titleRe2 = /<span[^>]+class="[^"]*title[^"]*"[^>]*>([\s\S]*?)<\/span>/;
+      const urlRe2 = /<cite[^>]*>([\s\S]*?)<\/cite>/;
+      let block2: RegExpExecArray | null;
+      const seen = new Set<string>();
+      while ((block2 = snippetRe2.exec(html2)) !== null && results.length < 8) {
+        const snip = (block2[1] ?? "").replace(/<[^>]+>/g, "").trim();
+        if (!snip || seen.has(snip)) continue;
+        seen.add(snip);
+        const before = html2.slice(Math.max(0, block2.index - 600), block2.index);
+        const title = titleRe2.exec(before)?.[1]?.replace(/<[^>]+>/g, "").trim() ?? "";
+        const url = urlRe2.exec(before)?.[1]?.replace(/<[^>]+>/g, "").trim() ?? "";
+        results.push({ title, snippet: snip, url });
+      }
+      if (results.length > 0) return results;
+    }
+  } catch (_) {}
+
+  throw new Error("Не удалось выполнить поиск. Попробуйте другой запрос.");
+}
+
 async function findOrCreateImagesFolder(roomId: string, userId: string): Promise<string | null> {
   try {
     const existing = await db.query.filesTable.findFirst({
@@ -271,6 +400,41 @@ async function executeFileTool(toolName: string, args: Record<string, string>, r
       await db.delete(filesTable).where(and(eq(filesTable.id, fileId), eq(filesTable.roomId, roomId)));
       await db.insert(eventsTable).values({ roomId, userId, username: "AI", type: "file_deleted", description: `AI удалил файл ${file.name}` }).catch(() => {});
       return JSON.stringify({ success: true, name: file.name });
+    }
+
+    if (toolName === "list_files") {
+      const files = await db.query.filesTable.findMany({ where: eq(filesTable.roomId, roomId) });
+      const list = files.map((f) => ({
+        id: f.id,
+        name: f.name,
+        language: f.language,
+        isFolder: f.isFolder,
+        parentId: f.parentId,
+        path: f.path,
+        isEmpty: !f.isFolder && (!f.content || f.content.trim().length === 0),
+      }));
+      return JSON.stringify({ success: true, files: list, count: list.length });
+    }
+
+    if (toolName === "read_file") {
+      const fileId = args.fileId ?? "";
+      if (!UUID_RE.test(fileId)) {
+        return JSON.stringify({ success: false, error: `Неверный fileId: "${fileId}". Нужен UUID из list_files.` });
+      }
+      const file = await db.query.filesTable.findFirst({ where: and(eq(filesTable.id, fileId), eq(filesTable.roomId, roomId)) });
+      if (!file) return JSON.stringify({ success: false, error: "Файл не найден" });
+      if (file.isFolder) return JSON.stringify({ success: false, error: "Это папка, не файл" });
+      const content = file.language === "image"
+        ? "[image file — binary content omitted]"
+        : file.content ?? "";
+      return JSON.stringify({ success: true, fileId: file.id, name: file.name, language: file.language, content });
+    }
+
+    if (toolName === "web_search") {
+      const query = args.query ?? "";
+      if (!query) return JSON.stringify({ error: "Параметр query обязателен" });
+      const results = await webSearch(query);
+      return JSON.stringify({ success: true, results, count: results.length });
     }
 
     if (toolName === "search_images") {
@@ -361,10 +525,10 @@ async function chatHandler(req: Request, res: Response): Promise<void> {
   const language = typeof body.language === "string" ? body.language : "code";
   const roomId = typeof body.roomId === "string" ? body.roomId : "";
   const usePlan = body.usePlan === true;
-  const ALLOWED_MODELS = ["gpt-4.1", "o3", "gpt-4o"];
+  const ALLOWED_MODELS = ["gpt-4.1", "o3", "gpt-4o", "claude-sonnet-4-5"];
   const requestedModel = typeof body.model === "string" ? body.model : "gpt-4.1";
   const selectedModel = ALLOWED_MODELS.includes(requestedModel) ? requestedModel : "gpt-4.1";
-  const isClaudeModel = false;
+  const isClaudeModel = selectedModel.startsWith("claude-");
 
   // Parallel access check
   const [accessResult, roomFilesResult] = await Promise.all([
@@ -484,6 +648,15 @@ API:
 
 КОГДА ИСПОЛЬЗОВАТЬ: если пользователь просит игру/приложение для нескольких игроков — ОБЯЗАТЕЛЬНО используй window.sync для синхронизации состояния. Один игрок = один экземпляр браузера. Ходы, состояние игры, счёт — всё через window.sync.send/onmessage.
 
+━━━ ПОИСК В ИНТЕРНЕТЕ ━━━
+- web_search — найти актуальную информацию, документацию, примеры кода (запрос лучше на английском)
+- Используй web_search когда нужны актуальные данные, API-документация, best practices
+- После поиска интегрируй найденные решения прямо в код
+
+━━━ ЧТЕНИЕ ФАЙЛОВ ━━━
+- list_files — получить список ВСЕХ файлов в комнате с UUID (используй если нужно увидеть файлы без контекста)
+- read_file — прочитать содержимое конкретного файла по UUID
+
 ━━━ РАБОТА С ИЗОБРАЖЕНИЯМИ ━━━
 - search_images — поиск (запрос на английском)
 - download_image — скачивание (файлы попадают в папку images/)
@@ -512,16 +685,39 @@ ${context
     // ── Claude branch (with tool_use) ──────────────────────────────────────────
     if (isClaudeModel) {
       // Convert OpenAI-style tools → Anthropic tool format
-      const claudeTools = (roomId && hasWriteAccess) ? FILE_TOOLS.map((t) => ({
+      const READONLY_TOOLS = ["web_search", "list_files", "read_file", "search_images"];
+      const availableTools = FILE_TOOLS.filter((t) =>
+        READONLY_TOOLS.includes(t.function.name) || (roomId && hasWriteAccess)
+      );
+      const claudeTools = availableTools.length > 0 ? availableTools.map((t) => ({
         name: t.function.name,
         description: t.function.description,
         input_schema: t.function.parameters as Record<string, unknown>,
       })) : undefined;
 
+      const claudeImageAttachment = body.imageAttachment;
+      const claudeHasImage = claudeImageAttachment?.dataUrl && claudeImageAttachment.dataUrl.startsWith("data:image/");
+
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let claudeMsgs: any[] = chatMessages
         .filter((m) => m.role === "user" || m.role === "assistant")
-        .map((m) => ({ role: m.role, content: m.content }));
+        .map((m, i) => {
+          const isLastUser = m.role === "user" && i === chatMessages.length - 1;
+          if (isLastUser && claudeHasImage) {
+            const dataUrl = claudeImageAttachment!.dataUrl!;
+            const mimeMatch = dataUrl.match(/^data:(image\/[a-z]+);base64,/);
+            const mimeType = mimeMatch?.[1] ?? "image/jpeg";
+            const base64Data = dataUrl.slice(dataUrl.indexOf(",") + 1);
+            return {
+              role: "user",
+              content: [
+                { type: "text", text: m.content || "Что на этом изображении?" },
+                { type: "image", source: { type: "base64", media_type: mimeType, data: base64Data } },
+              ],
+            };
+          }
+          return { role: m.role, content: m.content };
+        });
 
       if (claudeMsgs.length === 0) {
         res.write(`data: ${JSON.stringify({ error: "Нет сообщений для Claude" })}\n\n`);
@@ -643,7 +839,11 @@ ${context
 
     let attempts = 0;
     const MAX_TOOL_ROUNDS = 25;
-    const tools = (roomId && hasWriteAccess) ? FILE_TOOLS : undefined;
+    const READONLY_TOOLS_OAI = ["web_search", "list_files", "read_file", "search_images"];
+    const availableToolsOAI = FILE_TOOLS.filter((t) =>
+      READONLY_TOOLS_OAI.includes(t.function.name) || (roomId && hasWriteAccess)
+    );
+    const tools = availableToolsOAI.length > 0 ? availableToolsOAI : undefined;
 
     while (attempts < MAX_TOOL_ROUNDS) {
       attempts++;

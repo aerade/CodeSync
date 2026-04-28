@@ -37,9 +37,10 @@ interface Props {
 }
 
 const MODELS = [
-  { id: "gpt-4.1", label: "GPT-4.1", badge: "Новый" },
-  { id: "o3",      label: "o3",       badge: "Умный" },
-  { id: "gpt-4o",  label: "GPT-4o",  badge: "Быстрый" },
+  { id: "gpt-4.1",          label: "GPT-4.1",       badge: "По умолчанию" },
+  { id: "claude-sonnet-4-5",label: "Claude Sonnet",  badge: "Умный" },
+  { id: "o3",               label: "o3",             badge: "Рассуждение" },
+  { id: "gpt-4o",           label: "GPT-4o",         badge: "Быстрый" },
 ];
 
 function playDoneSound() {
@@ -412,8 +413,10 @@ export function AIChatFloat({
             if (parsed.toolCall) {
               hadToolCalls = true;
               const tc = parsed.toolCall;
-              // Only refresh file tree for file-modifying operations, not for image search/download
-              if (tc.name !== "search_images" && tc.name !== "download_image") {
+              // Only refresh file tree for file-modifying operations, not for searches or reads
+              const isReadOnly = tc.name === "search_images" || tc.name === "download_image"
+                || tc.name === "web_search" || tc.name === "list_files" || tc.name === "read_file";
+              if (!isReadOnly) {
                 onFilesChanged?.();
               } else if (tc.name === "download_image" && tc.result?.success) {
                 hadImageDownloads = true;

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Sparkles, Send, X, Bot, User, MessageSquare, FileSearch, History, Trash2, RefreshCw } from "lucide-react";
+import { Sparkles, Send, X, Bot, User, MessageSquare, FileSearch, History, Trash2, RefreshCw, ChevronDown } from "lucide-react";
 import { useWorkspace } from "@/store/workspace";
 import { apiFetch, getApiBase } from "@/lib/apiConfig";
 import { desktop } from "@/lib/desktopBridge";
@@ -9,6 +9,13 @@ import { cn } from "@/lib/utils";
 
 type ChatMsg = { id: string; role: AiHistoryRole; content: string; streaming?: boolean };
 type Mode = "chat" | "review" | "history";
+
+const AI_MODELS = [
+  { id: "gpt-4.1",          label: "GPT-4.1",       desc: "По умолчанию" },
+  { id: "claude-sonnet-4-5",label: "Claude Sonnet",  desc: "Умный" },
+  { id: "o3",               label: "o3",             desc: "Рассуждение" },
+  { id: "gpt-4o",           label: "GPT-4o",         desc: "Быстрый" },
+];
 
 const REVIEW_SYSTEM_PROMPT =
   "Ты — старший ревьюер кода. Сделай краткое ревью переданного файла: " +
@@ -31,11 +38,26 @@ export function AIPanel() {
     visibilityRef.current = { showRightPanel, rightPanelView };
   }, [showRightPanel, rightPanelView]);
 
+  const [selectedModel, setSelectedModel] = useState("gpt-4.1");
+  const [modelMenuOpen, setModelMenuOpen] = useState(false);
+  const modelMenuRef = useRef<HTMLDivElement>(null);
+
   const scope = currentProject?.id ?? "global";
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages]);
+
+  useEffect(() => {
+    if (!modelMenuOpen) return;
+    function handler(e: MouseEvent) {
+      if (modelMenuRef.current && !modelMenuRef.current.contains(e.target as Node)) {
+        setModelMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [modelMenuOpen]);
 
   const persist = useCallback(
     (role: AiHistoryRole, content: string) => {
@@ -79,6 +101,7 @@ export function AIPanel() {
     payloadMessages: Array<{ role: AiHistoryRole; content: string }>,
     aiMsgId: string,
     contextOverride?: string,
+    modelOverride?: string,
   ): Promise<string> => {
     const res = await apiFetch(`/api/ai/chat`, {
       method: "POST",
@@ -87,6 +110,7 @@ export function AIPanel() {
         messages: payloadMessages,
         roomId: currentProject?.cloudRoomId,
         context: contextOverride ?? activeTab?.content?.slice(0, 4000) ?? "",
+        model: modelOverride ?? selectedModel,
       }),
     });
     if (res.status === 401) {
@@ -330,8 +354,39 @@ export function AIPanel() {
                 <Send className="w-3.5 h-3.5" />
               </button>
             </div>
-            <div className="text-[10.5px] text-zinc-600 mt-1.5 px-1">
-              Enter — отправить, Shift+Enter — перенос строки
+            <div className="flex items-center justify-between mt-1.5 px-1">
+              <div className="text-[10.5px] text-zinc-600">
+                Enter — отправить, Shift+Enter — перенос
+              </div>
+              <div className="relative" ref={modelMenuRef}>
+                <button
+                  type="button"
+                  onClick={() => setModelMenuOpen((v) => !v)}
+                  className="flex items-center gap-1 h-5 px-1.5 rounded text-[10.5px] text-zinc-500 hover:text-zinc-300 hover:bg-white/5 border border-transparent hover:border-white/8"
+                  data-testid="ai-model-picker"
+                >
+                  {AI_MODELS.find((m) => m.id === selectedModel)?.label ?? selectedModel}
+                  <ChevronDown className="w-2.5 h-2.5" />
+                </button>
+                {modelMenuOpen && (
+                  <div className="absolute bottom-6 right-0 z-50 bg-[#161B22] border border-white/10 rounded-lg shadow-2xl overflow-hidden min-w-[160px]">
+                    {AI_MODELS.map((m) => (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() => { setSelectedModel(m.id); setModelMenuOpen(false); }}
+                        className={cn(
+                          "w-full text-left px-3 py-2 text-[12px] flex items-center justify-between gap-2 hover:bg-white/5",
+                          selectedModel === m.id ? "text-[#F97316]" : "text-zinc-300",
+                        )}
+                      >
+                        <span>{m.label}</span>
+                        <span className="text-[10px] text-zinc-600">{m.desc}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </>

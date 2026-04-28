@@ -1,0 +1,64 @@
+Remote rooms + full AI capabilities
+What & Why
+After all the recent desktop and web changes (Tasks #52, #53, #56), do an end-to-end verification of CodeSync and close two product gaps the user explicitly cares about:
+
+Remote collaboration must "just work" across the internet — a friend 10 km away (different Wi-Fi, different ISP, different country) should be able to open a room link / enter an invite code and edit together with no networking setup.
+The built-in AI must be a real, capable assistant — best-in-class default model with a small curated picker, plus a complete tool set: web search, reading project files, analyzing attached images/photos, and creating / editing any kind of file in the room.
+The architecture already supports remote rooms through the central api-server + WebSocket + Yjs stack, so most of this work is configuration, UX, and filling in missing AI tools — not a rewrite.
+
+Done looks like
+Remote collaboration
+
+The web app at the public deployed URL lets any signed-in user (or guest) create a room, copy a share link / invite code, and have a person on a completely different network open that link and edit the same files in real time, with live cursors and chat.
+The desktop app, fresh-installed, points at the public CodeSync backend by default (not localhost:5000). Settings still allow overriding the URL for self-hosting, but a new user does not have to touch anything to join a remote room.
+A "Share room" button in both web and desktop produces a single copyable link that includes the invite code and works when pasted into any browser or into the desktop app.
+Manual smoke test recorded: two clients on different networks (or simulated via two browser profiles + the deployed URL) join the same room, edit a file together, see each other's cursors, and exchange a chat message.
+AI capabilities
+
+Default model is upgraded to the strongest model currently available through the Replit AI integrations (e.g. Claude Sonnet 4.5 or the newest GPT reasoning model), with a small in-app picker that also offers a fast model and a deep-reasoning model. The picker labels say what each one is good for ("Smart default", "Fast", "Deep reasoning").
+The AI in both web and desktop reliably does all of the following inside a room:
+Web search — answers questions using up-to-date information from the internet and cites the sources it used.
+Read any project file — can list files in the room and read the full content of a chosen file (not just the active tab) before answering.
+Image / photo analysis — when the user attaches a photo or screenshot, the assistant describes it, extracts text, and answers questions about it.
+Create files of any kind — markdown, code, JSON, CSV, SVG, plain text, etc. Created files appear in the room file tree immediately for both users.
+Edit existing files — applies edits through the existing Yjs path so the change is visible live to the other collaborator, with the existing "AI (before edit)" snapshot still saved.
+Image search + download — keeps the existing DuckDuckGo image search / download into images/.
+Errors from the AI (rate limit, model unavailable, tool failure) show a clear human-readable message in the chat instead of a silent failure.
+Verification
+
+A short "Verification report" is added at the end of the task description in the PR / handoff, covering: remote-room test result, every AI capability above tested with one example each, and any known limitations.
+Out of scope
+Building a brand-new auth system. Existing Clerk + guest-token flow is reused.
+WebRTC / true peer-to-peer mode. Remote collaboration stays through the central server.
+Self-hosting docs, on-prem installer, or a separate signaling server.
+Voice / video calls inside a room.
+Adding a billing / quota UI for AI usage (the existing in-memory rate limit stays).
+Mobile app changes.
+Steps
+Audit + fix remote-room defaults. Confirm the deployed api-server is reachable over the public Replit deployment URL with WebSocket upgrades working, and that CORS / allowed hosts let the web app and desktop app connect from anywhere. Change the desktop app's default apiBaseUrl / wsBaseUrl from localhost:5000 to the public deployment URL (still overridable in Settings). Verify guest-token join still works for unauthenticated friends.
+
+Add a real "Share room" flow. In both the web room page and the desktop room view, surface one obvious button that copies a single shareable link of the form <public-url>/join/<inviteCode>. Make sure that link, when opened by a logged-out person on another network, lands them in the room as a guest (or prompts sign-in, then joins) with no further steps.
+
+Upgrade AI models + picker. In artifacts/api-server/src/routes/ai.ts, replace the current ALLOWED_MODELS list with a curated set (one strongest default, one fast, one deep-reasoning) using the Replit-managed OpenAI and Anthropic AI integrations so no user-supplied API key is needed. Update the model picker in artifacts/codesync/src/components/AIChatFloat.tsx and artifacts/desktop/src/components/AIPanel.tsx to show the new labels and persist the user's choice.
+
+Add a real web-search tool. Add a web_search tool the AI can call (text results + URLs, not just images). Implementation should not require a new paid key — prefer a free/no-auth source (e.g. DuckDuckGo HTML or an existing free endpoint already used by searchImagesDDG). The assistant must cite the source URLs in its reply when it uses results.
+
+Add a read_file tool and broaden create_file. Today the AI mostly relies on the active tab being attached as context. Add an explicit list_files + read_file tool pair so the assistant can fetch the full content of any file in the room on demand. Make sure create_file accepts any text-based extension (md, json, csv, svg, txt, code) and that newly created files immediately appear in the room file tree for the other collaborator via the existing Yjs / files API.
+
+Wire up vision properly. Confirm the existing imageAttachment path in /api/ai/chat is forwarded to the chosen model in vision mode for every model in the picker. If the selected model does not support vision, automatically fall back to a vision-capable model for that single request and show a small note in the chat.
+
+End-to-end verification + report. Run the testing skill against the deployed web app and the desktop build with a plan that covers: (a) two-network room join via shared link, (b) live co-editing + cursors + chat, (c) each AI capability — model switch, web search with citation, read_file, image attachment analysis, create + edit a file visible to the other user. Record the results as a short verification report in the task handoff and fix any blocker bugs surfaced.
+
+Relevant files
+artifacts/api-server/src/ws/collaborationServer.ts
+artifacts/api-server/src/routes/rooms.ts
+artifacts/api-server/src/routes/collab.ts
+artifacts/api-server/src/routes/ai.ts
+artifacts/codesync/src/pages/room.tsx
+artifacts/codesync/src/components/AIChatFloat.tsx
+artifacts/codesync/src/components/AIPanel.tsx
+artifacts/desktop/src/lib/apiConfig.ts
+artifacts/desktop/src/components/EditorPane.tsx
+artifacts/desktop/src/components/AIPanel.tsx
+artifacts/desktop/electron/main.ts
+artifacts/desktop/electron/ipc/db.ts
