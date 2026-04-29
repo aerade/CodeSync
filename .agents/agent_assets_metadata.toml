@@ -6,6 +6,66 @@ uri = "file://artifacts/desktop/assets/icon.png"
 type = "image"
 title = "codesync app icon"
 
+[[generated]]
+id = "Kgu-V4oxk1e6uBLi6P6IM"
+uri = "file://attached_assets/logos/logo_1_bracket_sync.png"
+type = "image"
+title = "logo 1 bracket sync"
+
+[[generated]]
+id = "BD23YKXRP6NvG1-MlCYAJ"
+uri = "file://attached_assets/logos/logo_2_infinity_brackets.png"
+type = "image"
+title = "logo 2 infinity brackets"
+
+[[generated]]
+id = "e15-rkrdRbkyVGr1_9C1s"
+uri = "file://attached_assets/logos/logo_3_hex_brace.png"
+type = "image"
+title = "logo 3 hex brace"
+
+[[generated]]
+id = "HZm4g--PacpMEDDXeoEth"
+uri = "file://attached_assets/logos/logo_4_diamond_sync.png"
+type = "image"
+title = "logo 4 diamond sync"
+
+[[generated]]
+id = "NRISuMvME_ny39ajSA9jT"
+uri = "file://attached_assets/logos/logo_5_cs_monogram.png"
+type = "image"
+title = "logo 5 CS monogram"
+
+[[generated]]
+id = "Xl2cA8SW_x0hMPWaXL5l6"
+uri = "file://attached_assets/logos/logo_6_arrow_bracket.png"
+type = "image"
+title = "logo 6 arrow bracket"
+
+[[generated]]
+id = "edxAZZ_I6P1Rn_W7AyS17"
+uri = "file://attached_assets/logos/logo_7_network_nodes.png"
+type = "image"
+title = "logo 7 network nodes"
+
+[[generated]]
+id = "K4zTa3okRA63kKkkxw51R"
+uri = "file://attached_assets/logos/logo_8_interlocking_c.png"
+type = "image"
+title = "logo 8 interlocking C"
+
+[[generated]]
+id = "dxVzfFDPZwyMXoE9lA9XR"
+uri = "file://attached_assets/logos/logo_9_shield_sync.png"
+type = "image"
+title = "logo 9 shield sync"
+
+[[generated]]
+id = "dlJRbgPZL5-UCKw9JJYuX"
+uri = "file://attached_assets/logos/logo_10_cursor_sync.png"
+type = "image"
+title = "logo 10 cursor sync"
+
 [[outputs]]
 id = "3ZWCQcfLOGCDrt7QVHi-g"
 uri = "file://SETUP.md"
@@ -17,3 +77,63 @@ id = "eiSBJCMzYs_J3V6osBK6Y"
 uri = "file://artifacts/desktop/dist/electron/CodeSync-1.0.0-win-portable.zip"
 type = "unspecified"
 title = "CodeSync Desktop 1.0.0 — Windows (portable)"
+
+[[outputs]]
+id = "SCfbMN5g9V2wb0zN8WuET"
+uri = "file://attached_assets/logos/logo_1_bracket_sync.png"
+type = "image"
+title = "1 — Скобка + синхронизация"
+
+[[outputs]]
+id = "6Su-147SpPhZF_UGGg3y9"
+uri = "file://attached_assets/logos/logo_2_infinity_brackets.png"
+type = "image"
+title = "2 — Бесконечность из скобок"
+
+[[outputs]]
+id = "8pvx7StRw6q5vle0fTdfc"
+uri = "file://attached_assets/logos/logo_3_hex_brace.png"
+type = "image"
+title = "3 — Шестигранник с фигурной скобкой"
+
+[[outputs]]
+id = "Us7OIxhVmnPUSshJzH0qK"
+uri = "file://attached_assets/logos/logo_4_diamond_sync.png"
+type = "image"
+title = "4 — Ромб + синхронизация"
+
+[[outputs]]
+id = "g-MLfUwQ1I7R6lEDccazy"
+uri = "file://attached_assets/logos/logo_5_cs_monogram.png"
+type = "image"
+title = "5 — Монограмма CS"
+
+[[outputs]]
+id = "W00CtST1a6WRskRnMboCF"
+uri = "file://attached_assets/logos/logo_6_arrow_bracket.png"
+type = "image"
+title = "6 — Скобка со стрелкой"
+
+[[outputs]]
+id = "m6lwlKZ5R9R6bnmNRvXxg"
+uri = "file://attached_assets/logos/logo_7_network_nodes.png"
+type = "image"
+title = "7 — Сетевые узлы"
+
+[[outputs]]
+id = "w4vv51_r9L6pIzSLT4Rjk"
+uri = "file://attached_assets/logos/logo_8_interlocking_c.png"
+type = "image"
+title = "8 — Переплетённые C"
+
+[[outputs]]
+id = "4-L7aqQ0eWltW0rAJtCU2"
+uri = "file://attached_assets/logos/logo_9_shield_sync.png"
+type = "image"
+title = "9 — Щит + синхронизация"
+
+[[outputs]]
+id = "kOgSk_n-4TbsL280Z9TvJ"
+uri = "file://attached_assets/logos/logo_10_cursor_sync.png"
+type = "image"
+title = "10 — Курсор + синхронизация"
