@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Sparkles, Github, Mail, ArrowLeft } from "lucide-react";
+import { Github, Mail, ArrowLeft } from "lucide-react";
+import logoUrl from "../../assets/icon.png";
 import { useAuth } from "@/store/auth";
 import { cn } from "@/lib/utils";
 
@@ -107,8 +108,8 @@ export function SignInScreen() {
       <div className="relative z-10 w-full max-w-[380px] mx-4">
         {/* Logo */}
         <div className="flex flex-col items-center mb-8">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#F97316] to-[#EA580C] grid place-items-center shadow-[0_0_48px_rgba(249,115,22,0.4)] mb-4">
-            <Sparkles className="w-7 h-7 text-white" strokeWidth={2} />
+          <div className="w-16 h-16 mb-4 drop-shadow-[0_0_32px_rgba(249,115,22,0.35)]">
+            <img src={logoUrl} alt="CodeSync" className="w-full h-full object-contain" />
           </div>
           <h1 className="text-[22px] font-semibold text-zinc-100 tracking-tight">Войдите, чтобы продолжить</h1>
         </div>
