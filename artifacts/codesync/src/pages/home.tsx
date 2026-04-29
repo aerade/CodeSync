@@ -240,7 +240,7 @@ function DownloadSection({ sectionRef }: { sectionRef: RefObject<HTMLElement | n
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.5 }}
-          className="text-center mb-12"
+          className="text-center mb-6"
         >
           <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 12, textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 10 }}>
             Десктоп-приложение
@@ -415,7 +415,7 @@ function DownloadSection({ sectionRef }: { sectionRef: RefObject<HTMLElement | n
           )}
         </motion.div>
         {releaseState.status === "ok" && (
-          <p style={{ fontSize: 15, color: "rgba(255,255,255,0.38)", lineHeight: 1.65, maxWidth: 480, margin: "32px auto 0", textAlign: "center" }}>
+          <p style={{ fontSize: 15, color: "rgba(255,255,255,0.38)", lineHeight: 1.65, maxWidth: 480, margin: "16px auto 0", textAlign: "center" }}>
             Полноценное десктоп-приложение с нативными уведомлениями, локальными проектами и всеми возможностями IDE CodeSync.
           </p>
         )}
