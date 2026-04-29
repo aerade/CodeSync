@@ -10,15 +10,22 @@
  *      → redirects browser to codesync://auth?token=<exchangeToken>
  *   4. Electron receives the deep link, calls GET /api/desktop-auth/exchange?token=...
  *      → returns { user } and deletes the token (one-time use)
+ *
+ * Email auth flow:
+ *   POST /api/desktop-auth/email/register     → { user }
+ *   POST /api/desktop-auth/email/login        → { user }
+ *   POST /api/desktop-auth/email/request-code → { ok: true }
+ *   POST /api/desktop-auth/email/verify-code  → { user }
  */
 
 import { Router } from "express";
-import { randomBytes } from "crypto";
+import { randomBytes, scryptSync, timingSafeEqual } from "crypto";
 import { db } from "@workspace/db";
 import { usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { v4 as uuidv4 } from "uuid";
 import { logger } from "../lib/logger";
+import nodemailer from "nodemailer";
 
 const router = Router();
 
@@ -39,30 +46,78 @@ interface DesktopUser {
   name: string;
   email: string;
   avatarUrl: string;
-  provider: "google" | "github";
+  provider: "google" | "github" | "email";
+}
+
+interface EmailCode {
+  code: string;
+  expiresAt: number;
 }
 
 const oauthStates = new Map<string, OAuthState>();
 const exchangeTokens = new Map<string, ExchangeToken>();
+const emailCodes = new Map<string, EmailCode>(); // key: email
 const TTL = 10 * 60 * 1000; // 10 minutes
 
 function cleanExpired() {
   const now = Date.now();
   for (const [k, v] of oauthStates) if (v.expiresAt < now) oauthStates.delete(k);
   for (const [k, v] of exchangeTokens) if (v.expiresAt < now) exchangeTokens.delete(k);
+  for (const [k, v] of emailCodes) if (v.expiresAt < now) emailCodes.delete(k);
+}
+
+// ─── Password hashing helpers (Node.js built-in crypto) ──────────────────────
+
+function hashPassword(password: string): string {
+  const salt = randomBytes(16).toString("hex");
+  const hash = scryptSync(password, salt, 64).toString("hex");
+  return `${salt}:${hash}`;
+}
+
+function verifyPassword(password: string, stored: string): boolean {
+  const [salt, hash] = stored.split(":");
+  try {
+    const candidate = scryptSync(password, salt, 64);
+    return timingSafeEqual(candidate, Buffer.from(hash, "hex"));
+  } catch {
+    return false;
+  }
+}
+
+// ─── Email sending helper ─────────────────────────────────────────────────────
+
+async function sendEmailCode(to: string, code: string): Promise<void> {
+  const host = process.env.SMTP_HOST;
+  const port = Number(process.env.SMTP_PORT ?? 587);
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+  const from = process.env.SMTP_FROM ?? user ?? "noreply@codesync.app";
+
+  if (!host || !user || !pass) {
+    logger.info({ to, code }, "[DEV] Email auth code (SMTP not configured, logging to console)");
+    console.log(`\n==== CodeSync Email Auth Code ====\nTo: ${to}\nCode: ${code}\n==================================\n`);
+    return;
+  }
+
+  const transporter = nodemailer.createTransport({ host, port, auth: { user, pass } });
+  await transporter.sendMail({
+    from,
+    to,
+    subject: "CodeSync — код для входа",
+    text: `Ваш код для входа в CodeSync: ${code}\n\nКод действителен 10 минут.`,
+    html: `<p>Ваш код для входа в <strong>CodeSync</strong>: <strong style="font-size:1.4em">${code}</strong></p><p>Код действителен 10 минут.</p>`,
+  });
 }
 
 // ─── Config helpers ───────────────────────────────────────────────────────────
 
 function apiBase(): string {
-  // Priority: explicit override → production domain(s) → dev domain
   const explicit = process.env.API_PUBLIC_URL;
   if (explicit?.trim()) {
     const u = explicit.trim().replace(/\/$/, "");
     return u.startsWith("http") ? u : `https://${u}`;
   }
 
-  // REPLIT_DOMAINS may contain multiple comma-separated domains; take the first
   const replitDomains = process.env.REPLIT_DOMAINS;
   if (replitDomains?.trim()) {
     const first = replitDomains.split(",")[0].trim();
@@ -263,6 +318,156 @@ router.get("/desktop-auth/exchange", (req, res) => {
 
   exchangeTokens.delete(token);
   return res.json({ user: entry.user });
+});
+
+// ─── POST /api/desktop-auth/email/register ────────────────────────────────────
+
+router.post("/desktop-auth/email/register", async (req, res) => {
+  const { email, password } = req.body as { email?: string; password?: string };
+  if (!email || !password) {
+    return res.status(400).json({ error: "email and password are required" });
+  }
+  if (password.length < 6) {
+    return res.status(400).json({ error: "password must be at least 6 characters" });
+  }
+
+  try {
+    // Check if user already exists
+    const existing = await db.execute(
+      `SELECT id FROM users WHERE email = $1 AND password_hash IS NOT NULL LIMIT 1`,
+      [email]
+    ).catch(() => ({ rows: [] as { id: string }[] }));
+
+    if ((existing.rows as { id: string }[]).length > 0) {
+      return res.status(409).json({ error: "Пользователь с таким email уже существует" });
+    }
+
+    const id = `email_${uuidv4()}`;
+    const passwordHash = hashPassword(password);
+    const name = email.split("@")[0];
+
+    await db.execute(
+      `INSERT INTO users (id, username, email, avatar_url, is_guest, password_hash)
+       VALUES ($1, $2, $3, $4, false, $5)
+       ON CONFLICT (id) DO NOTHING`,
+      [id, name, email, "", passwordHash]
+    );
+
+    const user: DesktopUser = { id, name, email, avatarUrl: "", provider: "email" };
+    return res.json({ user });
+  } catch (err) {
+    logger.error({ err }, "Email register error");
+    return res.status(500).json({ error: "Ошибка регистрации" });
+  }
+});
+
+// ─── POST /api/desktop-auth/email/login ──────────────────────────────────────
+
+router.post("/desktop-auth/email/login", async (req, res) => {
+  const { email, password } = req.body as { email?: string; password?: string };
+  if (!email || !password) {
+    return res.status(400).json({ error: "email and password are required" });
+  }
+
+  try {
+    const result = await db.execute(
+      `SELECT id, username, email, avatar_url, password_hash FROM users WHERE email = $1 AND password_hash IS NOT NULL LIMIT 1`,
+      [email]
+    ).catch(() => ({ rows: [] as Record<string, string>[] }));
+
+    const rows = result.rows as Record<string, string>[];
+    if (rows.length === 0) {
+      return res.status(401).json({ error: "Неверный email или пароль" });
+    }
+
+    const row = rows[0];
+    if (!verifyPassword(password, row.password_hash)) {
+      return res.status(401).json({ error: "Неверный email или пароль" });
+    }
+
+    const user: DesktopUser = {
+      id: row.id,
+      name: row.username,
+      email: row.email,
+      avatarUrl: row.avatar_url ?? "",
+      provider: "email",
+    };
+    return res.json({ user });
+  } catch (err) {
+    logger.error({ err }, "Email login error");
+    return res.status(500).json({ error: "Ошибка входа" });
+  }
+});
+
+// ─── POST /api/desktop-auth/email/request-code ───────────────────────────────
+
+router.post("/desktop-auth/email/request-code", async (req, res) => {
+  const { email } = req.body as { email?: string };
+  if (!email) {
+    return res.status(400).json({ error: "email is required" });
+  }
+
+  cleanExpired();
+
+  const code = String(Math.floor(100000 + Math.random() * 900000));
+  emailCodes.set(email, { code, expiresAt: Date.now() + TTL });
+
+  try {
+    await sendEmailCode(email, code);
+    return res.json({ ok: true });
+  } catch (err) {
+    logger.error({ err }, "Failed to send email code");
+    return res.status(500).json({ error: "Не удалось отправить код" });
+  }
+});
+
+// ─── POST /api/desktop-auth/email/verify-code ────────────────────────────────
+
+router.post("/desktop-auth/email/verify-code", async (req, res) => {
+  const { email, code } = req.body as { email?: string; code?: string };
+  if (!email || !code) {
+    return res.status(400).json({ error: "email and code are required" });
+  }
+
+  cleanExpired();
+
+  const stored = emailCodes.get(email);
+  if (!stored || stored.code !== code.trim()) {
+    return res.status(401).json({ error: "Неверный или истёкший код" });
+  }
+
+  emailCodes.delete(email);
+
+  try {
+    // Find or create user by email (code-based users have no password_hash)
+    const result = await db.execute(
+      `SELECT id, username, email, avatar_url FROM users WHERE email = $1 LIMIT 1`,
+      [email]
+    ).catch(() => ({ rows: [] as Record<string, string>[] }));
+
+    let user: DesktopUser;
+    const rows = result.rows as Record<string, string>[];
+
+    if (rows.length > 0) {
+      const row = rows[0];
+      user = { id: row.id, name: row.username, email: row.email, avatarUrl: row.avatar_url ?? "", provider: "email" };
+    } else {
+      const id = `email_${uuidv4()}`;
+      const name = email.split("@")[0];
+      await db.execute(
+        `INSERT INTO users (id, username, email, avatar_url, is_guest)
+         VALUES ($1, $2, $3, $4, false)
+         ON CONFLICT (id) DO NOTHING`,
+        [id, name, email, ""]
+      );
+      user = { id, name, email, avatarUrl: "", provider: "email" };
+    }
+
+    return res.json({ user });
+  } catch (err) {
+    logger.error({ err }, "Email verify-code error");
+    return res.status(500).json({ error: "Ошибка верификации кода" });
+  }
 });
 
 export default router;

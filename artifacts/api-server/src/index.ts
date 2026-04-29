@@ -24,6 +24,7 @@ if (Number.isNaN(port) || port <= 0) {
 async function runMigrations() {
   try {
     await db.execute(`ALTER TABLE rooms ADD COLUMN IF NOT EXISTS password text`);
+    await db.execute(`ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash text`);
     logger.info("DB migrations applied");
   } catch (err) {
     logger.warn({ err }, "DB migration step failed (non-fatal)");

@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useEffect, useRef, type ReactNode 
 import { desktop } from "@/lib/desktopBridge";
 import { getApiBase } from "@/lib/apiConfig";
 
-export type Provider = "google" | "github";
+export type Provider = "google" | "github" | "email";
 
 export interface AuthUser {
   id: string;
@@ -16,7 +16,11 @@ interface AuthState {
   user: AuthUser | null;
   loading: boolean;
   error: string | null;
-  signIn: (provider: Provider) => Promise<void>;
+  signIn: (provider: "google" | "github") => Promise<void>;
+  signInWithEmail: (email: string, password: string) => Promise<void>;
+  signInWithEmailCode: (email: string, code: string) => Promise<void>;
+  requestEmailCode: (email: string) => Promise<void>;
+  register: (email: string, password: string) => Promise<void>;
   signOut: () => void;
 }
 
@@ -74,7 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return unsub;
   }, []);
 
-  const signIn = async (provider: Provider) => {
+  const signIn = async (provider: "google" | "github") => {
     setLoading(true);
     setError(null);
     pendingSignIn.current = true;
@@ -87,12 +91,96 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error(body.error ?? `Server returned ${res.status}`);
       }
       const { url } = await res.json() as { url: string };
-      // Open OAuth URL in system browser; callback comes back via codesync:// deep link
       desktop().shell.openExternal(url);
       // Loading remains true until onOAuthCallback fires
     } catch (err) {
       pendingSignIn.current = false;
       setError(err instanceof Error ? err.message : "Не удалось начать авторизацию");
+      setLoading(false);
+    }
+  };
+
+  const signInWithEmail = async (email: string, password: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const base = await getApiBase();
+      const res = await fetch(`${base}/api/desktop-auth/email/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await res.json() as { user?: AuthUser; error?: string };
+      if (!res.ok) throw new Error(data.error ?? `Server returned ${res.status}`);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data.user));
+      setUser(data.user!);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Ошибка входа");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const requestEmailCode = async (email: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const base = await getApiBase();
+      const res = await fetch(`${base}/api/desktop-auth/email/request-code`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json() as { ok?: boolean; error?: string };
+      if (!res.ok) throw new Error(data.error ?? `Server returned ${res.status}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не удалось отправить код");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const signInWithEmailCode = async (email: string, code: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const base = await getApiBase();
+      const res = await fetch(`${base}/api/desktop-auth/email/verify-code`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, code }),
+      });
+      const data = await res.json() as { user?: AuthUser; error?: string };
+      if (!res.ok) throw new Error(data.error ?? `Server returned ${res.status}`);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data.user));
+      setUser(data.user!);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Ошибка верификации кода");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const register = async (email: string, password: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const base = await getApiBase();
+      const res = await fetch(`${base}/api/desktop-auth/email/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await res.json() as { user?: AuthUser; error?: string };
+      if (!res.ok) throw new Error(data.error ?? `Server returned ${res.status}`);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data.user));
+      setUser(data.user!);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Ошибка регистрации");
+    } finally {
       setLoading(false);
     }
   };
@@ -104,7 +192,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, error, signIn, signOut }}>
+    <AuthContext.Provider value={{
+      user, loading, error,
+      signIn, signInWithEmail, signInWithEmailCode, requestEmailCode, register,
+      signOut,
+    }}>
       {children}
     </AuthContext.Provider>
   );
