@@ -9,6 +9,8 @@ import NotFound from "@/pages/not-found";
 import Home from "./pages/home";
 import Dashboard from "./pages/dashboard";
 import RoomPage from "./pages/room";
+import TosPage from "./pages/tos";
+import PrivacyPage from "./pages/privacy";
 import { setGuestTokenGetter, setAuthTokenGetter } from "@workspace/api-client-react";
 
 // Initialize guest token getter so all API calls include x-guest-token when present
@@ -146,6 +148,8 @@ function ClerkProviderWithRoutes() {
             <Route path="/room/:roomId" component={RoomPage} />
             <Route path="/sign-in/*?" component={SignInPage} />
             <Route path="/sign-up/*?" component={SignUpPage} />
+            <Route path="/tos" component={TosPage} />
+            <Route path="/privacy" component={PrivacyPage} />
             <Route component={NotFound} />
           </Switch>
           <Toaster />

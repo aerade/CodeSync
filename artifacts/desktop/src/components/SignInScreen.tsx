@@ -222,9 +222,6 @@ export function SignInScreen() {
             {authError && <ErrorNote msg={authError} />}
 
             <TextLink onClick={handleSendCode} label="Войти по коду на почте" />
-            <div className="h-px bg-white/6" />
-            <TextLink onClick={() => { setStep("register"); setRegEmail(email); }}
-              label="Нет аккаунта? Зарегистрироваться" highlight />
             <TermsNote />
           </div>
         )}
@@ -435,18 +432,130 @@ function ErrorNote({ msg }: { msg: string }) {
   );
 }
 
-function TermsNote() {
+const TOS_CONTENT = `УСЛОВИЯ ИСПОЛЬЗОВАНИЯ CODESYNC
+Последнее обновление: 29 апреля 2026 г.
+
+1. ПРИНЯТИЕ УСЛОВИЙ
+Устанавливая, открывая или используя CodeSync («Программа»), вы соглашаетесь соблюдать настоящие Условия использования. Если вы не согласны — не устанавливайте и не используйте Программу.
+
+2. ЛИЦЕНЗИЯ
+При соблюдении настоящих Условий CodeSync предоставляет вам ограниченную, неисключительную, непередаваемую, отзывную лицензию на установку и использование Программы на устройствах, которыми вы владеете или управляете.
+
+3. ОПИСАНИЕ СЕРВИСА
+CodeSync — совместная среда разработки (IDE), обеспечивающая редактирование кода в реальном времени, синхронизацию проектов и командную работу.
+
+4. УЧЁТНЫЕ ЗАПИСИ
+Вы несёте ответственность за конфиденциальность учётных данных, за все действия под вашей учётной записью и обязаны немедленно уведомить нас о любом несанкционированном доступе.
+
+5. ДОПУСТИМОЕ ИСПОЛЬЗОВАНИЕ
+Запрещается: использовать Программу в незаконных целях; пытаться получить несанкционированный доступ к системам; осуществлять реверс-инжиниринг; распространять вредоносный код; нарушать работу Программы.
+
+6. ИНТЕЛЛЕКТУАЛЬНАЯ СОБСТВЕННОСТЬ
+Программа и все связанные материалы являются собственностью CodeSync и её лицензиаров. Вы сохраняете права на код, созданный вами в Программе.
+
+7. КОНФИДЕНЦИАЛЬНОСТЬ
+Использование Программы регулируется нашей Политикой конфиденциальности, которая является неотъемлемой частью настоящих Условий.
+
+8. ОГРАНИЧЕНИЕ ОТВЕТСТВЕННОСТИ
+ПРОГРАММА ПРЕДОСТАВЛЯЕТСЯ «КАК ЕСТЬ» БЕЗ КАКИХ-ЛИБО ГАРАНТИЙ. В МАКСИМАЛЬНОЙ СТЕПЕНИ, ДОПУСКАЕМОЙ ПРИМЕНИМЫМ ПРАВОМ, CODESYNC НЕ НЕСЁТ ОТВЕТСТВЕННОСТИ ЗА КОСВЕННЫЕ ИЛИ СЛУЧАЙНЫЕ УБЫТКИ.
+
+9. ПРИМЕНИМОЕ ПРАВО
+Настоящие Условия регулируются применимым законодательством без учёта коллизионных норм.
+
+10. КОНТАКТЫ
+По вопросам, связанным с настоящими Условиями: legal@codesync.app`;
+
+const PRIVACY_CONTENT = `ПОЛИТИКА КОНФИДЕНЦИАЛЬНОСТИ CODESYNC
+Последнее обновление: 29 апреля 2026 г.
+
+1. КАКУЮ ИНФОРМАЦИЮ МЫ СОБИРАЕМ
+• Данные учётной записи: email-адрес, отображаемое имя или имя пользователя.
+• Данные проектов: файлы кода и конфигурации, созданные или загруженные в Программе.
+• Данные об использовании: используемые функции, продолжительность сессий, выполненные действия.
+• Системные данные: версия ОС, версия приложения, отчёты об ошибках.
+• Данные о совместной работе: метаданные сессий (идентификаторы, временны́е метки).
+
+2. КАК МЫ ИСПОЛЬЗУЕМ ВАШУ ИНФОРМАЦИЮ
+Мы используем информацию для предоставления Программы, аутентификации, обеспечения совместной работы, отправки уведомлений, поддержки, улучшения UX, предотвращения мошенничества и соблюдения законодательства.
+
+3. ПЕРЕДАЧА ИНФОРМАЦИИ ТРЕТЬИМ ЛИЦАМ
+Мы не продаём вашу персональную информацию. Передача возможна: участникам совместной работы (имя пользователя и контент сессии), поставщикам услуг, по требованию закона, при переходе бизнеса.
+
+4. ХРАНЕНИЕ ДАННЫХ
+Данные хранятся до тех пор, пока ваша учётная запись активна. Запросить удаление: privacy@codesync.app
+
+5. БЕЗОПАСНОСТЬ ДАННЫХ
+Мы применяем надлежащие технические и организационные меры защиты. Ни один метод хранения не является полностью безопасным.
+
+6. ВАШИ ПРАВА
+Вы вправе запросить доступ, исправление, удаление, перенос данных или возражать против их обработки. Контакт: privacy@codesync.app
+
+7. КОНФИДЕНЦИАЛЬНОСТЬ ДЕТЕЙ
+Программа не предназначена для лиц младше 13 лет. Мы сознательно не собираем данные детей до 13 лет.
+
+8. ИЗМЕНЕНИЯ В ПОЛИТИКЕ
+Мы можем обновлять настоящую Политику. О существенных изменениях сообщим через обновление даты или уведомления в Программе.
+
+9. КОНТАКТЫ
+Email: privacy@codesync.app`;
+
+function LegalModal({ title, content, onClose }: { title: string; content: string; onClose: () => void }) {
   return (
-    <p className="text-center text-[11px] text-zinc-600 leading-relaxed">
-      Входя, вы принимаете{" "}
-      <span className="text-zinc-500 cursor-pointer hover:text-zinc-200 transition-colors underline underline-offset-2">
-        условия использования
-      </span>{" "}
-      и{" "}
-      <span className="text-zinc-500 cursor-pointer hover:text-zinc-200 transition-colors underline underline-offset-2">
-        политику конфиденциальности
-      </span>
-    </p>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(4px)" }}
+      onClick={onClose}
+    >
+      <div
+        className="relative w-full max-w-lg max-h-[80vh] flex flex-col rounded-2xl border border-white/10"
+        style={{ background: "#111115" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-5 py-4 border-b border-white/8 flex-shrink-0">
+          <span className="text-[14px] font-semibold text-zinc-100">{title}</span>
+          <button
+            onClick={onClose}
+            className="text-zinc-500 hover:text-zinc-200 transition-colors text-lg leading-none"
+            aria-label="Закрыть"
+          >
+            ✕
+          </button>
+        </div>
+        <div className="overflow-y-auto px-5 py-4 flex-1">
+          <pre className="text-[12px] text-zinc-400 leading-relaxed whitespace-pre-wrap font-sans">{content}</pre>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TermsNote() {
+  const [modal, setModal] = useState<"tos" | "privacy" | null>(null);
+  return (
+    <>
+      <p className="text-center text-[11px] text-zinc-600 leading-relaxed">
+        Входя, вы принимаете{" "}
+        <span
+          onClick={() => setModal("tos")}
+          className="text-zinc-500 cursor-pointer hover:text-zinc-200 transition-colors underline underline-offset-2"
+        >
+          условия использования
+        </span>{" "}
+        и{" "}
+        <span
+          onClick={() => setModal("privacy")}
+          className="text-zinc-500 cursor-pointer hover:text-zinc-200 transition-colors underline underline-offset-2"
+        >
+          политику конфиденциальности
+        </span>
+      </p>
+      {modal === "tos" && (
+        <LegalModal title="Условия использования" content={TOS_CONTENT} onClose={() => setModal(null)} />
+      )}
+      {modal === "privacy" && (
+        <LegalModal title="Политика конфиденциальности" content={PRIVACY_CONTENT} onClose={() => setModal(null)} />
+      )}
+    </>
   );
 }
 
