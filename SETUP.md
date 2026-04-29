@@ -146,47 +146,47 @@ git push origin v1.0.0
 
 ---
 
-### Windows — EV Code Signing via SSL.com eSigner (Cloud HSM)
+### Windows — Code Signing (.pfx / PKCS#12)
 
-EV (Extended Validation) сертификаты хранятся на аппаратных токенах (HSM) и не могут быть экспортированы в `.pfx`. CI-пайплайн использует **SSL.com eSigner** — облачный HSM-сервис, позволяющий подписывать в GitHub Actions без физического токена.
+The CI workflow signs the Windows installer using a standard code-signing certificate stored as a base64-encoded `.pfx` file in GitHub Secrets.
 
 **Почему EV, а не OV:**
 - EV-сертификат убирает предупреждение Windows SmartScreen («Windows protected your PC») **с первой установки**
 - OV-сертификат требует накопления репутации (~1000+ установок) перед исчезновением SmartScreen
 
-**Провайдер: SSL.com eSigner**
+**Рекомендуемые провайдеры:** DigiCert, Sectigo, SSL.com (OV или EV Code Signing)
 
-**Шаги для получения сертификата:**
-1. Зарегистрируйтесь на [ssl.com](https://www.ssl.com) и купите сертификат **EV Code Signing**.
-2. Пройдите верификацию организации (занимает 1–5 рабочих дней).
-3. В личном кабинете SSL.com включите **eSigner** для вашего сертификата (раздел *Code Signing Certificates → Enroll for eSigner*).
-4. Получите `Credential ID` сертификата из панели SSL.com.
-5. Включите TOTP (2FA) в настройках аккаунта и сохраните секрет TOTP.
+**Шаги для получения и настройки:**
+1. Купите сертификат **OV или EV Code Signing** у выбранного CA.
+2. Пройдите верификацию организации (1–5 рабочих дней).
+3. Экспортируйте сертификат как `.pfx` / `.p12` (включая приватный ключ) и задайте надёжный пароль.
+4. Закодируйте файл в base64:
+   ```bash
+   # macOS / Linux
+   base64 -i certificate.pfx | pbcopy
 
-**Добавьте в GitHub → Settings → Secrets → Actions:**
+   # Windows (PowerShell)
+   [Convert]::ToBase64String([IO.File]::ReadAllBytes("certificate.pfx")) | Set-Clipboard
+   ```
+5. Добавьте в **GitHub → Settings → Secrets → Actions:**
 
 | Secret | Описание |
 |--------|----------|
-| `SSL_COM_USERNAME` | Email-адрес аккаунта SSL.com |
-| `SSL_COM_PASSWORD` | Пароль аккаунта SSL.com |
-| `SSL_COM_CREDENTIAL_ID` | ID сертификата из панели SSL.com (*Credential ID*) |
-| `SSL_COM_TOTP_SECRET` | Секрет TOTP (base32) из настроек 2FA аккаунта SSL.com |
-
-> **Примечание:** старые секреты `WIN_CSC_LINK`, `WIN_CSC_KEY_PASSWORD`, `WIN_CERT_SUBJECT_NAME` больше не используются и могут быть удалены из репозитория.
+| `WIN_CSC_LINK` | Base64-кодированный `.pfx` файл |
+| `WIN_CSC_KEY_PASSWORD` | Пароль от `.pfx` файла |
 
 **Как работает подпись в CI:**
-1. `electron-builder` собирает установщик **без подписи** (`CSC_IDENTITY_AUTO_DISCOVERY=false`).
-2. Шаг `sslcom/esigner-codesign@develop` передаёт `.exe` в облачный HSM SSL.com.
-3. SSL.com подписывает файл EV-сертификатом и возвращает подписанный `.exe`.
-4. Подписанный файл загружается в GitHub Releases.
+1. CI декодирует `WIN_CSC_LINK` из base64 во временный `.pfx`-файл.
+2. `electron-builder` подписывает `.exe` сертификатом и удаляет временный файл.
+3. PowerShell запускает `Get-AuthenticodeSignature` и завершает сборку с ошибкой, если подпись не прошла проверку.
 
-**Проверка EV-подписи (PowerShell):**
+> **Важно:** Подпись обязательна для релизных сборок. Если секреты `WIN_CSC_LINK` или `WIN_CSC_KEY_PASSWORD` не заданы, задание CI завершится с ошибкой. Это предотвращает случайную публикацию неподписанных установщиков.
+
+**Проверка подписи (PowerShell):**
 ```powershell
 $sig = Get-AuthenticodeSignature .\CodeSync-Setup.exe
-$sig.Status                              # должно быть Valid
-$sig.SignerCertificate.Subject           # должен содержать название организации
-$sig.SignerCertificate.Extensions |
-  Where-Object { $_.Oid.Value -eq "2.5.29.32" }  # EV OID должен присутствовать
+$sig.Status                    # должно быть Valid
+$sig.SignerCertificate.Subject # должен содержать название организации
 ```
 
 ---
@@ -252,34 +252,26 @@ Apple Developer ID certificates are issued for **1 year** and must be renewed an
 
 ---
 
-### Windows — Renewing the SSL.com eSigner EV Certificate
+### Windows — Renewing the Code-Signing Certificate
 
-Windows installers are signed via **SSL.com eSigner** (cloud HSM). The EV certificate lives in SSL.com's KeyLocker and is accessed at build time using your SSL.com account credentials — no local `.pfx` file is involved.
-
-EV certificates are typically issued for **1–3 years**. Renew through SSL.com before expiry.
+Windows installers are signed with a `.pfx` certificate whose base64 value is stored in the `WIN_CSC_LINK` secret. OV certificates are typically issued for **1–3 years**; EV certificates for **1–2 years**.
 
 **Steps:**
 
-1. Log in to the [SSL.com portal](https://www.ssl.com) and navigate to your Code Signing orders.
-2. Initiate renewal for your EV Code Signing certificate. Complete any required identity re-verification.
-3. Once the renewed certificate is issued and provisioned into KeyLocker, verify the new credential ID in the SSL.com dashboard.
-4. If the **credential ID has changed**, update the following secret in **GitHub → Settings → Secrets → Actions**:
+1. Purchase or renew a **Code Signing** certificate from your CA (DigiCert, Sectigo, SSL.com, etc.).
+2. Export the renewed certificate as a `.pfx` file (include the private key) and set a strong password.
+3. Encode it to base64:
+   ```bash
+   base64 -i new-certificate.pfx | pbcopy
+   ```
+4. Update the following secrets in **GitHub → Settings → Secrets → Actions**:
 
    | Secret | What to update |
    |--------|----------------|
-   | `SSL_COM_CREDENTIAL_ID` | New credential ID from the SSL.com dashboard |
+   | `WIN_CSC_LINK` | Base64 string of the new `.pfx` file |
+   | `WIN_CSC_KEY_PASSWORD` | Password set in step 2 |
 
-5. If you changed your SSL.com account password, also update:
-
-   | Secret | What to update |
-   |--------|----------------|
-   | `SSL_COM_USERNAME` | SSL.com account username (email) |
-   | `SSL_COM_PASSWORD` | New SSL.com account password |
-   | `SSL_COM_TOTP_SECRET` | TOTP secret from your authenticator app (if reset) |
-
-6. Trigger a test build to confirm the installer is signed and SmartScreen shows a publisher name instead of "Unknown Publisher".
-
-> **Checking the credential:** You can verify the new certificate is active by running the **Certificate Expiry Check** workflow manually from the Actions tab. It will query SSL.com and report the new expiry date.
+5. Trigger a test build to confirm the installer is signed and SmartScreen shows the publisher name.
 
 After updating the secrets, close the open `cert-expiry` GitHub issue.
 

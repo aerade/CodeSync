@@ -34,6 +34,9 @@ mac:
 
 win:
   icon: assets/icon.ico
+  signingHashAlgorithms:
+    - sha256
+  signDlls: false
   target:
     - target: nsis
       arch: [x64]
