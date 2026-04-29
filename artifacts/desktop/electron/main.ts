@@ -7,6 +7,7 @@
  * - Регистрирует IPC-обработчики для FS, SQLite и node-pty.
  * - Регистрирует протокол codesync:// для OAuth deep link.
  * - Создаёт нативное меню на русском языке.
+ * - Проверяет наличие обновлений через electron-updater (GitHub Releases).
  */
 import { app, BrowserWindow, ipcMain, shell, Notification, globalShortcut } from "electron";
 import * as http from "http";
@@ -22,6 +23,129 @@ const DEV_URL = process.env.VITE_DEV_URL ?? "http://localhost:5173/desktop/";
 
 let mainWindow: BrowserWindow | null = null;
 let localServerPort: number | null = null;
+
+// ─── Auto-updater (production only) ──────────────────────────────────────────
+
+// Minimal shape of electron-updater's AppUpdater that we rely on.
+// Defined inline so the file compiles even before the package is installed.
+interface AppUpdater {
+  autoDownload: boolean;
+  autoInstallOnAppQuit: boolean;
+  on(event: string, listener: (...args: unknown[]) => void): this;
+  once(event: string, listener: (...args: unknown[]) => void): this;
+  removeListener(event: string, listener: (...args: unknown[]) => void): this;
+  checkForUpdates(): Promise<unknown>;
+  quitAndInstall(isSilent?: boolean, isForceRunAfter?: boolean): void;
+}
+
+interface UpdateInfo {
+  version: string;
+  releaseNotes?: string | null;
+}
+
+function initAutoUpdater() {
+  try {
+    // electron-updater is a runtime dependency; skip gracefully if absent
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { autoUpdater } = require("electron-updater") as { autoUpdater: AppUpdater };
+
+    autoUpdater.autoDownload = true;
+    autoUpdater.autoInstallOnAppQuit = true;
+
+    autoUpdater.on("update-available", (...args: unknown[]) => {
+      const info = args[0] as UpdateInfo;
+      mainWindow?.webContents.send("updater:update-available", {
+        version: info.version,
+        releaseNotes: info.releaseNotes ?? null,
+      });
+    });
+
+    autoUpdater.on("update-downloaded", (...args: unknown[]) => {
+      const info = args[0] as UpdateInfo;
+      mainWindow?.webContents.send("updater:update-downloaded", {
+        version: info.version,
+        releaseNotes: info.releaseNotes ?? null,
+      });
+    });
+
+    autoUpdater.on("error", (...args: unknown[]) => {
+      const err = args[0] as Error | undefined;
+      console.error("Auto-updater error:", err?.message ?? err);
+      mainWindow?.webContents.send("updater:error", { message: err?.message ?? String(err) });
+    });
+
+    // Check on startup (slight delay so the window is ready)
+    setTimeout(() => {
+      autoUpdater.checkForUpdates().catch((err: Error) => {
+        console.warn("Update check failed:", err?.message ?? err);
+      });
+    }, 10_000);
+
+    // Check every 4 hours
+    setInterval(() => {
+      autoUpdater.checkForUpdates().catch((err: Error) => {
+        console.warn("Periodic update check failed:", err?.message ?? err);
+      });
+    }, 4 * 60 * 60 * 1_000);
+
+    // IPC: renderer triggers a manual check.
+    // electron-updater always resolves checkForUpdates() with an UpdateCheckResult
+    // regardless of whether a newer version exists, so we track the result via
+    // the update-available / update-not-available events fired during the same call.
+    ipcMain.handle("updater:checkForUpdates", async () => {
+      return new Promise<{ available: boolean; error?: string }>((resolve) => {
+        let settled = false;
+
+        const onAvailable = () => {
+          if (settled) return;
+          settled = true;
+          cleanup();
+          resolve({ available: true });
+        };
+
+        const onNotAvailable = () => {
+          if (settled) return;
+          settled = true;
+          cleanup();
+          resolve({ available: false });
+        };
+
+        const onError = (...args: unknown[]) => {
+          if (settled) return;
+          settled = true;
+          cleanup();
+          const err = args[0] as Error | undefined;
+          resolve({ available: false, error: err?.message ?? String(err) });
+        };
+
+        const cleanup = () => {
+          autoUpdater.removeListener("update-available", onAvailable);
+          autoUpdater.removeListener("update-not-available", onNotAvailable);
+          autoUpdater.removeListener("error", onError);
+        };
+
+        autoUpdater.once("update-available", onAvailable);
+        autoUpdater.once("update-not-available", onNotAvailable);
+        autoUpdater.once("error", onError);
+
+        autoUpdater.checkForUpdates().catch((err: Error) => {
+          if (!settled) {
+            settled = true;
+            cleanup();
+            resolve({ available: false, error: err?.message ?? String(err) });
+          }
+        });
+      });
+    });
+
+    // IPC: renderer requests install-and-restart
+    ipcMain.on("updater:installUpdate", () => {
+      autoUpdater.quitAndInstall(false, true);
+    });
+  } catch (err) {
+    console.warn("electron-updater not available:", (err as Error)?.message ?? err);
+  }
+}
 
 // ─── Single-instance lock + deep-link (Windows / Linux) ──────────────────────
 
@@ -199,6 +323,11 @@ app.whenReady().then(async () => {
 
   buildMenu(dispatchMenuAction);
   createWindow();
+
+  // Initialise auto-updater in production after window is created
+  if (!isDev) {
+    initAutoUpdater();
+  }
 
   // Глобальные хоткеи
   const shortcuts: Array<{ accel: string; action: string }> = [

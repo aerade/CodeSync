@@ -14,7 +14,10 @@ files:
   - "!node_modules/**/*.{md,markdown,ts,map}"
   - "!**/{.DS_Store,.git,.github,.gitignore,.vscode,test,tests,__tests__}"
 
-publish: null
+publish:
+  provider: github
+  owner: aerade
+  repo: CodeSync
 
 asar: true
 asarUnpack:

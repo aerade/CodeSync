@@ -123,6 +123,15 @@ export interface DesktopAPI {
   onMenuAction(cb: (action: string) => void): () => void;
   onGlobalShortcut(cb: (action: string) => void): () => void;
   onOAuthCallback(cb: (payload: { token: string | null; error: string | null }) => void): () => void;
+
+  // Auto-updater (Electron only; absent in browser fallback)
+  updater?: {
+    checkForUpdates(): Promise<{ available: boolean; error?: string }>;
+    installUpdate(): void;
+    onUpdateAvailable(cb: (info: { version: string; releaseNotes: string | null }) => void): () => void;
+    onUpdateDownloaded(cb: (info: { version: string; releaseNotes: string | null }) => void): () => void;
+    onError(cb: (info: { message: string }) => void): () => void;
+  };
 }
 
 declare global {

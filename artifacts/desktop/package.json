@@ -26,13 +26,17 @@
     "electron:dist": "pnpm run build && pnpm run electron:build && electron-builder --config electron-builder.yml",
     "build:full": "pnpm run build:web && pnpm run electron:build && electron-builder --config electron-builder.yml --linux",
     "electron:build:win": "pnpm run build:web && pnpm run electron:build && electron-builder --config electron-builder.yml --win",
-    "electron:build:mac": "pnpm run build:web && pnpm run electron:build && electron-builder --config electron-builder.yml --mac"
+    "electron:build:mac": "pnpm run build:web && pnpm run electron:build && electron-builder --config electron-builder.yml --mac",
+    "release:linux": "pnpm run build:web && pnpm run electron:build && electron-builder --config electron-builder.yml --linux --publish always",
+    "release:win": "pnpm run build:web && pnpm run electron:build && electron-builder --config electron-builder.yml --win --publish always",
+    "release:mac": "pnpm run build:web && pnpm run electron:build && electron-builder --config electron-builder.yml --mac --publish always"
   },
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",
     "@xterm/addon-fit": "^0.11.0",
     "@xterm/addon-web-links": "^0.12.0",
     "@xterm/xterm": "^6.0.0",
+    "electron-updater": "^6.3.9",
     "monaco-editor": "^0.55.1",
     "nanoid": "^5.1.7",
     "y-monaco": "^0.1.6",

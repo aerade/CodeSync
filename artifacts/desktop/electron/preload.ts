@@ -85,6 +85,22 @@ const api = {
   onGlobalShortcut: (cb: (action: string) => void) => on("global-shortcut", (a) => cb(String(a))),
   onOAuthCallback: (cb: (payload: { token: string | null; error: string | null }) => void) =>
     on("auth:oauth-callback", (p) => cb(p as { token: string | null; error: string | null })),
+
+  updater: {
+    checkForUpdates: (): Promise<{ available: boolean; error?: string }> =>
+      ipcRenderer.invoke("updater:checkForUpdates"),
+    installUpdate: () => ipcRenderer.send("updater:installUpdate"),
+    onUpdateAvailable: (cb: (info: { version: string; releaseNotes: string | null }) => void) =>
+      on("updater:update-available", (info) =>
+        cb(info as { version: string; releaseNotes: string | null })
+      ),
+    onUpdateDownloaded: (cb: (info: { version: string; releaseNotes: string | null }) => void) =>
+      on("updater:update-downloaded", (info) =>
+        cb(info as { version: string; releaseNotes: string | null })
+      ),
+    onError: (cb: (info: { message: string }) => void) =>
+      on("updater:error", (info) => cb(info as { message: string })),
+  },
 };
 
 contextBridge.exposeInMainWorld("desktopAPI", api);

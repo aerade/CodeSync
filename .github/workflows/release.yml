@@ -21,16 +21,10 @@ jobs:
           node-version: 20
           cache: pnpm
       - run: pnpm install --no-frozen-lockfile
-      - name: Build AppImage
-        run: pnpm --filter @workspace/desktop run build:full
+      - name: Build & publish AppImage + deb
+        run: pnpm --filter @workspace/desktop run release:linux
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Upload AppImage
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            artifacts/desktop/dist/electron/CodeSync-*.AppImage
-            artifacts/desktop/dist/electron/CodeSync-*.deb
 
   build-win:
     runs-on: windows-latest
@@ -63,8 +57,8 @@ jobs:
         env:
           WIN_CSC_LINK_B64: ${{ secrets.WIN_CSC_LINK }}
           WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
-      - name: Build Windows installer
-        run: pnpm --filter @workspace/desktop run electron:build:win
+      - name: Build & publish Windows installer
+        run: pnpm --filter @workspace/desktop run release:win
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
@@ -99,10 +93,6 @@ jobs:
             exit 1
           }
           Write-Host "Signature verified successfully."
-      - name: Upload installer
-        uses: softprops/action-gh-release@v2
-        with:
-          files: artifacts/desktop/dist/electron/*.exe
 
   build-mac:
     runs-on: macos-latest
@@ -118,12 +108,8 @@ jobs:
       - name: Install Python setuptools (needed for node-pty native build)
         run: pip3 install setuptools --break-system-packages
       - run: pnpm install --no-frozen-lockfile
-      - name: Build macOS DMG (unsigned)
-        run: pnpm --filter @workspace/desktop run electron:build:mac
+      - name: Build & publish macOS DMG (unsigned)
+        run: pnpm --filter @workspace/desktop run release:mac
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
-      - name: Upload DMG
-        uses: softprops/action-gh-release@v2
-        with:
-          files: artifacts/desktop/dist/electron/*.dmg

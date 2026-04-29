@@ -15,6 +15,7 @@ import { StatusBar } from "@/components/StatusBar";
 import { CommandPalette } from "@/components/CommandPalette";
 import { WelcomeScreen } from "@/components/WelcomeScreen";
 import { SignInScreen } from "@/components/SignInScreen";
+import { UpdateNotification } from "@/components/UpdateNotification";
 import { useHotkeys } from "@/hooks/useHotkeys";
 import { desktop } from "@/lib/desktopBridge";
 
@@ -134,6 +135,7 @@ function Shell() {
 
       <StatusBar />
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+      <UpdateNotification />
     </div>
   );
 }
