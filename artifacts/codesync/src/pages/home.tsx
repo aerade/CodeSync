@@ -414,9 +414,11 @@ function DownloadSection({ sectionRef }: { sectionRef: RefObject<HTMLElement | n
             </div>
           )}
         </motion.div>
-        <p style={{ fontSize: 15, color: "rgba(255,255,255,0.38)", lineHeight: 1.65, maxWidth: 480, margin: "32px auto 0", textAlign: "center" }}>
-          Полноценное десктоп-приложение с нативными уведомлениями, локальными проектами и всеми возможностями IDE CodeSync.
-        </p>
+        {releaseState.status === "ok" && (
+          <p style={{ fontSize: 15, color: "rgba(255,255,255,0.38)", lineHeight: 1.65, maxWidth: 480, margin: "32px auto 0", textAlign: "center" }}>
+            Полноценное десктоп-приложение с нативными уведомлениями, локальными проектами и всеми возможностями IDE CodeSync.
+          </p>
+        )}
       </div>
     </section>
   );
