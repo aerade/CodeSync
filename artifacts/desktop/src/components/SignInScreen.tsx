@@ -74,6 +74,8 @@ export function SignInScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [code, setCode] = useState("");
 
+  const [devCode, setDevCode] = useState<string | null>(null);
+
   const [regEmail, setRegEmail] = useState("");
   const [regPassword, setRegPassword] = useState("");
   const [regConfirm, setRegConfirm] = useState("");
@@ -99,7 +101,8 @@ export function SignInScreen() {
   };
 
   const handleSendCode = async () => {
-    await requestEmailCode(email);
+    const returned = await requestEmailCode(email);
+    setDevCode(returned);
     setStep("code-verify");
   };
 
@@ -127,6 +130,7 @@ export function SignInScreen() {
     setStep("start");
     setPassword("");
     setCode("");
+    setDevCode(null);
     setRegError(null);
   };
 
@@ -230,9 +234,16 @@ export function SignInScreen() {
         {step === "code-verify" && (
           <div className="bg-[#18181B] border border-white/8 rounded-2xl p-5 shadow-[0_24px_64px_rgba(0,0,0,0.6)] flex flex-col gap-3">
             <BackRow email={email} onBack={() => setStep("password")} />
-            <p className="text-[13px] text-zinc-400 text-center leading-relaxed">
-              Мы отправили 6-значный код на <span className="text-zinc-200">{email}</span>
-            </p>
+            {devCode ? (
+              <div className="rounded-xl bg-[#F97316]/10 border border-[#F97316]/25 px-4 py-3 flex flex-col items-center gap-1">
+                <p className="text-[11px] text-[#F97316]/80 text-center">SMTP не настроен — код для входа:</p>
+                <p className="text-[28px] font-mono font-bold tracking-[0.3em] text-[#F97316] select-all">{devCode}</p>
+              </div>
+            ) : (
+              <p className="text-[13px] text-zinc-400 text-center leading-relaxed">
+                Мы отправили 6-значный код на <span className="text-zinc-200">{email}</span>
+              </p>
+            )}
             <form onSubmit={handleCodeSubmit} className="flex flex-col gap-2.5">
               <Input type="text" placeholder="000000" value={code}
                 onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}

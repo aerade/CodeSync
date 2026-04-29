@@ -19,7 +19,7 @@ interface AuthState {
   signIn: (provider: "google" | "github") => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signInWithEmailCode: (email: string, code: string) => Promise<void>;
-  requestEmailCode: (email: string) => Promise<void>;
+  requestEmailCode: (email: string) => Promise<string | null>;
   register: (email: string, password: string) => Promise<void>;
   signOut: () => void;
 }
@@ -122,7 +122,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const requestEmailCode = async (email: string) => {
+  const requestEmailCode = async (email: string): Promise<string | null> => {
     setLoading(true);
     setError(null);
     try {
@@ -132,10 +132,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
       });
-      const data = await res.json() as { ok?: boolean; error?: string };
+      const data = await res.json() as { ok?: boolean; error?: string; devCode?: string };
       if (!res.ok) throw new Error(data.error ?? `Server returned ${res.status}`);
+      return data.devCode ?? null;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Не удалось отправить код");
+      return null;
     } finally {
       setLoading(false);
     }

@@ -412,8 +412,14 @@ router.post("/desktop-auth/email/request-code", async (req, res) => {
   const code = String(Math.floor(100000 + Math.random() * 900000));
   emailCodes.set(email, { code, expiresAt: Date.now() + TTL });
 
+  const smtpConfigured = !!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
+
   try {
     await sendEmailCode(email, code);
+    // In dev mode (no SMTP), return the code in the response so the client can display it
+    if (!smtpConfigured) {
+      return res.json({ ok: true, devCode: code });
+    }
     return res.json({ ok: true });
   } catch (err) {
     logger.error({ err }, "Failed to send email code");
