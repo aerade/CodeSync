@@ -332,6 +332,17 @@ function makeBrowserBridge(): DesktopAPI {
     },
     onGlobalShortcut: emptyUnsub,
     onOAuthCallback: emptyUnsub,
+
+    updater: {
+      checkForUpdates: async () => {
+        await new Promise((r) => setTimeout(r, 1200));
+        return { available: false };
+      },
+      installUpdate: noop,
+      onUpdateAvailable: emptyUnsub,
+      onUpdateDownloaded: emptyUnsub,
+      onError: emptyUnsub,
+    },
   };
 }
 

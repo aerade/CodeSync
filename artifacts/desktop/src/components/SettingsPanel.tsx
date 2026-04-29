@@ -1,16 +1,18 @@
 import { useState, useEffect } from "react";
-import { User, Server, Keyboard, Info, ExternalLink, Check, Monitor, Trash2 } from "lucide-react";
+import { User, Server, Keyboard, Info, ExternalLink, Check, Monitor, Trash2, RefreshCw, Download } from "lucide-react";
 import { useAuth } from "@/store/auth";
 import { getApiBase, setApiBase, invalidateApiConfig } from "@/lib/apiConfig";
+import { desktop } from "@/lib/desktopBridge";
 import { cn } from "@/lib/utils";
 
-type Section = "application" | "account" | "server" | "keybindings" | "about";
+type Section = "application" | "account" | "server" | "keybindings" | "about" | "updates";
 
 const SECTIONS: { id: Section; label: string; icon: typeof User }[] = [
   { id: "application", label: "Приложение", icon: Monitor },
   { id: "account", label: "Аккаунт", icon: User },
   { id: "server", label: "Сервер", icon: Server },
   { id: "keybindings", label: "Клавиши", icon: Keyboard },
+  { id: "updates", label: "Обновления", icon: RefreshCw },
   { id: "about", label: "О программе", icon: Info },
 ];
 
@@ -52,6 +54,7 @@ export function SettingsPanel() {
           {section === "account" && <AccountSection />}
           {section === "server" && <ServerSection />}
           {section === "keybindings" && <KeybindingsSection />}
+          {section === "updates" && <UpdatesSection />}
           {section === "about" && <AboutSection />}
         </div>
       </div>
@@ -369,6 +372,150 @@ function KeybindingsSection() {
           </div>
         ))}
       </div>
+    </>
+  );
+}
+
+type UpdateStatus =
+  | { kind: "idle" }
+  | { kind: "checking" }
+  | { kind: "up-to-date"; checkedAt: number }
+  | { kind: "available"; version: string; checkedAt: number }
+  | { kind: "downloaded"; version: string }
+  | { kind: "error"; message: string; checkedAt: number };
+
+function UpdatesSection() {
+  const api = desktop();
+  const version = api.appVersion;
+  const updater = api.updater;
+
+  const [status, setStatus] = useState<UpdateStatus>({ kind: "idle" });
+
+  useEffect(() => {
+    if (!updater) return;
+    const unsubAvailable = updater.onUpdateAvailable((info) => {
+      setStatus({ kind: "available", version: info.version, checkedAt: Date.now() });
+    });
+    const unsubDownloaded = updater.onUpdateDownloaded((info) => {
+      setStatus({ kind: "downloaded", version: info.version });
+    });
+    const unsubError = updater.onError((info) => {
+      setStatus({ kind: "error", message: info.message, checkedAt: Date.now() });
+    });
+    return () => {
+      unsubAvailable();
+      unsubDownloaded();
+      unsubError();
+    };
+  }, [updater]);
+
+  const handleCheck = async () => {
+    if (!updater || status.kind === "checking") return;
+    setStatus({ kind: "checking" });
+    try {
+      const result = await updater.checkForUpdates();
+      if (result.error) {
+        setStatus({ kind: "error", message: result.error, checkedAt: Date.now() });
+      } else if (!result.available) {
+        setStatus({ kind: "up-to-date", checkedAt: Date.now() });
+      }
+    } catch (err) {
+      setStatus({ kind: "error", message: (err as Error)?.message ?? String(err), checkedAt: Date.now() });
+    }
+  };
+
+  const handleInstall = () => {
+    updater?.installUpdate();
+  };
+
+  const formatTime = (ts: number) => {
+    const d = new Date(ts);
+    return d.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+  };
+
+  return (
+    <>
+      <SectionTitle>Версия</SectionTitle>
+      <div className="mx-3 mb-2 bg-[#18181B] border border-white/8 rounded-xl px-3 py-2.5 flex items-center justify-between">
+        <div>
+          <div className="text-[12.5px] text-zinc-200 font-medium">CodeSync Desktop</div>
+          <div className="text-[11px] text-zinc-500 mt-0.5 font-mono">{version}</div>
+        </div>
+        <span className="text-[10px] text-zinc-500 bg-white/5 border border-white/8 px-2 py-0.5 rounded-full">
+          Установлена
+        </span>
+      </div>
+
+      <SectionTitle>Проверка обновлений</SectionTitle>
+
+      {status.kind === "up-to-date" && (
+        <div className="mx-3 mb-2 flex items-center gap-2 px-3 py-2 bg-[#56C271]/8 border border-[#56C271]/20 rounded-xl">
+          <Check className="w-3.5 h-3.5 text-[#56C271] shrink-0" />
+          <div>
+            <div className="text-[12px] text-[#56C271]">Последняя версия установлена</div>
+            <div className="text-[10.5px] text-zinc-500 mt-0.5">Проверено в {formatTime(status.checkedAt)}</div>
+          </div>
+        </div>
+      )}
+
+      {(status.kind === "available" || status.kind === "downloaded") && (
+        <div className="mx-3 mb-2 flex items-start gap-2 px-3 py-2 bg-[#F97316]/8 border border-[#F97316]/20 rounded-xl">
+          <Download className="w-3.5 h-3.5 text-[#FB923C] shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <div className="text-[12px] text-[#FB923C]">
+              {status.kind === "downloaded"
+                ? `Обновление v${status.version} готово к установке`
+                : `Доступно обновление — v${status.version}`}
+            </div>
+            <div className="text-[10.5px] text-zinc-500 mt-0.5">
+              {status.kind === "available"
+                ? `Загрузка... · проверено в ${formatTime(status.checkedAt)}`
+                : "Скачано, готово к установке"}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {status.kind === "error" && (
+        <div className="mx-3 mb-2 px-3 py-2 bg-[#E26F6F]/8 border border-[#E26F6F]/20 rounded-xl">
+          <div className="text-[12px] text-[#E26F6F]">Ошибка проверки</div>
+          <div className="text-[10.5px] text-zinc-500 mt-0.5 truncate">{status.message}</div>
+          <div className="text-[10.5px] text-zinc-600 mt-0.5">Проверено в {formatTime(status.checkedAt)}</div>
+        </div>
+      )}
+
+      <div className="px-3 flex flex-col gap-2">
+        {status.kind !== "downloaded" && (
+          <button
+            type="button"
+            onClick={handleCheck}
+            disabled={status.kind === "checking" || !updater}
+            className={cn(
+              "h-8 rounded-lg text-[12.5px] font-medium transition-colors flex items-center justify-center gap-2",
+              status.kind === "checking" || !updater
+                ? "bg-white/5 border border-white/8 text-zinc-500 cursor-not-allowed"
+                : "bg-[#F97316] text-white hover:bg-[#EA580C]",
+            )}
+          >
+            <RefreshCw
+              className={cn("w-3.5 h-3.5", status.kind === "checking" && "animate-spin")}
+            />
+            {status.kind === "checking" ? "Проверка..." : "Проверить обновления"}
+          </button>
+        )}
+
+        {status.kind === "downloaded" && (
+          <button
+            type="button"
+            onClick={handleInstall}
+            className="h-8 rounded-lg text-[12.5px] font-medium bg-[#F97316] text-white hover:bg-[#EA580C] transition-colors flex items-center justify-center gap-2"
+          >
+            <Download className="w-3.5 h-3.5" />
+            Установить и перезапустить
+          </button>
+        )}
+      </div>
+
     </>
   );
 }
