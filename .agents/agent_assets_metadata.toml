@@ -66,6 +66,12 @@ uri = "file://attached_assets/logos/logo_10_cursor_sync.png"
 type = "image"
 title = "logo 10 cursor sync"
 
+[[generated]]
+id = "2D8QaBRuZRmiisYc4RNWc"
+uri = "file://attached_assets/logos/logo_7_pastel_orange.png"
+type = "image"
+title = "logo 7 pastel orange nodes"
+
 [[outputs]]
 id = "3ZWCQcfLOGCDrt7QVHi-g"
 uri = "file://SETUP.md"
@@ -137,3 +143,9 @@ id = "kOgSk_n-4TbsL280Z9TvJ"
 uri = "file://attached_assets/logos/logo_10_cursor_sync.png"
 type = "image"
 title = "10 — Курсор + синхронизация"
+
+[[outputs]]
+id = "fINsxtrxrMTh1IPGZ8q3-"
+uri = "file://attached_assets/logos/logo_7_pastel_orange_nobg.png"
+type = "image"
+title = "Логотип 7 — пастельный оранжевый, без фона"
