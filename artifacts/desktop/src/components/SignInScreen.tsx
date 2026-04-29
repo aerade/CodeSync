@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Github, Mail, ArrowLeft, Sparkles } from "lucide-react";
+import { useState, useCallback } from "react";
+import { Github, ArrowLeft, Sparkles, Eye, EyeOff, Wand2 } from "lucide-react";
 import { useAuth } from "@/store/auth";
 import { cn } from "@/lib/utils";
 
@@ -14,12 +14,46 @@ function GoogleIcon({ className }: { className?: string }) {
   );
 }
 
-type Step =
-  | "start"
-  | "password"
-  | "code-verify"
-  | "forgot"
-  | "register";
+type Step = "start" | "password" | "code-verify" | "forgot" | "register";
+
+function generatePassword(len = 16): string {
+  const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+  const lower = "abcdefghjkmnpqrstuvwxyz";
+  const digits = "23456789";
+  const symbols = "!@#$%^&*-_=+";
+  const all = upper + lower + digits + symbols;
+  const arr = new Uint8Array(len);
+  crypto.getRandomValues(arr);
+  let pwd = [
+    upper[arr[0] % upper.length],
+    lower[arr[1] % lower.length],
+    digits[arr[2] % digits.length],
+    symbols[arr[3] % symbols.length],
+    ...Array.from({ length: len - 4 }, (_, i) => all[arr[i + 4] % all.length]),
+  ];
+  crypto.getRandomValues(arr);
+  for (let i = pwd.length - 1; i > 0; i--) {
+    const j = arr[i] % (i + 1);
+    [pwd[i], pwd[j]] = [pwd[j], pwd[i]];
+  }
+  return pwd.join("");
+}
+
+type StrengthLevel = "weak" | "fair" | "good" | "strong";
+
+function getStrength(pwd: string): { level: StrengthLevel; label: string; color: string; width: string } {
+  if (!pwd) return { level: "weak", label: "", color: "", width: "0%" };
+  let score = 0;
+  if (pwd.length >= 8) score++;
+  if (pwd.length >= 12) score++;
+  if (/[A-Z]/.test(pwd)) score++;
+  if (/[0-9]/.test(pwd)) score++;
+  if (/[^A-Za-z0-9]/.test(pwd)) score++;
+  if (score <= 1) return { level: "weak",   label: "Слабый",    color: "#ef4444", width: "20%" };
+  if (score === 2) return { level: "fair",   label: "Средний",   color: "#f97316", width: "45%" };
+  if (score === 3) return { level: "good",   label: "Хороший",   color: "#eab308", width: "70%" };
+  return               { level: "strong", label: "Надёжный",  color: "#22c55e", width: "100%" };
+}
 
 export function SignInScreen() {
   const {
@@ -37,11 +71,16 @@ export function SignInScreen() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [code, setCode] = useState("");
+
   const [regEmail, setRegEmail] = useState("");
   const [regPassword, setRegPassword] = useState("");
   const [regConfirm, setRegConfirm] = useState("");
+  const [showRegPassword, setShowRegPassword] = useState(false);
   const [regError, setRegError] = useState<string | null>(null);
+
+  const strength = getStrength(regPassword);
 
   const handleOAuth = async (provider: "google" | "github") => {
     setOauthActive(provider);
@@ -49,7 +88,7 @@ export function SignInScreen() {
     setOauthActive(null);
   };
 
-  const handleContinue = async (e: React.FormEvent) => {
+  const handleContinue = (e: React.FormEvent) => {
     e.preventDefault();
     if (email.trim()) setStep("password");
   };
@@ -77,6 +116,13 @@ export function SignInScreen() {
     await register(regEmail, regPassword);
   };
 
+  const handleGeneratePassword = useCallback(() => {
+    const pwd = generatePassword();
+    setRegPassword(pwd);
+    setRegConfirm(pwd);
+    setShowRegPassword(true);
+  }, []);
+
   const goBack = () => {
     setStep("start");
     setPassword("");
@@ -86,13 +132,10 @@ export function SignInScreen() {
 
   return (
     <div className="h-screen w-screen bg-[#0A0A0C] flex items-center justify-center overflow-hidden relative">
-      {/* Background glow */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute top-[-20%] left-1/2 -translate-x-1/2 w-[600px] h-[600px] rounded-full bg-[#F97316]/5 blur-[120px]" />
         <div className="absolute bottom-[-10%] left-[-5%] w-[400px] h-[400px] rounded-full bg-[#F97316]/3 blur-[100px]" />
       </div>
-
-      {/* Grid pattern */}
       <div
         className="pointer-events-none absolute inset-0"
         style={{
@@ -101,9 +144,7 @@ export function SignInScreen() {
         }}
       />
 
-      {/* Card */}
       <div className="relative z-10 w-full max-w-[380px] mx-4">
-
         {/* Logo */}
         <div className="flex flex-col items-center mb-7">
           <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#F97316] to-[#EA580C] grid place-items-center shadow-[0_0_48px_rgba(249,115,22,0.4)] mb-4">
@@ -114,11 +155,9 @@ export function SignInScreen() {
           </h1>
         </div>
 
-        {/* ── START STEP ── */}
+        {/* ── START ── */}
         {step === "start" && (
           <div className="bg-[#18181B] border border-white/8 rounded-2xl p-5 shadow-[0_24px_64px_rgba(0,0,0,0.6)] flex flex-col gap-4">
-
-            {/* OAuth row */}
             {oauthActive ? (
               <div className="flex flex-col items-center gap-3 py-2">
                 <span className="w-6 h-6 rounded-full border-2 border-[#F97316] border-t-transparent animate-spin" />
@@ -128,173 +167,148 @@ export function SignInScreen() {
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-2">
-                <OAuthButton
-                  label="Google"
-                  icon={<GoogleIcon className="w-[17px] h-[17px]" />}
-                  onClick={() => handleOAuth("google")}
-                  disabled={!!oauthActive}
-                  light
-                />
-                <OAuthButton
-                  label="GitHub"
-                  icon={<Github className="w-[16px] h-[16px]" strokeWidth={2} />}
-                  onClick={() => handleOAuth("github")}
-                  disabled={!!oauthActive}
-                />
+                <OAuthButton label="Google" icon={<GoogleIcon className="w-[17px] h-[17px]" />}
+                  onClick={() => handleOAuth("google")} disabled={!!oauthActive} light />
+                <OAuthButton label="GitHub" icon={<Github className="w-[16px] h-[16px]" strokeWidth={2} />}
+                  onClick={() => handleOAuth("github")} disabled={!!oauthActive} />
               </div>
             )}
 
-            {/* Divider */}
             <div className="flex items-center gap-3">
               <div className="flex-1 h-px bg-white/8" />
               <span className="text-[11px] text-zinc-600">или через email</span>
               <div className="flex-1 h-px bg-white/8" />
             </div>
 
-            {/* Email + Continue */}
             <form onSubmit={handleContinue} className="flex flex-col gap-2.5">
-              <Input
-                type="email"
-                placeholder="Электронная почта"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                autoComplete="email"
-              />
+              <Input type="email" placeholder="Электронная почта" value={email}
+                onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
               <PrimaryButton type="submit" label="Продолжить" loading={false} disabled={!email.trim()} />
+              <TextLink
+                onClick={() => { setStep("register"); setRegEmail(email); }}
+                label="Нет аккаунта? Зарегистрироваться"
+                highlight
+              />
             </form>
 
             <TermsNote />
           </div>
         )}
 
-        {/* ── PASSWORD STEP ── */}
+        {/* ── PASSWORD ── */}
         {step === "password" && (
           <div className="bg-[#18181B] border border-white/8 rounded-2xl p-5 shadow-[0_24px_64px_rgba(0,0,0,0.6)] flex flex-col gap-3">
             <BackRow email={email} onBack={goBack} />
 
             <form onSubmit={handlePasswordSubmit} className="flex flex-col gap-2.5">
-              <Input
-                type="password"
-                placeholder="Пароль"
+              <PasswordInput
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
+                onChange={setPassword}
+                show={showPassword}
+                onToggleShow={() => setShowPassword(v => !v)}
+                placeholder="Пароль"
                 autoFocus
                 autoComplete="current-password"
               />
+              <div className="flex justify-end -mt-1">
+                <button type="button" onClick={() => setStep("forgot")}
+                  className="text-[11.5px] text-zinc-500 hover:text-zinc-300 transition-colors">
+                  Забыли пароль?
+                </button>
+              </div>
               <PrimaryButton type="submit" label="Войти" loading={authLoading} disabled={authLoading || !password} />
             </form>
 
             {authError && <ErrorNote msg={authError} />}
 
-            <div className="flex flex-col gap-1.5 pt-1">
-              <TextLink onClick={handleSendCode} label="Войти по коду на почте" />
-              <TextLink onClick={() => setStep("forgot")} label="Забыли пароль?" />
-            </div>
-
-            <Divider />
-            <TextLink
-              onClick={() => { setStep("register"); setRegEmail(email); }}
-              label="Нет аккаунта — зарегистрироваться"
-              highlight
-            />
+            <TextLink onClick={handleSendCode} label="Войти по коду на почте" />
+            <div className="h-px bg-white/6" />
+            <TextLink onClick={() => { setStep("register"); setRegEmail(email); }}
+              label="Нет аккаунта? Зарегистрироваться" highlight />
             <TermsNote />
           </div>
         )}
 
-        {/* ── CODE VERIFY STEP ── */}
+        {/* ── CODE VERIFY ── */}
         {step === "code-verify" && (
           <div className="bg-[#18181B] border border-white/8 rounded-2xl p-5 shadow-[0_24px_64px_rgba(0,0,0,0.6)] flex flex-col gap-3">
             <BackRow email={email} onBack={() => setStep("password")} />
-
             <p className="text-[13px] text-zinc-400 text-center leading-relaxed">
               Мы отправили 6-значный код на <span className="text-zinc-200">{email}</span>
             </p>
-
             <form onSubmit={handleCodeSubmit} className="flex flex-col gap-2.5">
-              <Input
-                type="text"
-                placeholder="000000"
-                value={code}
+              <Input type="text" placeholder="000000" value={code}
                 onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                required
-                autoFocus
-                autoComplete="one-time-code"
-                inputMode="numeric"
-                className="text-center text-[22px] tracking-[0.35em] font-mono"
-              />
-              <PrimaryButton
-                type="submit"
-                label="Подтвердить"
-                loading={authLoading}
-                disabled={authLoading || code.length !== 6}
-              />
+                required autoFocus autoComplete="one-time-code" inputMode="numeric"
+                className="text-center text-[22px] tracking-[0.35em] font-mono" />
+              <PrimaryButton type="submit" label="Подтвердить" loading={authLoading}
+                disabled={authLoading || code.length !== 6} />
             </form>
-
             {authError && <ErrorNote msg={authError} />}
-
             <TextLink onClick={handleSendCode} label="Отправить код повторно" />
             <TermsNote />
           </div>
         )}
 
-        {/* ── FORGOT PASSWORD STEP ── */}
+        {/* ── FORGOT ── */}
         {step === "forgot" && (
           <div className="bg-[#18181B] border border-white/8 rounded-2xl p-5 shadow-[0_24px_64px_rgba(0,0,0,0.6)] flex flex-col gap-3">
             <BackRow email={email} onBack={() => setStep("password")} />
             <p className="text-[13px] text-zinc-400 text-center leading-relaxed">
               Отправим ссылку для сброса пароля на <span className="text-zinc-200">{email}</span>
             </p>
-            <PrimaryButton
-              type="button"
-              label="Отправить письмо"
-              loading={authLoading}
-              disabled={authLoading}
-              onClick={handleSendCode}
-            />
+            <PrimaryButton type="button" label="Отправить письмо" loading={authLoading}
+              disabled={authLoading} onClick={handleSendCode} />
             <TermsNote />
           </div>
         )}
 
-        {/* ── REGISTER STEP ── */}
+        {/* ── REGISTER ── */}
         {step === "register" && (
           <div className="bg-[#18181B] border border-white/8 rounded-2xl p-5 shadow-[0_24px_64px_rgba(0,0,0,0.6)] flex flex-col gap-3">
-            <BackRow email={regEmail} onBack={goBack} label="Уже есть аккаунт — войти" />
+            <BackRow onBack={goBack} label="Уже есть аккаунт — войти" email="" />
 
             <form onSubmit={handleRegister} className="flex flex-col gap-2.5">
-              <Input
-                type="email"
-                placeholder="Электронная почта"
-                value={regEmail}
-                onChange={(e) => setRegEmail(e.target.value)}
-                required
-                autoComplete="email"
-              />
-              <Input
-                type="password"
-                placeholder="Пароль"
-                value={regPassword}
-                onChange={(e) => setRegPassword(e.target.value)}
-                required
-                autoComplete="new-password"
-              />
-              <Input
-                type="password"
-                placeholder="Подтвердите пароль"
+              <Input type="email" placeholder="Электронная почта" value={regEmail}
+                onChange={(e) => setRegEmail(e.target.value)} required autoComplete="email" />
+
+              <div className="flex flex-col gap-1">
+                <PasswordInput
+                  value={regPassword}
+                  onChange={setRegPassword}
+                  show={showRegPassword}
+                  onToggleShow={() => setShowRegPassword(v => !v)}
+                  onGenerate={handleGeneratePassword}
+                  placeholder="Пароль"
+                  autoComplete="new-password"
+                />
+                {regPassword && (
+                  <div className="flex items-center gap-2 px-1">
+                    <div className="flex-1 h-1 rounded-full bg-white/8 overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all duration-500"
+                        style={{ width: strength.width, background: strength.color }}
+                      />
+                    </div>
+                    <span className="text-[11px] shrink-0 transition-colors" style={{ color: strength.color }}>
+                      {strength.label}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <PasswordInput
                 value={regConfirm}
-                onChange={(e) => setRegConfirm(e.target.value)}
-                required
+                onChange={setRegConfirm}
+                show={showRegPassword}
+                onToggleShow={() => setShowRegPassword(v => !v)}
+                placeholder="Подтвердите пароль"
                 autoComplete="new-password"
               />
+
               {regError && <ErrorNote msg={regError} />}
               {authError && <ErrorNote msg={authError} />}
-              <PrimaryButton
-                type="submit"
-                label="Создать аккаунт"
-                loading={authLoading}
-                disabled={authLoading}
-              />
+              <PrimaryButton type="submit" label="Создать аккаунт" loading={authLoading} disabled={authLoading} />
             </form>
 
             <TermsNote />
@@ -305,69 +319,95 @@ export function SignInScreen() {
   );
 }
 
+function PasswordInput({
+  value, onChange, show, onToggleShow, onGenerate, placeholder, autoFocus, autoComplete,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  show: boolean;
+  onToggleShow: () => void;
+  onGenerate?: () => void;
+  placeholder?: string;
+  autoFocus?: boolean;
+  autoComplete?: string;
+}) {
+  return (
+    <div className="relative flex items-center">
+      <input
+        type={show ? "text" : "password"}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        autoFocus={autoFocus}
+        autoComplete={autoComplete}
+        required
+        className={cn(
+          "w-full h-11 rounded-xl bg-white/[0.05] border border-white/10 text-[14px] text-zinc-100 placeholder:text-zinc-600",
+          "focus:outline-none focus:border-[#F97316]/50 focus:ring-1 focus:ring-[#F97316]/30 transition-all",
+          onGenerate ? "pl-3.5 pr-20" : "pl-3.5 pr-11",
+        )}
+      />
+      <div className="absolute right-1.5 flex items-center gap-0.5">
+        {onGenerate && (
+          <button
+            type="button"
+            onClick={onGenerate}
+            title="Сгенерировать пароль"
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-zinc-500 hover:text-[#F97316] hover:bg-white/5 transition-all"
+          >
+            <Wand2 className="w-[15px] h-[15px]" />
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={onToggleShow}
+          title={show ? "Скрыть пароль" : "Показать пароль"}
+          className="w-8 h-8 flex items-center justify-center rounded-lg text-zinc-500 hover:text-zinc-300 hover:bg-white/5 transition-all"
+        >
+          {show ? <EyeOff className="w-[15px] h-[15px]" /> : <Eye className="w-[15px] h-[15px]" />}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function BackRow({ email, onBack, label }: { email: string; onBack: () => void; label?: string }) {
   return (
-    <button
-      type="button"
-      onClick={onBack}
-      className="flex items-center gap-1.5 text-[12px] text-zinc-500 hover:text-zinc-300 transition-colors w-fit"
-    >
+    <button type="button" onClick={onBack}
+      className="flex items-center gap-1.5 text-[12px] text-zinc-500 hover:text-zinc-300 transition-colors w-fit">
       <ArrowLeft className="w-3.5 h-3.5" />
       {label ?? <span className="truncate max-w-[220px]">{email}</span>}
     </button>
   );
 }
 
-function OAuthButton({
-  label, icon, onClick, disabled, light,
-}: {
-  label: string;
-  icon: React.ReactNode;
-  onClick: () => void;
-  disabled: boolean;
-  light?: boolean;
+function OAuthButton({ label, icon, onClick, disabled, light }: {
+  label: string; icon: React.ReactNode; onClick: () => void; disabled: boolean; light?: boolean;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
+    <button type="button" onClick={onClick} disabled={disabled}
       className={cn(
-        "h-10 rounded-xl flex items-center justify-center gap-2 text-[13.5px] font-medium transition-all border",
-        "focus:outline-none active:scale-[0.98]",
-        light
-          ? "bg-white border-white/20 text-[#111] hover:bg-zinc-100"
-          : "bg-[#0F0F11] border-white/10 text-zinc-200 hover:bg-[#1A1A1F] hover:border-white/20",
+        "h-10 rounded-xl flex items-center justify-center gap-2 text-[13.5px] font-medium transition-all border focus:outline-none active:scale-[0.98]",
+        light ? "bg-white border-white/20 text-[#111] hover:bg-zinc-100"
+              : "bg-[#0F0F11] border-white/10 text-zinc-200 hover:bg-[#1A1A1F] hover:border-white/20",
         disabled && "opacity-60 cursor-not-allowed active:scale-100",
-      )}
-    >
-      {icon}
-      <span>{label}</span>
+      )}>
+      {icon}<span>{label}</span>
     </button>
   );
 }
 
-function PrimaryButton({
-  label, loading, disabled, type, onClick,
-}: {
-  label: string;
-  loading: boolean;
-  disabled: boolean;
-  type: "button" | "submit";
-  onClick?: () => void;
+function PrimaryButton({ label, loading, disabled, type, onClick }: {
+  label: string; loading: boolean; disabled: boolean; type: "button" | "submit"; onClick?: () => void;
 }) {
   return (
-    <button
-      type={type}
-      onClick={onClick}
-      disabled={disabled}
+    <button type={type} onClick={onClick} disabled={disabled}
       className={cn(
         "w-full h-11 rounded-xl flex items-center justify-center gap-2 text-[14px] font-semibold transition-all",
         "bg-[#F97316] text-white hover:bg-[#EA6C0A] active:scale-[0.98]",
         "focus:outline-none focus:ring-2 focus:ring-[#F97316]/40",
         disabled && "opacity-60 cursor-not-allowed active:scale-100",
-      )}
-    >
+      )}>
       {loading
         ? <span className="w-[18px] h-[18px] rounded-full border-2 border-white border-t-transparent animate-spin" />
         : label}
@@ -377,23 +417,14 @@ function PrimaryButton({
 
 function TextLink({ onClick, label, highlight }: { onClick: () => void; label: string; highlight?: boolean }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
+    <button type="button" onClick={onClick}
       className={cn(
         "text-[12.5px] text-center transition-colors w-full",
-        highlight
-          ? "text-[#F97316] hover:text-[#EA6C0A]"
-          : "text-zinc-500 hover:text-zinc-300",
-      )}
-    >
+        highlight ? "text-[#F97316] hover:text-[#EA6C0A]" : "text-zinc-500 hover:text-zinc-300",
+      )}>
       {label}
     </button>
   );
-}
-
-function Divider() {
-  return <div className="h-px bg-white/6" />;
 }
 
 function ErrorNote({ msg }: { msg: string }) {
@@ -421,8 +452,7 @@ function TermsNote() {
 
 function Input({ className, ...props }: React.InputHTMLAttributes<HTMLInputElement>) {
   return (
-    <input
-      {...props}
+    <input {...props}
       className={cn(
         "w-full h-11 rounded-xl bg-white/[0.05] border border-white/10 px-3.5 text-[14px] text-zinc-100 placeholder:text-zinc-600",
         "focus:outline-none focus:border-[#F97316]/50 focus:ring-1 focus:ring-[#F97316]/30 transition-all",
