@@ -1,6 +1,5 @@
 import { useState } from "react";
-import { Github, Mail, ArrowLeft } from "lucide-react";
-import logoUrl from "../../assets/icon.png";
+import { Github, Mail, ArrowLeft, Sparkles } from "lucide-react";
 import { useAuth } from "@/store/auth";
 import { cn } from "@/lib/utils";
 
@@ -15,46 +14,54 @@ function GoogleIcon({ className }: { className?: string }) {
   );
 }
 
-type Mode = "oauth" | "email" | "register";
-type EmailStep = "form" | "code";
-type EmailMethod = "password" | "code";
+type Step =
+  | "start"
+  | "password"
+  | "code-verify"
+  | "forgot"
+  | "register";
 
 export function SignInScreen() {
-  const { signIn, signInWithEmail, signInWithEmailCode, requestEmailCode, register, loading: authLoading, error: authError } = useAuth();
+  const {
+    signIn,
+    signInWithEmail,
+    signInWithEmailCode,
+    requestEmailCode,
+    register,
+    loading: authLoading,
+    error: authError,
+  } = useAuth();
 
-  // OAuth state
-  const [oauthProvider, setOauthProvider] = useState<"google" | "github" | null>(null);
+  const [step, setStep] = useState<Step>("start");
+  const [oauthActive, setOauthActive] = useState<"google" | "github" | null>(null);
 
-  // Mode/tab state
-  const [mode, setMode] = useState<Mode>("oauth");
-
-  // Email login state
-  const [emailMethod, setEmailMethod] = useState<EmailMethod>("password");
-  const [emailStep, setEmailStep] = useState<EmailStep>("form");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
-
-  // Register state
   const [regEmail, setRegEmail] = useState("");
   const [regPassword, setRegPassword] = useState("");
   const [regConfirm, setRegConfirm] = useState("");
   const [regError, setRegError] = useState<string | null>(null);
 
   const handleOAuth = async (provider: "google" | "github") => {
-    setOauthProvider(provider);
+    setOauthActive(provider);
     await signIn(provider);
-    setOauthProvider(null);
+    setOauthActive(null);
   };
 
-  const handleEmailSubmit = async (e: React.FormEvent) => {
+  const handleContinue = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (emailMethod === "password") {
-      await signInWithEmail(email, password);
-    } else {
-      await requestEmailCode(email);
-      if (!authError) setEmailStep("code");
-    }
+    if (email.trim()) setStep("password");
+  };
+
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await signInWithEmail(email, password);
+  };
+
+  const handleSendCode = async () => {
+    await requestEmailCode(email);
+    setStep("code-verify");
   };
 
   const handleCodeSubmit = async (e: React.FormEvent) => {
@@ -62,27 +69,17 @@ export function SignInScreen() {
     await signInWithEmailCode(email, code);
   };
 
-  const handleResendCode = async () => {
-    await requestEmailCode(email);
-  };
-
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setRegError(null);
-    if (regPassword !== regConfirm) {
-      setRegError("Пароли не совпадают");
-      return;
-    }
-    if (regPassword.length < 6) {
-      setRegError("Пароль должен быть не менее 6 символов");
-      return;
-    }
+    if (regPassword !== regConfirm) { setRegError("Пароли не совпадают"); return; }
+    if (regPassword.length < 6) { setRegError("Пароль должен быть не менее 6 символов"); return; }
     await register(regEmail, regPassword);
   };
 
-  const switchMode = (next: Mode) => {
-    setMode(next);
-    setEmailStep("form");
+  const goBack = () => {
+    setStep("start");
+    setPassword("");
     setCode("");
     setRegError(null);
   };
@@ -106,166 +103,169 @@ export function SignInScreen() {
 
       {/* Card */}
       <div className="relative z-10 w-full max-w-[380px] mx-4">
+
         {/* Logo */}
-        <div className="flex flex-col items-center mb-8">
-          <div className="w-16 h-16 mb-4 drop-shadow-[0_0_32px_rgba(249,115,22,0.35)]">
-            <img src={logoUrl} alt="CodeSync" className="w-full h-full object-contain" />
+        <div className="flex flex-col items-center mb-7">
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#F97316] to-[#EA580C] grid place-items-center shadow-[0_0_48px_rgba(249,115,22,0.4)] mb-4">
+            <Sparkles className="w-7 h-7 text-white" strokeWidth={2} />
           </div>
-          <h1 className="text-[22px] font-semibold text-zinc-100 tracking-tight">Войдите, чтобы продолжить</h1>
+          <h1 className="text-[22px] font-semibold text-zinc-100 tracking-tight">
+            {step === "register" ? "Создайте аккаунт" : "Войдите, чтобы продолжить"}
+          </h1>
         </div>
 
-        {/* Main card */}
-        <div className="bg-[#18181B] border border-white/8 rounded-2xl p-5 shadow-[0_24px_64px_rgba(0,0,0,0.6)]">
+        {/* ── START STEP ── */}
+        {step === "start" && (
+          <div className="bg-[#18181B] border border-white/8 rounded-2xl p-5 shadow-[0_24px_64px_rgba(0,0,0,0.6)] flex flex-col gap-4">
 
-          {/* Tab switcher */}
-          <div className="flex rounded-xl bg-white/[0.04] border border-white/6 p-0.5 mb-5">
-            {(["oauth", "email", "register"] as Mode[]).map((m) => (
-              <button
-                key={m}
-                type="button"
-                onClick={() => switchMode(m)}
-                className={cn(
-                  "flex-1 h-8 rounded-[10px] text-[12.5px] font-medium transition-all",
-                  mode === m
-                    ? "bg-[#F97316] text-white shadow-sm"
-                    : "text-zinc-500 hover:text-zinc-300"
-                )}
-              >
-                {m === "oauth" ? "OAuth" : m === "email" ? "Войти по email" : "Регистрация"}
-              </button>
-            ))}
-          </div>
+            {/* OAuth row */}
+            {oauthActive ? (
+              <div className="flex flex-col items-center gap-3 py-2">
+                <span className="w-6 h-6 rounded-full border-2 border-[#F97316] border-t-transparent animate-spin" />
+                <p className="text-[12.5px] text-zinc-400 text-center">
+                  Открываем браузер для входа через {oauthActive === "google" ? "Google" : "GitHub"}…
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-2">
+                <OAuthButton
+                  label="Google"
+                  icon={<GoogleIcon className="w-[17px] h-[17px]" />}
+                  onClick={() => handleOAuth("google")}
+                  disabled={!!oauthActive}
+                  light
+                />
+                <OAuthButton
+                  label="GitHub"
+                  icon={<Github className="w-[16px] h-[16px]" strokeWidth={2} />}
+                  onClick={() => handleOAuth("github")}
+                  disabled={!!oauthActive}
+                />
+              </div>
+            )}
 
-          {/* ── OAuth tab ── */}
-          {mode === "oauth" && (
-            <>
-              {authLoading && oauthProvider ? (
-                <div className="flex flex-col items-center gap-3 py-4">
-                  <span className="w-7 h-7 rounded-full border-2 border-[#F97316] border-t-transparent animate-spin" />
-                  <p className="text-[13px] text-zinc-400 text-center leading-relaxed">
-                    Открываем браузер для входа через {oauthProvider === "google" ? "Google" : "GitHub"}…<br />
-                    <span className="text-zinc-600">Вернитесь сюда после авторизации</span>
-                  </p>
-                </div>
-              ) : (
-                <>
-                  <SignInButton
-                    label="Войти через Google"
-                    loading={false}
-                    disabled={!!oauthProvider}
-                    onClick={() => handleOAuth("google")}
-                    icon={<GoogleIcon className="w-[18px] h-[18px]" />}
-                  />
-                  <div className="h-2.5" />
-                  <SignInButton
-                    label="Войти через GitHub"
-                    loading={false}
-                    disabled={!!oauthProvider}
-                    onClick={() => handleOAuth("github")}
-                    icon={<Github className="w-[18px] h-[18px]" strokeWidth={2} />}
-                    dark
-                  />
-                </>
-              )}
-            </>
-          )}
+            {/* Divider */}
+            <div className="flex items-center gap-3">
+              <div className="flex-1 h-px bg-white/8" />
+              <span className="text-[11px] text-zinc-600">или через email</span>
+              <div className="flex-1 h-px bg-white/8" />
+            </div>
 
-          {/* ── Email login tab ── */}
-          {mode === "email" && emailStep === "form" && (
-            <form onSubmit={handleEmailSubmit} className="flex flex-col gap-3">
+            {/* Email + Continue */}
+            <form onSubmit={handleContinue} className="flex flex-col gap-2.5">
               <Input
                 type="email"
-                placeholder="Email"
+                placeholder="Электронная почта"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 autoComplete="email"
               />
-
-              {emailMethod === "password" && (
-                <Input
-                  type="password"
-                  placeholder="Пароль"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  autoComplete="current-password"
-                />
-              )}
-
-              <div className="flex gap-2">
-                <MethodToggle
-                  active={emailMethod === "password"}
-                  onClick={() => setEmailMethod("password")}
-                  label="Войти по паролю"
-                />
-                <MethodToggle
-                  active={emailMethod === "code"}
-                  onClick={() => setEmailMethod("code")}
-                  label="Войти по коду на почте"
-                />
-              </div>
-
-              <SignInButton
-                type="submit"
-                label={emailMethod === "password" ? "Войти" : "Отправить код"}
-                loading={authLoading}
-                disabled={authLoading}
-                icon={<Mail className="w-[18px] h-[18px]" />}
-                dark
-              />
+              <PrimaryButton type="submit" label="Продолжить" loading={false} disabled={!email.trim()} />
             </form>
-          )}
 
-          {/* ── Email code verification step ── */}
-          {mode === "email" && emailStep === "code" && (
-            <form onSubmit={handleCodeSubmit} className="flex flex-col gap-3">
-              <button
-                type="button"
-                onClick={() => setEmailStep("form")}
-                className="flex items-center gap-1.5 text-[12px] text-zinc-500 hover:text-zinc-300 transition-colors mb-1 w-fit"
-              >
-                <ArrowLeft className="w-3.5 h-3.5" />
-                Назад
-              </button>
-              <p className="text-[13px] text-zinc-400 text-center leading-relaxed">
-                Введите 6-значный код, отправленный на <span className="text-zinc-200">{email}</span>
-              </p>
+            <TermsNote />
+          </div>
+        )}
+
+        {/* ── PASSWORD STEP ── */}
+        {step === "password" && (
+          <div className="bg-[#18181B] border border-white/8 rounded-2xl p-5 shadow-[0_24px_64px_rgba(0,0,0,0.6)] flex flex-col gap-3">
+            <BackRow email={email} onBack={goBack} />
+
+            <form onSubmit={handlePasswordSubmit} className="flex flex-col gap-2.5">
+              <Input
+                type="password"
+                placeholder="Пароль"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                autoFocus
+                autoComplete="current-password"
+              />
+              <PrimaryButton type="submit" label="Войти" loading={authLoading} disabled={authLoading || !password} />
+            </form>
+
+            {authError && <ErrorNote msg={authError} />}
+
+            <div className="flex flex-col gap-1.5 pt-1">
+              <TextLink onClick={handleSendCode} label="Войти по коду на почте" />
+              <TextLink onClick={() => setStep("forgot")} label="Забыли пароль?" />
+            </div>
+
+            <Divider />
+            <TextLink
+              onClick={() => { setStep("register"); setRegEmail(email); }}
+              label="Нет аккаунта — зарегистрироваться"
+              highlight
+            />
+            <TermsNote />
+          </div>
+        )}
+
+        {/* ── CODE VERIFY STEP ── */}
+        {step === "code-verify" && (
+          <div className="bg-[#18181B] border border-white/8 rounded-2xl p-5 shadow-[0_24px_64px_rgba(0,0,0,0.6)] flex flex-col gap-3">
+            <BackRow email={email} onBack={() => setStep("password")} />
+
+            <p className="text-[13px] text-zinc-400 text-center leading-relaxed">
+              Мы отправили 6-значный код на <span className="text-zinc-200">{email}</span>
+            </p>
+
+            <form onSubmit={handleCodeSubmit} className="flex flex-col gap-2.5">
               <Input
                 type="text"
                 placeholder="000000"
                 value={code}
                 onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
                 required
+                autoFocus
                 autoComplete="one-time-code"
                 inputMode="numeric"
                 className="text-center text-[22px] tracking-[0.35em] font-mono"
               />
-              <SignInButton
+              <PrimaryButton
                 type="submit"
                 label="Подтвердить"
                 loading={authLoading}
                 disabled={authLoading || code.length !== 6}
-                icon={<Mail className="w-[18px] h-[18px]" />}
-                dark
               />
-              <button
-                type="button"
-                onClick={handleResendCode}
-                disabled={authLoading}
-                className="text-[12px] text-zinc-500 hover:text-zinc-300 transition-colors text-center"
-              >
-                Отправить код повторно
-              </button>
             </form>
-          )}
 
-          {/* ── Register tab ── */}
-          {mode === "register" && (
-            <form onSubmit={handleRegister} className="flex flex-col gap-3">
+            {authError && <ErrorNote msg={authError} />}
+
+            <TextLink onClick={handleSendCode} label="Отправить код повторно" />
+            <TermsNote />
+          </div>
+        )}
+
+        {/* ── FORGOT PASSWORD STEP ── */}
+        {step === "forgot" && (
+          <div className="bg-[#18181B] border border-white/8 rounded-2xl p-5 shadow-[0_24px_64px_rgba(0,0,0,0.6)] flex flex-col gap-3">
+            <BackRow email={email} onBack={() => setStep("password")} />
+            <p className="text-[13px] text-zinc-400 text-center leading-relaxed">
+              Отправим ссылку для сброса пароля на <span className="text-zinc-200">{email}</span>
+            </p>
+            <PrimaryButton
+              type="button"
+              label="Отправить письмо"
+              loading={authLoading}
+              disabled={authLoading}
+              onClick={handleSendCode}
+            />
+            <TermsNote />
+          </div>
+        )}
+
+        {/* ── REGISTER STEP ── */}
+        {step === "register" && (
+          <div className="bg-[#18181B] border border-white/8 rounded-2xl p-5 shadow-[0_24px_64px_rgba(0,0,0,0.6)] flex flex-col gap-3">
+            <BackRow email={regEmail} onBack={goBack} label="Уже есть аккаунт — войти" />
+
+            <form onSubmit={handleRegister} className="flex flex-col gap-2.5">
               <Input
                 type="email"
-                placeholder="Email"
+                placeholder="Электронная почта"
                 value={regEmail}
                 onChange={(e) => setRegEmail(e.target.value)}
                 required
@@ -287,47 +287,139 @@ export function SignInScreen() {
                 required
                 autoComplete="new-password"
               />
-              {regError && (
-                <p className="text-[12px] text-red-400 text-center">{regError}</p>
-              )}
-              <SignInButton
+              {regError && <ErrorNote msg={regError} />}
+              {authError && <ErrorNote msg={authError} />}
+              <PrimaryButton
                 type="submit"
-                label="Зарегистрироваться"
+                label="Создать аккаунт"
                 loading={authLoading}
                 disabled={authLoading}
-                icon={<Mail className="w-[18px] h-[18px]" />}
-                dark
               />
             </form>
-          )}
 
-          {/* Error display (auth store errors) */}
-          {authError && (
-            <div className="mt-3 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20">
-              <p className="text-[12px] text-red-400 text-center">{authError}</p>
-            </div>
-          )}
-
-          <p className="mt-5 text-center text-[11.5px] text-zinc-600 leading-relaxed">
-            Входя, вы принимаете{" "}
-            <span className="text-zinc-400 cursor-pointer hover:text-zinc-200 transition-colors underline underline-offset-2">
-              условия использования
-            </span>{" "}
-            и{" "}
-            <span className="text-zinc-400 cursor-pointer hover:text-zinc-200 transition-colors underline underline-offset-2">
-              политику конфиденциальности
-            </span>
-          </p>
-        </div>
+            <TermsNote />
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-function Input({
-  className,
-  ...props
-}: React.InputHTMLAttributes<HTMLInputElement>) {
+function BackRow({ email, onBack, label }: { email: string; onBack: () => void; label?: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onBack}
+      className="flex items-center gap-1.5 text-[12px] text-zinc-500 hover:text-zinc-300 transition-colors w-fit"
+    >
+      <ArrowLeft className="w-3.5 h-3.5" />
+      {label ?? <span className="truncate max-w-[220px]">{email}</span>}
+    </button>
+  );
+}
+
+function OAuthButton({
+  label, icon, onClick, disabled, light,
+}: {
+  label: string;
+  icon: React.ReactNode;
+  onClick: () => void;
+  disabled: boolean;
+  light?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={cn(
+        "h-10 rounded-xl flex items-center justify-center gap-2 text-[13.5px] font-medium transition-all border",
+        "focus:outline-none active:scale-[0.98]",
+        light
+          ? "bg-white border-white/20 text-[#111] hover:bg-zinc-100"
+          : "bg-[#0F0F11] border-white/10 text-zinc-200 hover:bg-[#1A1A1F] hover:border-white/20",
+        disabled && "opacity-60 cursor-not-allowed active:scale-100",
+      )}
+    >
+      {icon}
+      <span>{label}</span>
+    </button>
+  );
+}
+
+function PrimaryButton({
+  label, loading, disabled, type, onClick,
+}: {
+  label: string;
+  loading: boolean;
+  disabled: boolean;
+  type: "button" | "submit";
+  onClick?: () => void;
+}) {
+  return (
+    <button
+      type={type}
+      onClick={onClick}
+      disabled={disabled}
+      className={cn(
+        "w-full h-11 rounded-xl flex items-center justify-center gap-2 text-[14px] font-semibold transition-all",
+        "bg-[#F97316] text-white hover:bg-[#EA6C0A] active:scale-[0.98]",
+        "focus:outline-none focus:ring-2 focus:ring-[#F97316]/40",
+        disabled && "opacity-60 cursor-not-allowed active:scale-100",
+      )}
+    >
+      {loading
+        ? <span className="w-[18px] h-[18px] rounded-full border-2 border-white border-t-transparent animate-spin" />
+        : label}
+    </button>
+  );
+}
+
+function TextLink({ onClick, label, highlight }: { onClick: () => void; label: string; highlight?: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "text-[12.5px] text-center transition-colors w-full",
+        highlight
+          ? "text-[#F97316] hover:text-[#EA6C0A]"
+          : "text-zinc-500 hover:text-zinc-300",
+      )}
+    >
+      {label}
+    </button>
+  );
+}
+
+function Divider() {
+  return <div className="h-px bg-white/6" />;
+}
+
+function ErrorNote({ msg }: { msg: string }) {
+  return (
+    <div className="px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20">
+      <p className="text-[12px] text-red-400 text-center">{msg}</p>
+    </div>
+  );
+}
+
+function TermsNote() {
+  return (
+    <p className="text-center text-[11px] text-zinc-600 leading-relaxed">
+      Входя, вы принимаете{" "}
+      <span className="text-zinc-500 cursor-pointer hover:text-zinc-200 transition-colors underline underline-offset-2">
+        условия использования
+      </span>{" "}
+      и{" "}
+      <span className="text-zinc-500 cursor-pointer hover:text-zinc-200 transition-colors underline underline-offset-2">
+        политику конфиденциальности
+      </span>
+    </p>
+  );
+}
+
+function Input({ className, ...props }: React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
       {...props}
@@ -337,57 +429,5 @@ function Input({
         className,
       )}
     />
-  );
-}
-
-function MethodToggle({ active, onClick, label }: { active: boolean; onClick: () => void; label: string }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "flex-1 h-8 rounded-lg text-[11.5px] font-medium border transition-all",
-        active
-          ? "border-[#F97316]/50 bg-[#F97316]/10 text-[#F97316]"
-          : "border-white/8 bg-white/[0.03] text-zinc-500 hover:text-zinc-300 hover:border-white/12",
-      )}
-    >
-      {label}
-    </button>
-  );
-}
-
-function SignInButton({
-  label, loading, disabled, onClick, icon, dark, type = "button",
-}: {
-  label: string;
-  loading: boolean;
-  disabled: boolean;
-  onClick?: () => void;
-  icon: React.ReactNode;
-  dark?: boolean;
-  type?: "button" | "submit";
-}) {
-  return (
-    <button
-      type={type}
-      onClick={onClick}
-      disabled={disabled}
-      className={cn(
-        "w-full h-11 rounded-xl flex items-center justify-center gap-2.5 text-[14px] font-medium transition-all",
-        "border focus:outline-none focus:ring-2 focus:ring-[#F97316]/40",
-        dark
-          ? "bg-[#0F0F11] border-white/10 text-zinc-200 hover:bg-[#1A1A1F] hover:border-white/20 active:scale-[0.98]"
-          : "bg-white border-white/20 text-[#111] hover:bg-zinc-100 active:scale-[0.98]",
-        disabled && "opacity-60 cursor-not-allowed active:scale-100",
-      )}
-    >
-      {loading ? (
-        <span className="w-[18px] h-[18px] rounded-full border-2 border-current border-t-transparent animate-spin" />
-      ) : (
-        icon
-      )}
-      <span>{label}</span>
-    </button>
   );
 }
