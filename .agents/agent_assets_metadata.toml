@@ -85,12 +85,6 @@ type = "unspecified"
 title = "CodeSync Desktop 1.0.0 — Windows (portable)"
 
 [[outputs]]
-id = "SCfbMN5g9V2wb0zN8WuET"
-uri = "file://attached_assets/logos/logo_1_bracket_sync.png"
-type = "image"
-title = "1 — Скобка + синхронизация"
-
-[[outputs]]
 id = "6Su-147SpPhZF_UGGg3y9"
 uri = "file://attached_assets/logos/logo_2_infinity_brackets.png"
 type = "image"

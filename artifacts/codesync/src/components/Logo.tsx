@@ -13,6 +13,7 @@ export function Logo({ size = 42, className }: LogoProps) {
       xmlns="http://www.w3.org/2000/svg"
       className={className}
     >
+      <rect width="32" height="32" rx="8" fill="#0d1117" />
       <text
         x="16"
         y="16"
