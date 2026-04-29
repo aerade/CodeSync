@@ -248,9 +248,6 @@ function DownloadSection({ sectionRef }: { sectionRef: RefObject<HTMLElement | n
           <h2 style={{ fontSize: "clamp(24px, 4vw, 36px)", fontWeight: 800, color: "#fff", letterSpacing: "-1px", marginBottom: 14 }}>
             Установите на свой компьютер
           </h2>
-          <p style={{ fontSize: 15, color: "rgba(255,255,255,0.38)", lineHeight: 1.65, maxWidth: 480, margin: "0 auto" }}>
-            Полноценное десктоп-приложение с нативными уведомлениями, локальными проектами и всеми возможностями IDE CodeSync.
-          </p>
         </motion.div>
 
         <motion.div
@@ -414,30 +411,12 @@ function DownloadSection({ sectionRef }: { sectionRef: RefObject<HTMLElement | n
                 </div>
               )}
 
-              {/* Feature chips */}
-              <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
-                {[
-                  { icon: "🖥️", text: "Нативные уведомления" },
-                  { icon: "📁", text: "Локальные проекты" },
-                  { icon: "🔒", text: "Local-first" },
-                ].map((chip) => (
-                  <div
-                    key={chip.text}
-                    className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs"
-                    style={{
-                      background: "rgba(255,255,255,0.04)",
-                      border: "1px solid rgba(255,255,255,0.07)",
-                      color: "rgba(255,255,255,0.4)",
-                    }}
-                  >
-                    <span>{chip.icon}</span>
-                    {chip.text}
-                  </div>
-                ))}
-              </div>
             </div>
           )}
         </motion.div>
+        <p style={{ fontSize: 15, color: "rgba(255,255,255,0.38)", lineHeight: 1.65, maxWidth: 480, margin: "32px auto 0", textAlign: "center" }}>
+          Полноценное десктоп-приложение с нативными уведомлениями, локальными проектами и всеми возможностями IDE CodeSync.
+        </p>
       </div>
     </section>
   );
@@ -760,49 +739,6 @@ export default function Home() {
 
         {/* ── DOWNLOAD ── */}
         <DownloadSection sectionRef={downloadRef} />
-
-        {/* ── CTA BOTTOM ── */}
-        <section
-          className="px-6 py-20 text-center"
-          style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}
-        >
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-            className="max-w-xl mx-auto"
-          >
-            <h2 style={{ fontSize: "clamp(28px, 5vw, 48px)", fontWeight: 800, color: "#fff", letterSpacing: "-1.5px", marginBottom: 16 }}>
-              Начните прямо сейчас
-            </h2>
-            <p style={{ fontSize: 16, color: "rgba(255,255,255,0.38)", marginBottom: 32, lineHeight: 1.6 }}>
-              Регистрация занимает 30 секунд. Или войдите как гость — без регистрации.
-            </p>
-            <div className="flex items-center justify-center gap-3 flex-wrap">
-              <SignUpButton mode="modal">
-                <button
-                  className="px-8 py-3.5 rounded-xl text-sm font-semibold transition-all hover:opacity-90 active:scale-95"
-                  style={{ background: "#fff", color: "#000", border: "none", cursor: "pointer", boxShadow: "0 0 40px rgba(255,255,255,0.12)" }}
-                >
-                  Зарегистрироваться
-                </button>
-              </SignUpButton>
-              <button
-                onClick={() => setShowGuestModal(true)}
-                className="px-8 py-3.5 rounded-xl text-sm font-semibold transition-all hover:bg-white/6"
-                style={{
-                  background: "rgba(255,255,255,0.05)",
-                  color: "rgba(255,255,255,0.65)",
-                  border: "1px solid rgba(255,255,255,0.1)",
-                  cursor: "pointer",
-                }}
-              >
-                Войти как гость
-              </button>
-            </div>
-          </motion.div>
-        </section>
 
         {/* Footer */}
         <footer
