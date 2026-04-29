@@ -1,0 +1,168 @@
+CODESYNC TERMS OF SERVICE
+Last updated: April 29, 2026
+
+PLEASE READ THESE TERMS OF SERVICE CAREFULLY BEFORE USING CODESYNC.
+
+1. ACCEPTANCE OF TERMS
+
+By installing, accessing, or using CodeSync ("the Software"), you agree to be bound by these Terms of Service ("Terms"). If you do not agree to these Terms, do not install or use the Software.
+
+2. LICENSE GRANT
+
+Subject to your compliance with these Terms, CodeSync grants you a limited, non-exclusive, non-transferable, revocable license to install and use the Software on devices you own or control, solely for your personal or internal business purposes.
+
+3. DESCRIPTION OF SERVICE
+
+CodeSync is a collaborative integrated development environment (IDE) that enables real-time code editing, project synchronization, and team collaboration. The Software may connect to remote servers and third-party services to provide its functionality.
+
+4. USER ACCOUNTS
+
+4.1 You may be required to create an account to access certain features of the Software.
+4.2 You are responsible for maintaining the confidentiality of your account credentials.
+4.3 You are responsible for all activities that occur under your account.
+4.4 You must notify us immediately of any unauthorized use of your account.
+
+5. ACCEPTABLE USE
+
+You agree not to:
+5.1 Use the Software for any unlawful purpose or in violation of any applicable laws or regulations.
+5.2 Attempt to gain unauthorized access to any systems or networks connected to the Software.
+5.3 Reverse engineer, decompile, or disassemble the Software except as permitted by applicable law.
+5.4 Remove or alter any proprietary notices, labels, or marks on the Software.
+5.5 Use the Software to transmit malicious code, viruses, or any other harmful software.
+5.6 Interfere with or disrupt the integrity or performance of the Software or its related services.
+
+6. INTELLECTUAL PROPERTY
+
+6.1 The Software and all related materials are the proprietary property of CodeSync and its licensors.
+6.2 All trademarks, service marks, logos, and trade names are the property of their respective owners.
+6.3 You retain ownership of any code or content you create using the Software.
+
+7. PRIVACY
+
+Your use of the Software is subject to our Privacy Policy, which is incorporated into these Terms by reference. Please review our Privacy Policy to understand our practices regarding collection, use, and disclosure of your personal information.
+
+8. THIRD-PARTY SERVICES
+
+The Software may integrate with third-party services. Your use of such services is governed by their respective terms and privacy policies. CodeSync is not responsible for the content, privacy practices, or policies of third-party services.
+
+9. UPDATES AND MODIFICATIONS
+
+9.1 CodeSync reserves the right to modify, suspend, or discontinue the Software or any part thereof at any time.
+9.2 CodeSync may release updates, patches, or new versions of the Software. You are encouraged to keep the Software up to date.
+9.3 CodeSync may modify these Terms at any time. Continued use of the Software after such changes constitutes acceptance of the new Terms.
+
+10. DISCLAIMER OF WARRANTIES
+
+THE SOFTWARE IS PROVIDED "AS IS" AND "AS AVAILABLE" WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT. CODESYNC DOES NOT WARRANT THAT THE SOFTWARE WILL BE ERROR-FREE OR UNINTERRUPTED.
+
+11. LIMITATION OF LIABILITY
+
+TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, CODESYNC SHALL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, OR ANY LOSS OF PROFITS, REVENUE, DATA, OR GOODWILL, ARISING OUT OF OR IN CONNECTION WITH YOUR USE OF THE SOFTWARE, EVEN IF CODESYNC HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
+
+12. INDEMNIFICATION
+
+You agree to indemnify and hold harmless CodeSync and its officers, directors, employees, and agents from any claims, liabilities, damages, losses, or expenses arising out of your use of the Software or violation of these Terms.
+
+13. TERMINATION
+
+13.1 These Terms are effective until terminated.
+13.2 Your rights under these Terms will terminate automatically without notice if you fail to comply with any term of these Terms.
+13.3 Upon termination, you must cease all use of the Software and destroy all copies in your possession.
+
+14. GOVERNING LAW
+
+These Terms shall be governed by and construed in accordance with applicable laws, without regard to conflict of law principles.
+
+15. CONTACT INFORMATION
+
+If you have any questions about these Terms, please contact us at:
+Email: legal@codesync.app
+
+By installing and using CodeSync, you acknowledge that you have read, understood, and agree to be bound by these Terms of Service.
+
+
+================================================================================
+
+CODESYNC PRIVACY POLICY
+Last updated: April 29, 2026
+
+This Privacy Policy describes how CodeSync ("we," "us," or "our") collects, uses, and shares information about you when you use our desktop application and related services (collectively, the "Software").
+
+1. INFORMATION WE COLLECT
+
+1.1 Information You Provide
+- Account Information: When you create an account, we collect your email address and any display name or username you choose.
+- Project Data: Code files, project configurations, and related content that you create or upload within the Software.
+- Communications: Messages or support requests you send to us.
+
+1.2 Information Collected Automatically
+- Usage Data: Information about how you interact with the Software, including features used, session duration, and actions taken.
+- Device Information: Operating system version, application version, hardware identifiers, and crash reports.
+- Log Data: Error logs, diagnostic information, and performance metrics to help us improve the Software.
+- Collaboration Data: When using real-time collaboration features, connection metadata such as session identifiers and timestamps.
+
+1.3 Information from Third Parties
+We may receive information about you from third-party authentication providers (such as GitHub or Google) if you choose to connect those services to your CodeSync account.
+
+2. HOW WE USE YOUR INFORMATION
+
+We use the information we collect to:
+2.1 Provide, maintain, and improve the Software and its features.
+2.2 Authenticate your identity and manage your account.
+2.3 Enable real-time collaboration features between users.
+2.4 Send you technical notices, security alerts, and administrative messages.
+2.5 Respond to your comments, questions, and requests for support.
+2.6 Monitor and analyze usage patterns to improve user experience.
+2.7 Detect, investigate, and prevent fraudulent or unauthorized activity.
+2.8 Comply with legal obligations.
+
+3. SHARING OF INFORMATION
+
+We do not sell your personal information. We may share your information in the following circumstances:
+
+3.1 With Collaborators: When you use collaboration features, other participants in your session can see your username and the content you edit or contribute.
+3.2 Service Providers: We may share information with trusted third-party vendors who assist us in providing the Software (e.g., cloud hosting, analytics, customer support).
+3.3 Legal Requirements: We may disclose information if required by law, court order, or governmental authority.
+3.4 Business Transfers: In the event of a merger, acquisition, or sale of assets, your information may be transferred as part of that transaction.
+3.5 With Your Consent: We may share information with third parties when you explicitly consent to such sharing.
+
+4. DATA RETENTION
+
+We retain your information for as long as your account is active or as needed to provide the Software. You may request deletion of your account and associated data by contacting us at privacy@codesync.app. We will retain and use your information as necessary to comply with our legal obligations.
+
+5. DATA SECURITY
+
+We implement appropriate technical and organizational measures to protect your information against unauthorized access, alteration, disclosure, or destruction. However, no internet transmission or electronic storage method is 100% secure. We cannot guarantee absolute security.
+
+6. YOUR RIGHTS AND CHOICES
+
+Depending on your jurisdiction, you may have the following rights:
+6.1 Access: Request a copy of the personal information we hold about you.
+6.2 Correction: Request correction of inaccurate or incomplete information.
+6.3 Deletion: Request deletion of your personal information.
+6.4 Portability: Request your data in a portable format.
+6.5 Objection: Object to certain types of processing of your data.
+
+To exercise these rights, contact us at privacy@codesync.app.
+
+7. CHILDREN'S PRIVACY
+
+The Software is not directed to individuals under the age of 13. We do not knowingly collect personal information from children under 13. If you believe we have collected such information, please contact us immediately.
+
+8. THIRD-PARTY SERVICES
+
+The Software may integrate with third-party services (e.g., GitHub, version control systems). This Privacy Policy does not cover the data practices of third-party services. We encourage you to review their privacy policies.
+
+9. CHANGES TO THIS POLICY
+
+We may update this Privacy Policy from time to time. We will notify you of significant changes by updating the "Last updated" date at the top of this policy or through in-app notifications. Your continued use of the Software after any changes constitutes your acceptance of the updated policy.
+
+10. CONTACT US
+
+If you have any questions, concerns, or requests regarding this Privacy Policy or our data practices, please contact us at:
+
+Email: privacy@codesync.app
+Website: https://codesync.app
+
+CodeSync is committed to protecting your privacy and handling your data with transparency and care.

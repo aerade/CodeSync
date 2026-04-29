@@ -1,0 +1,82 @@
+CODESYNC PRIVACY POLICY
+Last updated: April 29, 2026
+
+This Privacy Policy describes how CodeSync ("we," "us," or "our") collects, uses, and shares information about you when you use our desktop application and related services (collectively, the "Software").
+
+1. INFORMATION WE COLLECT
+
+1.1 Information You Provide
+- Account Information: When you create an account, we collect your email address and any display name or username you choose.
+- Project Data: Code files, project configurations, and related content that you create or upload within the Software.
+- Communications: Messages or support requests you send to us.
+
+1.2 Information Collected Automatically
+- Usage Data: Information about how you interact with the Software, including features used, session duration, and actions taken.
+- Device Information: Operating system version, application version, hardware identifiers, and crash reports.
+- Log Data: Error logs, diagnostic information, and performance metrics to help us improve the Software.
+- Collaboration Data: When using real-time collaboration features, connection metadata such as session identifiers and timestamps.
+
+1.3 Information from Third Parties
+We may receive information about you from third-party authentication providers (such as GitHub or Google) if you choose to connect those services to your CodeSync account.
+
+2. HOW WE USE YOUR INFORMATION
+
+We use the information we collect to:
+2.1 Provide, maintain, and improve the Software and its features.
+2.2 Authenticate your identity and manage your account.
+2.3 Enable real-time collaboration features between users.
+2.4 Send you technical notices, security alerts, and administrative messages.
+2.5 Respond to your comments, questions, and requests for support.
+2.6 Monitor and analyze usage patterns to improve user experience.
+2.7 Detect, investigate, and prevent fraudulent or unauthorized activity.
+2.8 Comply with legal obligations.
+
+3. SHARING OF INFORMATION
+
+We do not sell your personal information. We may share your information in the following circumstances:
+
+3.1 With Collaborators: When you use collaboration features, other participants in your session can see your username and the content you edit or contribute.
+3.2 Service Providers: We may share information with trusted third-party vendors who assist us in providing the Software (e.g., cloud hosting, analytics, customer support).
+3.3 Legal Requirements: We may disclose information if required by law, court order, or governmental authority.
+3.4 Business Transfers: In the event of a merger, acquisition, or sale of assets, your information may be transferred as part of that transaction.
+3.5 With Your Consent: We may share information with third parties when you explicitly consent to such sharing.
+
+4. DATA RETENTION
+
+We retain your information for as long as your account is active or as needed to provide the Software. You may request deletion of your account and associated data by contacting us at privacy@codesync.app. We will retain and use your information as necessary to comply with our legal obligations.
+
+5. DATA SECURITY
+
+We implement appropriate technical and organizational measures to protect your information against unauthorized access, alteration, disclosure, or destruction. However, no internet transmission or electronic storage method is 100% secure. We cannot guarantee absolute security.
+
+6. YOUR RIGHTS AND CHOICES
+
+Depending on your jurisdiction, you may have the following rights:
+6.1 Access: Request a copy of the personal information we hold about you.
+6.2 Correction: Request correction of inaccurate or incomplete information.
+6.3 Deletion: Request deletion of your personal information.
+6.4 Portability: Request your data in a portable format.
+6.5 Objection: Object to certain types of processing of your data.
+
+To exercise these rights, contact us at privacy@codesync.app.
+
+7. CHILDREN'S PRIVACY
+
+The Software is not directed to individuals under the age of 13. We do not knowingly collect personal information from children under 13. If you believe we have collected such information, please contact us immediately.
+
+8. THIRD-PARTY SERVICES
+
+The Software may integrate with third-party services (e.g., GitHub, version control systems). This Privacy Policy does not cover the data practices of third-party services. We encourage you to review their privacy policies.
+
+9. CHANGES TO THIS POLICY
+
+We may update this Privacy Policy from time to time. We will notify you of significant changes by updating the "Last updated" date at the top of this policy or through in-app notifications. Your continued use of the Software after any changes constitutes your acceptance of the updated policy.
+
+10. CONTACT US
+
+If you have any questions, concerns, or requests regarding this Privacy Policy or our data practices, please contact us at:
+
+Email: privacy@codesync.app
+Website: https://codesync.app
+
+CodeSync is committed to protecting your privacy and handling your data with transparency and care.

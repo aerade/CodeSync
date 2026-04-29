@@ -1,0 +1,82 @@
+CODESYNC TERMS OF SERVICE
+Last updated: April 29, 2026
+
+PLEASE READ THESE TERMS OF SERVICE CAREFULLY BEFORE USING CODESYNC.
+
+1. ACCEPTANCE OF TERMS
+
+By installing, accessing, or using CodeSync ("the Software"), you agree to be bound by these Terms of Service ("Terms"). If you do not agree to these Terms, do not install or use the Software.
+
+2. LICENSE GRANT
+
+Subject to your compliance with these Terms, CodeSync grants you a limited, non-exclusive, non-transferable, revocable license to install and use the Software on devices you own or control, solely for your personal or internal business purposes.
+
+3. DESCRIPTION OF SERVICE
+
+CodeSync is a collaborative integrated development environment (IDE) that enables real-time code editing, project synchronization, and team collaboration. The Software may connect to remote servers and third-party services to provide its functionality.
+
+4. USER ACCOUNTS
+
+4.1 You may be required to create an account to access certain features of the Software.
+4.2 You are responsible for maintaining the confidentiality of your account credentials.
+4.3 You are responsible for all activities that occur under your account.
+4.4 You must notify us immediately of any unauthorized use of your account.
+
+5. ACCEPTABLE USE
+
+You agree not to:
+5.1 Use the Software for any unlawful purpose or in violation of any applicable laws or regulations.
+5.2 Attempt to gain unauthorized access to any systems or networks connected to the Software.
+5.3 Reverse engineer, decompile, or disassemble the Software except as permitted by applicable law.
+5.4 Remove or alter any proprietary notices, labels, or marks on the Software.
+5.5 Use the Software to transmit malicious code, viruses, or any other harmful software.
+5.6 Interfere with or disrupt the integrity or performance of the Software or its related services.
+
+6. INTELLECTUAL PROPERTY
+
+6.1 The Software and all related materials are the proprietary property of CodeSync and its licensors.
+6.2 All trademarks, service marks, logos, and trade names are the property of their respective owners.
+6.3 You retain ownership of any code or content you create using the Software.
+
+7. PRIVACY
+
+Your use of the Software is subject to our Privacy Policy, which is incorporated into these Terms by reference. Please review our Privacy Policy to understand our practices regarding collection, use, and disclosure of your personal information.
+
+8. THIRD-PARTY SERVICES
+
+The Software may integrate with third-party services. Your use of such services is governed by their respective terms and privacy policies. CodeSync is not responsible for the content, privacy practices, or policies of third-party services.
+
+9. UPDATES AND MODIFICATIONS
+
+9.1 CodeSync reserves the right to modify, suspend, or discontinue the Software or any part thereof at any time.
+9.2 CodeSync may release updates, patches, or new versions of the Software. You are encouraged to keep the Software up to date.
+9.3 CodeSync may modify these Terms at any time. Continued use of the Software after such changes constitutes acceptance of the new Terms.
+
+10. DISCLAIMER OF WARRANTIES
+
+THE SOFTWARE IS PROVIDED "AS IS" AND "AS AVAILABLE" WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT. CODESYNC DOES NOT WARRANT THAT THE SOFTWARE WILL BE ERROR-FREE OR UNINTERRUPTED.
+
+11. LIMITATION OF LIABILITY
+
+TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, CODESYNC SHALL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, OR ANY LOSS OF PROFITS, REVENUE, DATA, OR GOODWILL, ARISING OUT OF OR IN CONNECTION WITH YOUR USE OF THE SOFTWARE, EVEN IF CODESYNC HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
+
+12. INDEMNIFICATION
+
+You agree to indemnify and hold harmless CodeSync and its officers, directors, employees, and agents from any claims, liabilities, damages, losses, or expenses arising out of your use of the Software or violation of these Terms.
+
+13. TERMINATION
+
+13.1 These Terms are effective until terminated.
+13.2 Your rights under these Terms will terminate automatically without notice if you fail to comply with any term of these Terms.
+13.3 Upon termination, you must cease all use of the Software and destroy all copies in your possession.
+
+14. GOVERNING LAW
+
+These Terms shall be governed by and construed in accordance with applicable laws, without regard to conflict of law principles.
+
+15. CONTACT INFORMATION
+
+If you have any questions about these Terms, please contact us at:
+Email: legal@codesync.app
+
+By installing and using CodeSync, you acknowledge that you have read, understood, and agree to be bound by these Terms of Service.

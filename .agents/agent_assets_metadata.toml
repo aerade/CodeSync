@@ -1,5 +1,10 @@
 uploads = []
-generated = []
+
+[[generated]]
+id = "WtOnP6_w-UWjW7OhBFXbW"
+uri = "file://artifacts/desktop/assets/icon.png"
+type = "image"
+title = "codesync app icon"
 
 [[outputs]]
 id = "3ZWCQcfLOGCDrt7QVHi-g"
