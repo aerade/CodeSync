@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, type RefObject, type ReactElement } from "react";
 import { useLocation } from "wouter";
 import { motion, useInView } from "framer-motion";
-import { useUser } from "@clerk/react";
+import { useUser, useClerk } from "@clerk/react";
 import { Logo } from "@/components/Logo";
 import { GuestModal } from "@/components/GuestModal";
 import { useGithubRelease, detectUserPlatform, formatBytes } from "@/hooks/useGithubRelease";
@@ -426,6 +426,7 @@ function DownloadSection({ sectionRef }: { sectionRef: RefObject<HTMLElement | n
 
 export default function Home() {
   const { isSignedIn, isLoaded } = useUser();
+  const { openSignIn } = useClerk();
   const [, setLocation] = useLocation();
   const [showGuestModal, setShowGuestModal] = useState(false);
   const heroRef = useRef<HTMLDivElement>(null);
@@ -525,7 +526,7 @@ export default function Home() {
               Гостевой режим
             </button>
             <button
-              onClick={() => setLocation("/sign-in")}
+              onClick={() => openSignIn()}
               className="text-sm px-5 py-2 rounded-lg font-semibold transition-all hover:brightness-110"
               style={{
                 background: "#fff", color: "#000",
@@ -614,7 +615,7 @@ export default function Home() {
                 className="flex items-center gap-3 flex-wrap"
               >
                 <button
-                  onClick={() => setLocation("/sign-in")}
+                  onClick={() => openSignIn()}
                   className="px-6 py-3 rounded-xl text-sm font-semibold transition-all hover:opacity-90 active:scale-95"
                   style={{
                     background: "#fff", color: "#000",
