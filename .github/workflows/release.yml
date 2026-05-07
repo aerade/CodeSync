@@ -40,59 +40,11 @@ jobs:
       - name: Install Python setuptools (needed for node-pty native build)
         run: python -m pip install setuptools
       - run: pnpm install --no-frozen-lockfile
-      - name: Decode Windows code-signing certificate
-        shell: pwsh
-        run: |
-          if (-not $env:WIN_CSC_LINK_B64) {
-            Write-Error "WIN_CSC_LINK secret is not set. A valid code-signing certificate is required for release builds."
-            exit 1
-          }
-          if (-not $env:WIN_CSC_KEY_PASSWORD) {
-            Write-Error "WIN_CSC_KEY_PASSWORD secret is not set. A certificate password is required for release builds."
-            exit 1
-          }
-          $bytes = [System.Convert]::FromBase64String($env:WIN_CSC_LINK_B64)
-          [System.IO.File]::WriteAllBytes("$env:RUNNER_TEMP\codesign.pfx", $bytes)
-          "CSC_LINK=$env:RUNNER_TEMP\codesign.pfx" | Out-File -FilePath $env:GITHUB_ENV -Append
-        env:
-          WIN_CSC_LINK_B64: ${{ secrets.WIN_CSC_LINK }}
-          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
-      - name: Build & publish Windows installer
+      - name: Build & publish Windows installer (unsigned)
         run: pnpm --filter @workspace/desktop run release:win
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
-      - name: Remove certificate file
-        if: always()
-        shell: pwsh
-        run: |
-          if (Test-Path "$env:RUNNER_TEMP\codesign.pfx") {
-            Remove-Item "$env:RUNNER_TEMP\codesign.pfx" -Force
-          }
-      - name: Verify Authenticode signature
-        shell: pwsh
-        run: |
-          # Target the NSIS installer specifically (matches artifactName pattern in electron-builder.yml)
-          $exe = Get-ChildItem -Path "artifacts\desktop\dist\electron\CodeSync Desktop-*-win-x64.exe" |
-                 Select-Object -First 1
-          if (-not $exe) {
-            # Fallback: any .exe in the output directory
-            $exe = Get-ChildItem -Path "artifacts\desktop\dist\electron\*.exe" | Select-Object -First 1
-          }
-          if (-not $exe) {
-            Write-Error "No installer .exe found to verify."
-            exit 1
-          }
-          $sig = Get-AuthenticodeSignature -FilePath $exe.FullName
-          Write-Host "File:       $($exe.Name)"
-          Write-Host "Status:     $($sig.Status)"
-          Write-Host "Signer:     $($sig.SignerCertificate.Subject)"
-          Write-Host "Thumbprint: $($sig.SignerCertificate.Thumbprint)"
-          if ($sig.Status -ne "Valid") {
-            Write-Error "Authenticode signature is not Valid (got: $($sig.Status)). Aborting release."
-            exit 1
-          }
-          Write-Host "Signature verified successfully."
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
 
   build-mac:
     runs-on: macos-latest

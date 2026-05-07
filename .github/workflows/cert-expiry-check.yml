@@ -18,6 +18,7 @@ jobs:
     steps:
       # ------------------------------------------------------------------ #
       #  macOS — Apple Developer ID certificate (stored as base64 secret)   #
+      #  Windows builds are currently unsigned (no certificate required)     #
       # ------------------------------------------------------------------ #
       - name: Check Apple Developer ID certificate expiry
         id: apple
@@ -27,15 +28,14 @@ jobs:
         run: |
           if [ -z "$APPLE_CERTIFICATE_BASE64" ]; then
             echo "apple_configured=false" >> "$GITHUB_OUTPUT"
-            echo "apple_alert=true"       >> "$GITHUB_OUTPUT"
-            echo "apple_reason=APPLE_CERTIFICATE_BASE64 secret is not set — macOS builds will be unsigned." >> "$GITHUB_OUTPUT"
-            echo "::warning::APPLE_CERTIFICATE_BASE64 is not configured."
+            echo "apple_alert=false"      >> "$GITHUB_OUTPUT"
+            echo "apple_reason=APPLE_CERTIFICATE_BASE64 not set — macOS builds are unsigned (Gatekeeper warning for users)." >> "$GITHUB_OUTPUT"
+            echo "::notice::Apple certificate not configured — macOS builds will be unsigned."
             exit 0
           fi
 
           echo "$APPLE_CERTIFICATE_BASE64" | base64 --decode > /tmp/apple_cert.p12
 
-          # Extract the leaf certificate (Developer ID Application) from the PKCS#12 bundle.
           EXPIRY_RAW=$(openssl pkcs12 \
             -in /tmp/apple_cert.p12 \
             -nokeys \
@@ -70,41 +70,10 @@ jobs:
           echo "Apple certificate expires: $EXPIRY_RAW (${DAYS_LEFT} days remaining)"
 
       # ------------------------------------------------------------------ #
-      #  Windows — SSL.com eSigner cloud signing                           #
-      #  Secrets: SSL_COM_USERNAME, SSL_COM_PASSWORD,                      #
-      #           SSL_COM_TOTP_SECRET, SSL_COM_CREDENTIAL_ID               #
-      # ------------------------------------------------------------------ #
-      - name: Check Windows SSL.com eSigner configuration
-        id: windows
-        env:
-          SSL_COM_USERNAME:      ${{ secrets.SSL_COM_USERNAME }}
-          SSL_COM_PASSWORD:      ${{ secrets.SSL_COM_PASSWORD }}
-          SSL_COM_TOTP_SECRET:   ${{ secrets.SSL_COM_TOTP_SECRET }}
-          SSL_COM_CREDENTIAL_ID: ${{ secrets.SSL_COM_CREDENTIAL_ID }}
-        run: |
-          MISSING=""
-          [ -z "$SSL_COM_USERNAME" ]      && MISSING="$MISSING SSL_COM_USERNAME"
-          [ -z "$SSL_COM_PASSWORD" ]      && MISSING="$MISSING SSL_COM_PASSWORD"
-          [ -z "$SSL_COM_TOTP_SECRET" ]   && MISSING="$MISSING SSL_COM_TOTP_SECRET"
-          [ -z "$SSL_COM_CREDENTIAL_ID" ] && MISSING="$MISSING SSL_COM_CREDENTIAL_ID"
-
-          if [ -n "$MISSING" ]; then
-            echo "win_configured=false" >> "$GITHUB_OUTPUT"
-            echo "win_alert=true"       >> "$GITHUB_OUTPUT"
-            echo "win_reason=One or more SSL_COM_* secrets are not set — Windows builds will be unsigned." >> "$GITHUB_OUTPUT"
-            echo "::warning::SSL_COM_* secrets are not fully configured."
-            exit 0
-          fi
-
-          echo "win_configured=true"  >> "$GITHUB_OUTPUT"
-          echo "win_alert=false"      >> "$GITHUB_OUTPUT"
-          echo "SSL.com eSigner secrets are fully configured (cloud signing — no local certificate expiry to check)."
-
-      # ------------------------------------------------------------------ #
       #  Ensure the cert-expiry label exists before creating/searching issues#
       # ------------------------------------------------------------------ #
       - name: Ensure cert-expiry label exists
-        if: steps.apple.outputs.apple_alert == 'true' || steps.windows.outputs.win_alert == 'true'
+        if: steps.apple.outputs.apple_alert == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -113,44 +82,34 @@ jobs:
             --color "D93F0B" 2>/dev/null || true
 
       # ------------------------------------------------------------------ #
-      #  Open or update a GitHub issue when any alert condition is true      #
+      #  Open or update a GitHub issue when Apple certificate is expiring   #
       # ------------------------------------------------------------------ #
-      - name: Open GitHub issue if any certificate is expiring soon or unconfigured
-        if: steps.apple.outputs.apple_alert == 'true' || steps.windows.outputs.win_alert == 'true'
+      - name: Open GitHub issue if Apple certificate is expiring soon
+        if: steps.apple.outputs.apple_alert == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          BODY="## Certificate Expiry Alert
+          if [ "${{ steps.apple.outputs.apple_configured }}" = "true" ]; then
+            BODY="## Certificate Expiry Alert
 
-          One or more code-signing certificates require attention.
-          **Windows:** signing is mandatory — the release job will fail without a valid certificate.
-          **macOS:** an unsigned build will trigger Gatekeeper warnings for all users.
+          The Apple Developer ID certificate is expiring soon.
+          macOS builds will trigger Gatekeeper warnings once it expires.
 
-          | Platform | Status | Expiry / Reason | Days remaining |
-          |----------|--------|-----------------|----------------|"
+          | Platform | Status | Expiry | Days remaining |
+          |----------|--------|--------|----------------|
+          | macOS (Apple Developer ID) | Expiring soon | ${{ steps.apple.outputs.apple_expiry }} | **${{ steps.apple.outputs.apple_days }}** |
 
-          if [ "${{ steps.apple.outputs.apple_alert }}" = "true" ]; then
-            if [ "${{ steps.apple.outputs.apple_configured }}" = "true" ]; then
-              BODY="$BODY
-          | macOS (Apple Developer ID) | Expiring soon | ${{ steps.apple.outputs.apple_expiry }} | **${{ steps.apple.outputs.apple_days }}** |"
-            else
-              BODY="$BODY
-          | macOS (Apple Developer ID) | Not configured / unreadable | ${{ steps.apple.outputs.apple_reason }} | — |"
-            fi
+          Renew the certificate and update the \`APPLE_CERTIFICATE_BASE64\` secret."
+          else
+            BODY="## Certificate Parse Error
+
+          The Apple Developer ID certificate could not be parsed.
+
+          **Reason:** ${{ steps.apple.outputs.apple_reason }}
+
+          Check \`APPLE_CERTIFICATE_PASSWORD\` and the certificate format."
           fi
 
-          if [ "${{ steps.windows.outputs.win_alert }}" = "true" ]; then
-            BODY="$BODY
-          | Windows (SSL.com eSigner) | Not configured | ${{ steps.windows.outputs.win_reason }} | — |"
-          fi
-
-          BODY="$BODY
-
-          See **SETUP.md → Certificate Renewal** for step-by-step renewal and reconfiguration instructions."
-
-          # Avoid duplicate issues — update existing open cert-expiry issue if present.
-          # Use `// empty` so jq outputs an empty string (not the literal "null") when
-          # no matching issue exists, keeping the [ -n "$EXISTING" ] guard correct.
           EXISTING=$(gh issue list \
             --label "cert-expiry" \
             --state open \
@@ -158,14 +117,14 @@ jobs:
             --jq '.[0].number // empty' 2>/dev/null || true)
 
           if [ -n "$EXISTING" ] && [ "$EXISTING" != "null" ]; then
-            echo "Updating existing issue #$EXISTING with latest status"
+            echo "Updating existing issue #$EXISTING"
             gh issue comment "$EXISTING" --body "$BODY" || echo "Warning: could not comment on issue #$EXISTING"
           else
-            echo "Creating new certificate expiry alert issue"
+            echo "Creating certificate expiry alert issue"
             gh issue create \
-              --title "Certificate expiry alert: action required within ${{ env.ALERT_DAYS }} days" \
+              --title "Apple certificate expiring in ${{ steps.apple.outputs.apple_days }} days — action required" \
               --body  "$BODY" \
-              --label "cert-expiry" || echo "Warning: could not create certificate expiry issue"
+              --label "cert-expiry" || echo "Warning: could not create issue"
           fi
 
       # ------------------------------------------------------------------ #
@@ -180,17 +139,12 @@ jobs:
           echo "|----------|------------|---------|----------------|--------|" >> "$GITHUB_STEP_SUMMARY"
 
           if [ "${{ steps.apple.outputs.apple_configured }}" = "true" ]; then
-            APPLE_STATUS="OK"
+            APPLE_STATUS=":white_check_mark: OK"
             [ "${{ steps.apple.outputs.apple_alert }}" = "true" ] && APPLE_STATUS=":warning: EXPIRING SOON"
             echo "| macOS (Apple Developer ID) | Yes | ${{ steps.apple.outputs.apple_expiry }} | ${{ steps.apple.outputs.apple_days }} | $APPLE_STATUS |" >> "$GITHUB_STEP_SUMMARY"
           else
             APPLE_REASON="${{ steps.apple.outputs.apple_reason }}"
-            echo "| macOS (Apple Developer ID) | No | $APPLE_REASON | — | :x: ALERT |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| macOS (Apple Developer ID) | No | $APPLE_REASON | — | :information_source: Not configured |" >> "$GITHUB_STEP_SUMMARY"
           fi
 
-          if [ "${{ steps.windows.outputs.win_configured }}" = "true" ]; then
-            echo "| Windows (SSL.com eSigner) | Yes | Cloud signing — no expiry date | — | :white_check_mark: OK |" >> "$GITHUB_STEP_SUMMARY"
-          else
-            WIN_REASON="${{ steps.windows.outputs.win_reason }}"
-            echo "| Windows (SSL.com eSigner) | No | $WIN_REASON | — | :x: ALERT |" >> "$GITHUB_STEP_SUMMARY"
-          fi
+          echo "| Windows | — | Unsigned builds (no certificate) | — | :information_source: Intentional |" >> "$GITHUB_STEP_SUMMARY"
