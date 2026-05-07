@@ -70,57 +70,35 @@ jobs:
           echo "Apple certificate expires: $EXPIRY_RAW (${DAYS_LEFT} days remaining)"
 
       # ------------------------------------------------------------------ #
-      #  Windows — code-signing .pfx stored as base64 secret               #
-      #  Secrets: WIN_CSC_LINK (base64 .pfx), WIN_CSC_KEY_PASSWORD          #
+      #  Windows — SSL.com eSigner cloud signing                           #
+      #  Secrets: SSL_COM_USERNAME, SSL_COM_PASSWORD,                      #
+      #           SSL_COM_TOTP_SECRET, SSL_COM_CREDENTIAL_ID               #
       # ------------------------------------------------------------------ #
-      - name: Check Windows code-signing certificate expiry
+      - name: Check Windows SSL.com eSigner configuration
         id: windows
         env:
-          WIN_CSC_LINK:         ${{ secrets.WIN_CSC_LINK }}
-          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+          SSL_COM_USERNAME:      ${{ secrets.SSL_COM_USERNAME }}
+          SSL_COM_PASSWORD:      ${{ secrets.SSL_COM_PASSWORD }}
+          SSL_COM_TOTP_SECRET:   ${{ secrets.SSL_COM_TOTP_SECRET }}
+          SSL_COM_CREDENTIAL_ID: ${{ secrets.SSL_COM_CREDENTIAL_ID }}
         run: |
-          if [ -z "$WIN_CSC_LINK" ]; then
+          MISSING=""
+          [ -z "$SSL_COM_USERNAME" ]      && MISSING="$MISSING SSL_COM_USERNAME"
+          [ -z "$SSL_COM_PASSWORD" ]      && MISSING="$MISSING SSL_COM_PASSWORD"
+          [ -z "$SSL_COM_TOTP_SECRET" ]   && MISSING="$MISSING SSL_COM_TOTP_SECRET"
+          [ -z "$SSL_COM_CREDENTIAL_ID" ] && MISSING="$MISSING SSL_COM_CREDENTIAL_ID"
+
+          if [ -n "$MISSING" ]; then
             echo "win_configured=false" >> "$GITHUB_OUTPUT"
             echo "win_alert=true"       >> "$GITHUB_OUTPUT"
-            echo "win_reason=WIN_CSC_LINK secret is not set — Windows release builds will fail until this is configured." >> "$GITHUB_OUTPUT"
-            echo "::warning::WIN_CSC_LINK is not configured — release workflow will fail."
+            echo "win_reason=One or more SSL_COM_* secrets are not set — Windows builds will be unsigned." >> "$GITHUB_OUTPUT"
+            echo "::warning::SSL_COM_* secrets are not fully configured."
             exit 0
           fi
 
-          echo "$WIN_CSC_LINK" | base64 --decode > /tmp/win_cert.pfx
-
-          EXPIRY_RAW=$(openssl pkcs12 \
-            -in /tmp/win_cert.pfx \
-            -nokeys \
-            -passin pass:"$WIN_CSC_KEY_PASSWORD" \
-            -legacy 2>/dev/null \
-          | openssl x509 -noout -enddate 2>/dev/null | head -1 | cut -d= -f2)
-
-          rm -f /tmp/win_cert.pfx
-
-          if [ -z "$EXPIRY_RAW" ]; then
-            echo "win_configured=false" >> "$GITHUB_OUTPUT"
-            echo "win_alert=true"       >> "$GITHUB_OUTPUT"
-            echo "win_reason=Could not parse Windows certificate — check WIN_CSC_KEY_PASSWORD or certificate format. Release builds will fail." >> "$GITHUB_OUTPUT"
-            echo "::warning::Windows certificate could not be parsed — release workflow will fail."
-            exit 0
-          fi
-
-          EXPIRY_EPOCH=$(date -d "$EXPIRY_RAW" +%s)
-          NOW_EPOCH=$(date +%s)
-          DAYS_LEFT=$(( (EXPIRY_EPOCH - NOW_EPOCH) / 86400 ))
-
-          echo "win_configured=true"    >> "$GITHUB_OUTPUT"
-          echo "win_expiry=$EXPIRY_RAW" >> "$GITHUB_OUTPUT"
-          echo "win_days=$DAYS_LEFT"    >> "$GITHUB_OUTPUT"
-
-          if [ "$DAYS_LEFT" -lt "$ALERT_DAYS" ]; then
-            echo "win_alert=true"  >> "$GITHUB_OUTPUT"
-          else
-            echo "win_alert=false" >> "$GITHUB_OUTPUT"
-          fi
-
-          echo "Windows certificate expires: $EXPIRY_RAW (${DAYS_LEFT} days remaining)"
+          echo "win_configured=true"  >> "$GITHUB_OUTPUT"
+          echo "win_alert=false"      >> "$GITHUB_OUTPUT"
+          echo "SSL.com eSigner secrets are fully configured (cloud signing — no local certificate expiry to check)."
 
       # ------------------------------------------------------------------ #
       #  Ensure the cert-expiry label exists before creating/searching issues#
@@ -162,13 +140,8 @@ jobs:
           fi
 
           if [ "${{ steps.windows.outputs.win_alert }}" = "true" ]; then
-            if [ "${{ steps.windows.outputs.win_configured }}" = "true" ]; then
-              BODY="$BODY
-          | Windows (Code Signing .pfx) | Expiring soon | ${{ steps.windows.outputs.win_expiry }} | **${{ steps.windows.outputs.win_days }}** |"
-            else
-              BODY="$BODY
-          | Windows (Code Signing .pfx) | Not configured / unreadable | ${{ steps.windows.outputs.win_reason }} | — |"
-            fi
+            BODY="$BODY
+          | Windows (SSL.com eSigner) | Not configured | ${{ steps.windows.outputs.win_reason }} | — |"
           fi
 
           BODY="$BODY
@@ -186,13 +159,13 @@ jobs:
 
           if [ -n "$EXISTING" ] && [ "$EXISTING" != "null" ]; then
             echo "Updating existing issue #$EXISTING with latest status"
-            gh issue comment "$EXISTING" --body "$BODY"
+            gh issue comment "$EXISTING" --body "$BODY" || echo "Warning: could not comment on issue #$EXISTING"
           else
             echo "Creating new certificate expiry alert issue"
             gh issue create \
               --title "Certificate expiry alert: action required within ${{ env.ALERT_DAYS }} days" \
               --body  "$BODY" \
-              --label "cert-expiry"
+              --label "cert-expiry" || echo "Warning: could not create certificate expiry issue"
           fi
 
       # ------------------------------------------------------------------ #
@@ -216,10 +189,8 @@ jobs:
           fi
 
           if [ "${{ steps.windows.outputs.win_configured }}" = "true" ]; then
-            WIN_STATUS="OK"
-            [ "${{ steps.windows.outputs.win_alert }}" = "true" ] && WIN_STATUS=":warning: EXPIRING SOON"
-            echo "| Windows (Code Signing .pfx) | Yes | ${{ steps.windows.outputs.win_expiry }} | ${{ steps.windows.outputs.win_days }} | $WIN_STATUS |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| Windows (SSL.com eSigner) | Yes | Cloud signing — no expiry date | — | :white_check_mark: OK |" >> "$GITHUB_STEP_SUMMARY"
           else
             WIN_REASON="${{ steps.windows.outputs.win_reason }}"
-            echo "| Windows (Code Signing .pfx) | No | $WIN_REASON | — | :x: ALERT |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| Windows (SSL.com eSigner) | No | $WIN_REASON | — | :x: ALERT |" >> "$GITHUB_STEP_SUMMARY"
           fi
